@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "filename": "microUnit_esp32_mvp.kicad_pro",
+    "version": 1
+  },
+  "project": {
+    "title": "microUnit Modular Self-Reconfigurable Robot - ESP32-S3 MVP",
+    "company": "microUnit Robotics Open Source",
+    "date": "2026-09-13",
+    "version": "v1.0-MVP"
+  },
+  "schematic": {
+    "annotate_start_num": 1,
+    "drawing": {
+      "dashed_lines_dash_length_ratio": 12.0,
+      "dashed_lines_gap_length_ratio": 3.0,
+      "default_line_thickness": 0.1524,
+      "default_text_size": 1.27,
+      "field_names": []
+    },
+    "legacy_lib_dir": "",
+    "legacy_lib_list": [],
+    "net_format_name": "KiCad",
+    "ngspice": {
+      "meta": {
+        "version": 0
+      },
+      "model_values": []
+    },
+    "page_layout_descr_file": "",
+    "plot_directory": "",
+    "subpart_first_id": "A",
+    "subpart_id_separator": "",
+    "version": 1
+  },
+  "boards": [
+    "microUnit_esp32_mvp.kicad_pcb"
+  ],
+  "sheet": {
+    "title": "microUnit ESP32-S3 Core Controller & Power Electronics",
+    "rev": "1.0",
+    "author": "microUnit Project First-Principles Engineering Team"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "status": "PASS",
+  "low_temperature_analysis": {
+    "temp_degc": -20.0,
+    "battery_internal_res_mohm": 197.3,
+    "source_res_total_mohm": 283.3,
+    "unprotected_bus_sag_v": 2.638,
+    "unprotected_brownout_risk": true,
+    "isolated_ldo_in_min_v": 2.932,
+    "isolated_poscap_hold_pass": true,
+    "dw01a_ground_bounce_raw_v": 1.44,
+    "dw01a_ground_bounce_filtered_mv": 0.72,
+    "dw01a_false_trip_eliminated": true
+  },
+  "high_temperature_analysis": {
+    "ambient_temp_degc": 60.0,
+    "local_hotspot_temp_degc": 85.0,
+    "mosfet_rds_85c_mohm": 55.88,
+    "mosfet_junction_temp_degc": 98.1,
+    "drv8833_junction_temp_degc": 103.1,
+    "drv8833_tsd_margin_degc": 56.9,
+    "drv8833_thermal_safe": true,
+    "n45sh_coercivity_85c_ka_m": 1066.6,
+    "demag_safety_margin_factor": 7.11,
+    "irreversible_demag_eliminated": true
+  },
+  "emc_and_damping": {
+    "snubber_z0_ohm": 65.42,
+    "old_damping_ratio": 0.076,
+    "old_quality_factor_q": 6.54,
+    "new_damping_ratio": 0.428,
+    "new_quality_factor_q": 1.17,
+    "snubber_critically_damped": true,
+    "gate_resistor_ohm": 330.0,
+    "di_dt_softened_a_us": 9.0,
+    "radiated_emission_reduction_db": 17.4,
+    "rf_lna_desensitization_prevented": true
+  },
+  "fmea_and_resilience": {
+    "epm_mos_short_current_a": 5.29,
+    "pptc_trip_time_s": 0.75,
+    "unprotected_burnout_power_w": 18.16,
+    "tripped_leakage_power_mw": 0.065,
+    "thermal_runaway_prevented": true,
+    "cog_offset_raw_mm": 0.578,
+    "cog_offset_corrected_mm": 0.182,
+    "cog_balance_compliant": true
+  },
+  "smt_yield_model": {
+    "opportunity_points": 344,
+    "pilot_run_dpmo": 85.0,
+    "pilot_run_fpy_pct": 94.4,
+    "mass_prod_dpmo": 15.0,
+    "mass_prod_fpy_pct": 98.5,
+    "mass_prod_fpy_pass": true
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "project": "yunyu-microUnit",
+  "nre_capital_expenditure_cny": {
+    "injection_mold_tooling": 12000.0,
+    "smt_steel_stencil": 300.0,
+    "ate_bed_of_nails_fixture": 3500.0
+  },
+  "total_nre_cny": 15800.0,
+  "cost_tiers": {
+    "tier_1_units": {
+      "batch_size": 1,
+      "cost_breakdown_cny": {
+        "mechanical_structure": 61.0,
+        "pcba_and_electronics": 136.5,
+        "magnetics_and_actuation": 50.0,
+        "lipo_battery_pack": 25.0,
+        "labor_and_assembly": 60.0,
+        "ate_fixture_amortization": 0.0,
+        "yield_scrap_multiplier": 1.15
+      },
+      "marginal_bom_cost_cny": 382.37,
+      "nre_absorbed_unit_cost_cny": 382.37,
+      "marginal_deflation_pct": 0.0
+    },
+    "tier_50_units": {
+      "batch_size": 50,
+      "cost_breakdown_cny": {
+        "mechanical_structure": 257.0,
+        "pcba_and_electronics": 66.0,
+        "magnetics_and_actuation": 26.5,
+        "lipo_battery_pack": 14.5,
+        "labor_and_assembly": 12.0,
+        "ate_fixture_amortization": 70.0,
+        "yield_scrap_multiplier": 1.04
+      },
+      "marginal_bom_cost_cny": 135.2,
+      "nre_absorbed_unit_cost_cny": 463.84,
+      "marginal_deflation_pct": 64.6
+    },
+    "tier_200_units": {
+      "batch_size": 200,
+      "cost_breakdown_cny": {
+        "mechanical_structure": 71.2,
+        "pcba_and_electronics": 44.2,
+        "magnetics_and_actuation": 19.0,
+        "lipo_battery_pack": 10.8,
+        "labor_and_assembly": 6.0,
+        "ate_fixture_amortization": 17.5,
+        "yield_scrap_multiplier": 1.025
+      },
+      "marginal_bom_cost_cny": 91.94,
+      "nre_absorbed_unit_cost_cny": 172.92,
+      "marginal_deflation_pct": 76.0
+    },
+    "tier_1000_units": {
+      "batch_size": 1000,
+      "cost_breakdown_cny": {
+        "mechanical_structure": 19.1,
+        "pcba_and_electronics": 31.2,
+        "magnetics_and_actuation": 13.7,
+        "lipo_battery_pack": 8.2,
+        "labor_and_assembly": 3.5,
+        "ate_fixture_amortization": 3.5,
+        "yield_scrap_multiplier": 1.015
+      },
+      "marginal_bom_cost_cny": 64.35,
+      "nre_absorbed_unit_cost_cny": 80.39,
+      "marginal_deflation_pct": 83.2
+    }
+  }
+}

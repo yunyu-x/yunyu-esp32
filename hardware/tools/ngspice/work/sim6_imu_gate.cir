@@ -1,0 +1,19 @@
+* Deck 6: IMU Power Gate with Soft-Start RC on 3.3V
+V3v3 1 0 3.3
+R_rail_trace 1 2 0.05
+C2 2 0 22u
+M_q4 3 gate 2 2 PMOS_AO3401
+.MODEL PMOS_AO3401 PMOS (VTO=-0.85 KP=25 RS=0.02 RD=0.02 CGSO=180p CGDO=60p)
+V_gpio gpio 0 PULSE(3.3 0 100u 10u 10u 5m 10m)
+R25 gpio gate 47k
+C15 2 gate 47n
+R24 gate 2 100k
+R_esr 3 3a 0.05
+C14 3a 0 10u
+C4 3 0 0.1u
+R_imu 3 0 330
+.tran 5u 3m
+.meas tran v_rail_min MIN v(2) FROM=90u TO=2.5m
+.meas tran v_imu_init FIND v(3) AT=50u
+.meas tran v_imu_final FIND v(3) AT=2.8m
+.end

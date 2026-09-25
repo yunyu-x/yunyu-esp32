@@ -1,0 +1,16 @@
+* Deck 1: Low-Temp (-20C) IR Sag & POSCAP Buffering
+Vbat 1 0 3.80
+R_cell 1 2 0.450
+R_bms 2 3 0.025
+R_trace 3 4 0.005
+D_path 4 5 D_SS34
+.MODEL D_SS34 D (IS=1e-5 RS=0.035 N=1.05 CJO=250p BV=40)
+C1 5 6 470u
+R_esr 6 0 0.035
+C3 5 0 10u
+I_epm 4 0 PULSE(0 3.75 0.5m 50u 50u 2.0m 10m)
+I_mcu 5 0 0.15
+.tran 10u 4m
+.meas tran v_bus_min MIN v(5) FROM=0.4m TO=3.5m
+.meas tran v_cell_min MIN v(4) FROM=0.4m TO=3.5m
+.end

@@ -1,0 +1,10 @@
+* Deck 5: Ground Bounce & DW01A CS Low-Pass Filter
+I_brake 0 gnd_noisy PULSE(0 12 100n 50n 50n 200n 2u)
+L_gnd gnd_noisy 0 6n
+R_gnd_loss gnd_noisy 0 0.1
+R23 gnd_noisy cs_pin 1k
+C13 cs_pin 0 100n
+.tran 1n 1u
+.meas tran v_bounce_peak MAX v(gnd_noisy)
+.meas tran v_cs_peak MAX v(cs_pin)
+.end

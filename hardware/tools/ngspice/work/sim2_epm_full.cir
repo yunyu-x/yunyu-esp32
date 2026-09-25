@@ -1,0 +1,17 @@
+* Deck 2: EPM Turn-Off with TVS and Snubber
+Vbus 1 0 3.80
+L_coil 1 2 42.8u
+R_coil 2 3 0.65
+S1 3 0 gate 0 SW_IDEAL
+.MODEL SW_IDEAL SW (RON=0.028 ROFF=1Meg VT=1.5 VH=0.2)
+Vgate gate 0 PULSE(3.3 0 1.0m 20n 20n 5m 10m)
+D_tvs 0 3 D_TVS
+.MODEL D_TVS D (IS=1e-11 RS=0.15 BV=6.8 IBV=1m CJO=300p)
+R5 1 4 56
+C7 4 3 10n
+D1 3 1 D_SS34
+.MODEL D_SS34 D (IS=1e-5 RS=0.035 N=1.05 CJO=250p BV=40)
+C_par 3 0 100p
+.tran 50n 2.0m
+.meas tran vdrain_peak MAX v(3) FROM=0.99m TO=1.5m
+.end

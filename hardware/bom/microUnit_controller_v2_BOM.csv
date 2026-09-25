@@ -1,0 +1,47 @@
+Comment,Designator,Footprint,LCSC,Type,Desc,Qty
+ESP32-S3-WROOM-1-N8R8,U1,RF_Module:ESP32-S3-WROOM-1,C2913200,Extended,Wi-Fi+BLE5.0 SoC 240MHz 8MB Flash 8MB PSRAM,1
+DRV8833PWP,U2,HTSSOP-16-1EP,C2837319,Extended,Dual H-Bridge Motor Driver 1.5A RMS / 2A Peak,1
+SGM2205-3.3YN5G,U3,SOT-23-5,C388050,Basic,1A Ultra-Low-Dropout 150mV LDO 3.3V,1
+MPU-6050,U4,QFN-24_4x4mm,C24112,Extended,6-Axis Motion Tracking Gyro + Accel I2C,1
+TP4056,U5,SOIC-8-EP,C165948,Basic,1A Standalone Linear Li-Ion Battery Charger,1
+DW01A,U6,SOT-23-6,C36413,Basic,1S LiPo Protection IC Overcharge/Overdischarge,1
+AO3400A,Q1,SOT-23,C20917,Basic,30V 5.7A N-Channel MOSFET 28mOhm,1
+FS8205A,Q2,TSSOP-8,C32254,Basic,Dual N-Channel Power MOSFET 20V 6A 25mOhm,1
+AO3401A,Q3,SOT-23,C15127,Basic,-30V -4.2A P-Channel Power-Path MOSFET,1
+AO3401A,Q4,SOT-23,C15127,Basic,-30V -4.2A P-Channel IMU Power Gate Cold-Reset,1
+1812L150PR,F1,Fuse_1812,C70077,Basic,Resettable PPTC Polyfuse 1.5A Hold / 3.0A Trip,1
+SS34,"D1, D2",SMA,C8678,Basic,3A 40V SMD Schottky Barrier Rectifier 0.45V,2
+SMAJ5.0CA,D3,SMA,C80242,Basic,400W Bidirectional TVS Clamping 9.2V,1
+1N4148WS,D4,SOD-323,C8159,Basic,Fast Switching Gate Discharge Diode,1
+LED_RED_CHRG,D5,LED_0603,C2286,Basic,Red 0603 Charging Indicator,1
+LED_GRN_STDBY,D6,LED_0603,C72043,Basic,Green 0603 Standby Indicator,1
+LED_BLU_STATUS,D7,LED_0603,C72041,Basic,Blue 0603 System Heartbeat LED,1
+USBLC6-2SC6,D8,SOT-23-6,C7519,Basic,Ultra-Low Cap ESD Protection for USB Type-C,1
+470uF 6.3V POSCAP,C1,SMD_7343,C249339,Extended,470uF Polymer Tantalum POSCAP Low ESR 35mOhm,1
+22uF 10V X5R,C2,C0805,C45783,Basic,3.3V Output Bulk Ceramic Capacitor,1
+10uF 16V X5R,"C3, C6, C14",C0805,C15850,Basic,"Input, VM & IMU Decoupling Ceramic Cap",3
+0.1uF 50V X7R,C4,C0402,C1525,Basic,High-Frequency IC Decoupling Capacitor,1
+100uF 10V POSCAP,C5,SMD_3528,C311005,Extended,Motor VM Dedicated Reservoir Capacitor,1
+10nF 100V C0G,C7,C0603,C1604,Basic,EPM Snubber Network Damping Capacitor,1
+100nF 25V X7R,"C8, C10, C13",C0402,C1525,Basic,"RC Limiter, ADC Filter & DW01A CS Bounce Filter",3
+1.0uF 16V X7R,C9,C0402,C52923,Basic,ESP32 EN Power-On Reset Capacitor,1
+2.2uF 16V X5R,C11,C0402,C23630,Basic,DRV8833 Internal VINT Regulator Cap,1
+0.01uF 50V X7R,C12,C0402,C1530,Basic,DRV8833 Charge Pump Flying Cap,1
+330R 1%,R1,R0603,C23140,Basic,MOSFET Gate Damping Soft-Start di/dt Limiter,1
+100R 1%,R22,R0402,C25076,Basic,DW01A VCC Filter Resistor,1
+10k 1%,"R2, R8, R9, R10",R0603/R0402,C25804,Basic,Pull-Up & Gate Bleeder Resistors,4
+2.2k 1%,"R3, R4",R0603,C25883,Basic,I2C SDA/SCL Fast-Mode Pull-Up Resistors,2
+56R 1206 1W,R5,R1206,C17937,Basic,EPM Snubber Critical Damper Thick-Film Resistor,1
+47k 1%,"R6, R25",R0402,C25785,Basic,"Hardware RC Limiter & IMU Soft-Start Resistors",2
+47nF 25V X7R,C15,C0402,C1523,Basic,IMU Power Gate Soft-Start Slew-Rate Capacitor,1
+0.10R 1206 1W 1%,R7,R1206,C182858,Basic,Motor Low-Side Current Sense Resistor,1
+5.1k 1%,"R11, R12",R0402,C25905,Basic,Type-C CC1/CC2 5.1k Configuration Pull-Downs,2
+2.4k 1%,R13,R0402,C25875,Basic,TP4056 PROG 500mA Charge Rate Resistor,1
+100k 1%,"R14, R15, R16, R24",R0402,C25741,Basic,"Battery ADC Divider, Power Path & IMU Gate Pull-Up",4
+33R 1%,"R17, R18",R0402,C25114,Basic,I2C Bus Ringing Suppression Damping Resistors,2
+1k 1%,"R19, R20, R21, R23",R0402,C11702,Basic,LED Current Limiting & CS Resistors,4
+JST-PH-2P,J1,JST_PH_2.0mm,C131337,Basic,1S LiPo Battery Input Header,1
+Header-1x2-2.54mm,"J2, J3",PinHeader_1x02_P2.54mm,C22434,Basic,Motor & EPM Pulse Output Headers,2
+Type-C-16P-SMD,J_USB,USB4105-16P,C165948,Extended,USB 2.0 Type-C 16-Pin Receptacle,1
+FH12-6S-0.5SH,"J4, J5, J6, J7, J8, J9",FPC_0.5mm_6P,C262100,Extended,6-Face Modular FPC Interconnect Connectors,6
+Push-Button-SMD,"SW1, SW2",SKRK_Push_Button,C318884,Basic,Tactile Switch BOOT & RESET,2

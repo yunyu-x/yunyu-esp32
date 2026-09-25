@@ -1,0 +1,38 @@
+{
+  "status": "PASS",
+  "thermal_analysis": {
+    "trace_resistance_mohm": 3.931,
+    "brake_pulse_voltage_drop_mv": 47.18,
+    "brake_pulse_energy_mj": 8.492,
+    "brake_pulse_temp_rise_degc": 1.4067,
+    "trace_temp_rise_safe": true,
+    "ldo_power_w": 0.138,
+    "ldo_temp_rise_degc": 24.75,
+    "ldo_temp_safe": true
+  },
+  "inductive_clamp": {
+    "coil_magnetic_energy_mj": 0.301,
+    "unclamped_spike_theoretical_kv": 16.05,
+    "clamped_max_voltage_v": 9.2,
+    "mosfet_vds_rating_v": 30.0,
+    "safety_margin_factor": 3.26,
+    "tvs_protection_pass": true
+  },
+  "power_sag_buffering": {
+    "vbat_nominal_v": 3.85,
+    "peak_pulse_current_a": 5.0,
+    "bus_min_voltage_no_cap_v": 3.35,
+    "bus_min_voltage_with_poscap_v": 3.628,
+    "poscap_voltage_sag_reduction_pct": 55.6,
+    "bms_cutoff_threshold_v": 2.8,
+    "bms_false_trip_prevented": true
+  },
+  "rc_watchdog_limiter": {
+    "rc_time_constant_ms": 4.7,
+    "max_hardware_pulse_duration_ms": 5.61,
+    "burnout_power_without_limiter_w": 21.06,
+    "energy_unprotected_10s_j": 210.62,
+    "energy_with_rc_limiter_j": 0.118,
+    "thermal_runaway_eliminated": true
+  }
+}

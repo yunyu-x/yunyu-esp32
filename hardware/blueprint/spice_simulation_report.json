@@ -1,0 +1,90 @@
+{
+  "overall_status": "PASS",
+  "spice_engine": "ngspice-41 (x86_64 console build)",
+  "netlist_source": "kicad\\microUnit_controller_v2.net",
+  "simulations": {
+    "sim1_power_sag": {
+      "test_name": "极端低温(-20°C)母线跌落与POSCAP储能维持仿真",
+      "ambient_temp_degc": -20.0,
+      "battery_internal_resistance_mohm": 450.0,
+      "epm_pulse_current_a": 3.75,
+      "epm_pulse_duration_ms": 2.0,
+      "poscap_capacitance_uf": 470.0,
+      "poscap_esr_mohm": 35.0,
+      "unbuffered_cell_min_voltage_v": 2.0,
+      "buffered_ldo_in_min_voltage_v": 2.8087,
+      "esp32_brownout_threshold_v": 2.43,
+      "brownout_safety_margin_mv": 378.72,
+      "voltage_sag_reduction_pct": 44.93,
+      "status": "PASS"
+    },
+    "sim2_epm_inductive_clamp": {
+      "test_name": "EPM感性关断反峰、TVS钳位与Snubber临界阻尼仿真",
+      "epm_coil_inductance_uh": 42.8,
+      "epm_coil_resistance_ohm": 0.65,
+      "snubber_resistance_ohm": 56.0,
+      "snubber_capacitance_nf": 10.0,
+      "tvs_breakdown_voltage_v": 6.8,
+      "vdrain_peak_normal_v": 4.4334,
+      "vdrain_peak_tvs_clamp_fmea_v": 8.0596,
+      "ao3400a_vds_rating_v": 30.0,
+      "safety_margin_normal_factor": 6.77,
+      "safety_margin_fault_factor": 3.72,
+      "status": "PASS"
+    },
+    "sim3_rc_watchdog_limiter": {
+      "test_name": "硬件RC单稳态脉宽限幅看门狗防御仿真",
+      "c8_capacitance_nf": 100.0,
+      "r6_resistance_kohm": 47.0,
+      "rc_time_constant_ms": 4.7,
+      "mosfet_vth_v": 1.05,
+      "theoretical_cutoff_time_ms": 5.38,
+      "spice_measured_cutoff_time_ms": 5.386,
+      "unprotected_fault_power_w": 22.22,
+      "protected_fault_power_w": 0.0,
+      "thermal_runaway_eliminated": true,
+      "status": "PASS"
+    },
+    "sim4_fmea_pptc_trip": {
+      "test_name": "FMEA MOS击穿故障与Littelfuse PPTC自恢复保险丝跳闸仿真",
+      "fault_mode": "EPM Q1 AO3400A D-S短路失效 (Rf=0.05Ω)",
+      "initial_fault_current_a": 5.0,
+      "pptc_model": "Littelfuse 1812L150PR (1.5A Hold / 3.0A Trip)",
+      "pptc_trip_time_s": 0.551,
+      "post_trip_leakage_current_ma": 0.253,
+      "battery_thermal_protection_pass": true,
+      "status": "PASS"
+    },
+    "sim5_ground_bounce_filter": {
+      "test_name": "12A急刹地弹与DW01A CS引脚RC低通滤波抗扰度仿真",
+      "brake_peak_current_a": 12.0,
+      "switching_edge_time_ns": 50.0,
+      "ground_parasitic_inductance_nh": 6.0,
+      "raw_ground_bounce_peak_mv": 814.14,
+      "rc_filter_r23_ohm": 1000.0,
+      "rc_filter_c13_nf": 100.0,
+      "filtered_dw01a_cs_pin_peak_mv": 0.7015,
+      "dw01a_overcurrent_trip_threshold_mv": 150.0,
+      "noise_attenuation_ratio": 1160.6,
+      "immunity_safety_margin_factor": 213.8,
+      "false_tripping_eliminated": true,
+      "status": "PASS"
+    },
+    "sim6_imu_power_gate": {
+      "test_name": "IMU冷复位P-MOS电源门控动态开启动态与电源轨扰动仿真",
+      "pmos_model": "AO3401A (-30V, -4.2A, 44mΩ)",
+      "soft_start_r25_kohm": 47.0,
+      "soft_start_c15_nf": 47.0,
+      "gate_pullup_r24_kohm": 100.0,
+      "imu_domain_bulk_cap_c14_uf": 10.0,
+      "unoptimized_rail_dip_mv": 341.71,
+      "vcc_3v3_main_rail_min_v": 3.2801,
+      "vcc_3v3_rail_dip_mv": 19.9,
+      "dip_suppression_pct": 94.18,
+      "imu_cold_off_voltage_v": 0.0,
+      "imu_domain_steady_voltage_v": 3.2987,
+      "rail_stability_pass": true,
+      "status": "PASS"
+    }
+  }
+}
