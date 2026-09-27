@@ -27,9 +27,12 @@ D:\workspace\code\yunyu-esp32\microduck\
 │   ├── 08_RL_Locomotion_and_Sim2Real_Production_Guide.md # 强化学习非对称训练、奖励工程、域随机化与端侧量化
 │   ├── 09_Cognitive_Planning_and_Multimodal_Interaction.md # 行为树规划、多模态语义理解、声动协同与视线追踪
 │   ├── 10_Product_Reliability_DFM_and_Quality_Standard.md # 注塑模具 DFM、BMS 软启动电源管理与产线测试治具
-│   └── 11_Multi_Skill_ESP32_Edge_RL_Scientific_Validation.md # 多技能全局交叉论证：ESP32-S3 端侧强化学习运动控制可行性科学白皮书
+│   ├── 11_Multi_Skill_ESP32_Edge_RL_Scientific_Validation.md # 多技能全局交叉论证：ESP32-S3 端侧强化学习运动控制可行性科学白皮书
+│   └── 12_M5StickS3_Microduck_Turnkey_Build_Guide.md # 【手搓全案】M5StickS3 专版淘宝采购、仿真装配与自主行走落地指南
 │
 ├── adapters/                                 # 跨项目安全隔离调用适配器与强类型协议头
+│   ├── m5sticks3_servo_tool.ino              # M5StickS3 屏幕交互式飞特舵机编址、零位标定与电压巡检固件
+│   ├── m5sticks3_cpg_walk.ino                # M5StickS3 50Hz 律动自主行走控制与动态眼球表情交互固件
 │   ├── benchmark_esp32_rl_feasibility.py     # 科学基准仿真脚本 (周期精确/INT8量化误差/奈奎斯特/总线时序)
 │   ├── brain_cerebellum_protocol.py          # Python 完整 BCP 二进制协议栈 (CRC16/序列号/心跳)
 │   ├── brain_cerebellum_protocol.h           # C/C++ 强类型头文件 (直接供 ESP32 PlatformIO 引入)
