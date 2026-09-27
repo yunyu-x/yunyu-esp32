@@ -35,8 +35,12 @@
 #include "sticks3_system_metrics.h"
 #include "sticks3_memory_store.h"
 #include "sticks3_wakeword.h"
+#include "sticks3_avatar.h"
+#include "sticks3_ble_sync.h"
 
 using namespace sticks3::protocol;
+
+static bool g_pet_avatar_mode = true; // 默认启动拟人化灵宠微表情模式 (可按侧键B切换)
 
 // 蓝牙 NUS UUIDs
 #define SERVICE_UUID           "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
@@ -607,6 +611,9 @@ void setup() {
 
     pService->start();
 
+    // 注册 LingBuddy 伴侣长程记忆与灵宠日记同步服务 (GATT 0xFFB0)
+    sticks3::StickS3BLESync::getInstance().registerService(pServer);
+
     BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
 
     // 主广播包 (30 字节 <= 31 字节物理上限)：
@@ -646,12 +653,15 @@ void setup() {
     bool audio_ok = sticks3::StickS3Audio::getInstance().begin(&Wire1);
     Serial.printf("[BOOT] Audio Subsystem: %s\n", audio_ok ? "ONLINE" : "FAILED");
 
-    // 8.5 初始化离线语音唤醒词「悄悄」引擎
+    // 8.5 初始化离线语音唤醒词「悄悄」引擎与灵宠微表情
+    sticks3::StickS3Avatar::getInstance().begin("小木");
     sticks3::StickS3WakeWordEngine::getInstance().begin();
     auto& cfg = sticks3::StickS3ConfigManager::getInstance().getConfig();
     sticks3::StickS3WakeWordEngine::getInstance().setEnabled(cfg.wakeword_enabled);
     sticks3::StickS3WakeWordEngine::getInstance().setSensitivity(cfg.wakeword_sensitivity);
     sticks3::StickS3WakeWordEngine::getInstance().setWakeCallback([](float conf, uint32_t dur_ms) {
+        sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_LISTEN);
+        sticks3::StickS3Avatar::getInstance().addIntimacy(2);
         sticks3::StickS3BailianClient::getInstance().onWakeWordDetected(conf, dur_ms);
     });
 
@@ -660,7 +670,7 @@ void setup() {
         sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_STARTUP);
     }
 
-    Serial.println("[BOOT] StickS3 Ready! Bringing up Dual-Mode Dashboard.");
+    Serial.println("[BOOT] StickS3 LingBuddy Companion Ready! Avatar & Empathy Active.");
 }
 
 void loop() {
@@ -752,7 +762,21 @@ void loop() {
                     } else if (cmd_or_msg == "k" || cmd_or_msg == "K" || cmd_or_msg == "wake") {
                         sticks3::StickS3WakeWordEngine::getInstance().forceTrigger(98.0f);
                         sticks3::StickS3BailianClient::getInstance().onWakeWordDetected(98.0f, 650);
+                        sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_LISTEN);
                         Serial.println("{\"type\":\"wakeword_sim\",\"word\":\"悄悄\",\"status\":\"triggered\"}");
+                    } else if (cmd_or_msg == "pet" || cmd_or_msg == "PET") {
+                        sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_HAPPY);
+                        sticks3::StickS3Avatar::getInstance().addIntimacy(3);
+                        Serial.println("{\"type\":\"avatar_sim\",\"mood\":\"happy\",\"intimacy\":true}");
+                    } else if (cmd_or_msg == "shake" || cmd_or_msg == "SHAKE") {
+                        sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_DIZZY);
+                        Serial.println("{\"type\":\"avatar_sim\",\"mood\":\"dizzy\"}");
+                    } else if (cmd_or_msg == "sleep" || cmd_or_msg == "SLEEP") {
+                        sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_SLEEP);
+                        Serial.println("{\"type\":\"avatar_sim\",\"mood\":\"sleep\"}");
+                    } else if (cmd_or_msg == "mode" || cmd_or_msg == "MODE") {
+                        g_pet_avatar_mode = !g_pet_avatar_mode;
+                        Serial.printf("{\"type\":\"mode_toggle\",\"avatar_mode\":%s}\n", g_pet_avatar_mode ? "true" : "false");
                     } else if (cmd_or_msg.startsWith("q:") || cmd_or_msg.startsWith("Q:") ||
                                cmd_or_msg.startsWith("chat:") || cmd_or_msg.startsWith("CHAT:")) {
                         int colon_idx = cmd_or_msg.indexOf(':');
@@ -827,11 +851,13 @@ void loop() {
             audio.playTone(2200, 20, 0.45f);
             Serial.printf("[PHYSICAL-INTERRUPT] Successfully triggered by %s!\n", btn_src);
         } else if (btnA_clicked) {
-            // 按键 A: 空闲时发起新会话 / 未连云端时触发 10s 本地录音控制
+            // 正面按键 A: 点按即说 (Push-to-Talk) 激活灵宠聆听
+            sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_LISTEN);
+            sticks3::StickS3Avatar::getInstance().addIntimacy(1);
             if (bl.isConnected()) {
                 bl.startNewConversation();
                 audio.playTone(1600, 30, 0.40f);
-                Serial.println("[EVENT] Btn A clicked -> Started new conversation");
+                Serial.println("[EVENT] Btn A clicked -> Started new conversation & Avatar Listening");
             } else {
                 if (audio.isRecording()) {
                     audio.stopRecording();
@@ -845,11 +871,10 @@ void loop() {
                 }
             }
         } else if (btnB_clicked) {
-            // 按键 B: 空闲时切换 Grove 5V 或触发 Wi-Fi 深度扫描
-            ext_5v_enabled = !ext_5v_enabled;
+            // 侧面按键 B: 切换灵宠微表情模式与工程诊断看板
+            g_pet_avatar_mode = !g_pet_avatar_mode;
             audio.playTone(1500, 25, 0.40f);
-            sticks3::StickS3WiFi::getInstance().triggerScan();
-            Serial.printf("[EVENT] Btn B clicked -> Grove 5V: %s | WiFi Scan Triggered\n", ext_5v_enabled ? "ON" : "OFF");
+            Serial.printf("[EVENT] Btn B clicked -> Avatar Mode: %s\n", g_pet_avatar_mode ? "ON" : "OFF");
         }
 
         // 自动连接百炼 WebSocket
@@ -864,11 +889,43 @@ void loop() {
             }
         }
 
-        // 刷新渲染双模仪表盘 (最高 15 FPS / 66ms，为后台 FreeRTOS 音频与网络任务释放 CPU)
+        // 5. 更新灵宠具身物理动力学与音视联动
+        uint8_t mic_vu = (uint8_t)sticks3::StickS3Audio::getInstance().getRawRMS();
+        uint8_t spk_vu = (uint8_t)(sticks3::StickS3Audio::getInstance().isPlayingStream() ? 50 : 0);
+        sticks3::StickS3Avatar::getInstance().updatePhysics(imu_ax, imu_ay, imu_az, imu_roll, imu_pitch, mic_vu, spk_vu);
+
+        if (bl.getState() == sticks3::BL_STATE_LISTENING) {
+            sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_LISTEN);
+        } else if (bl.getState() == sticks3::BL_STATE_THINKING) {
+            sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_THINK);
+        } else if (bl.getState() == sticks3::BL_STATE_SPEAKING) {
+            sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_SPEAK);
+        }
+
+        // 定期向 BLE 特征值刷新快照 (每 3 秒)
+        static uint32_t last_ble_sync_tick = 0;
+        if (millis() - last_ble_sync_tick > 3000) {
+            last_ble_sync_tick = millis();
+            sticks3::StickS3BLESync::getInstance().updateSnapshots();
+        }
+
+        // 刷新渲染双模界面 (最高 15 FPS / 66ms，为后台 FreeRTOS 音频与网络任务释放 CPU)
         static uint32_t last_display_draw = 0;
         if (millis() - last_display_draw >= 66) {
             last_display_draw = millis();
-            display.startWrite();
+
+            if (g_pet_avatar_mode) {
+                display.startWrite();
+                String subtitle = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? bl.getAiReply() : (bl.getUserQuery().length() > 0 ? bl.getUserQuery() : latest_ble_msg);
+                if (subtitle.length() == 0) subtitle = "按正面[A]键说话，摇摇我有惊喜~";
+                String tag = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? "说话中" :
+                             (bl.getState() == sticks3::BL_STATE_LISTENING) ? "聆听中" :
+                             (bl.getState() == sticks3::BL_STATE_THINKING) ? "思考中" : "就绪";
+                sticks3::StickS3Avatar::getInstance().render(display, subtitle, tag);
+                drawChineseText(display, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
+                display.endWrite();
+            } else {
+                display.startWrite();
 
         // 1. 顶部标题栏 (0 ~ 24)
         display.fillRect(0, 0, SCREEN_W, 24, theme_color);
@@ -1123,6 +1180,7 @@ void loop() {
         display.drawString(buf, SCREEN_W - 4, 228);
 
         display.endWrite();
+            }
         }
     }
 
