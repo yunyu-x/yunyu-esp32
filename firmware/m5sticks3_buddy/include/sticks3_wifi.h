@@ -1158,13 +1158,16 @@ private:
             JsonDocument doc;
             doc["enabled"] = ww.isEnabled();
             doc["name"] = StickS3WakeWordEngine::WAKE_WORD_NAME;
+            doc["word"] = StickS3WakeWordEngine::WAKE_WORD_NAME;
             doc["sensitivity"] = ww.getSensitivity();
             doc["total_wakes"] = ww.getTotalWakeCount();
             doc["last_wake_ms"] = ww.getLastWakeTime();
             doc["last_confidence"] = ww.getLastConfidence();
             doc["timeout_sec"] = cfg.wakeword_timeout_sec;
             doc["wake_window_open"] = bl.isWakeWindowOpen();
+            doc["window_open"] = bl.isWakeWindowOpen();
             doc["remaining_ms"] = bl.getWakeWindowRemainingMs();
+            doc["window_remaining_ms"] = bl.getWakeWindowRemainingMs();
 
             String json;
             serializeJson(doc, json);
@@ -1191,20 +1194,33 @@ private:
             uint16_t tout = cfg.wakeword_timeout_sec;
             if (_web_server.hasArg("timeout_sec")) {
                 tout = (uint16_t)_web_server.arg("timeout_sec").toInt();
+            } else if (_web_server.hasArg("timeout")) {
+                tout = (uint16_t)_web_server.arg("timeout").toInt();
             }
 
             ww.setEnabled(enabled);
             ww.setSensitivity(sens);
             cfg_mgr.saveWakeWordConfig(enabled, sens, tout);
 
-            _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\"}");
+            JsonDocument res_doc;
+            res_doc["status"] = "ok";
+            res_doc["enabled"] = enabled;
+            res_doc["sensitivity"] = sens;
+            res_doc["timeout_sec"] = tout;
+            String json_resp;
+            serializeJson(res_doc, json_resp);
+            _web_server.send(200, "application/json; charset=utf-8", json_resp);
         });
 
         // 软件模拟触发唤醒词
         _web_server.on("/wakeword/trigger", HTTP_POST, [this]() {
-            StickS3WakeWordEngine::getInstance().forceTrigger(96.0f);
-            StickS3BailianClient::getInstance().onWakeWordDetected(96.0f, 650);
-            _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"triggered\"}");
+            float conf = 96.0f;
+            if (_web_server.hasArg("confidence")) {
+                conf = _web_server.arg("confidence").toFloat();
+            }
+            StickS3WakeWordEngine::getInstance().forceTrigger(conf);
+            StickS3BailianClient::getInstance().onWakeWordDetected(conf, 650);
+            _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\",\"action\":\"triggered\"}");
         });
 
         // 系统全维度诊断指标监控 (CPU, 内存, I/O 总线, 任务堆栈)
