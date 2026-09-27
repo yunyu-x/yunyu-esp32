@@ -24,6 +24,7 @@
 #include "sticks3_audio.h"
 #include "sticks3_wifi_config.h"
 #include "sticks3_memory_store.h"
+#include "sticks3_wakeword.h"
 
 namespace sticks3 {
 
@@ -56,7 +57,7 @@ public:
           _pending_cancel(false), _server_in_speech(false),
           _last_activity_time(0), _server_output_sample_rate(16000),
           _last_state_change(0), _total_interrupts(0), _last_error(""),
-          _rx_text_dirty(false) {
+          _rx_text_dirty(false), _wake_window_until(0) {
         _user_query = "";
         _ai_reply = "";
     }
@@ -438,6 +439,43 @@ static const char* DASHSCOPE_ROOT_CA =
         return _last_error;
     }
 
+    void onWakeWordDetected(float confidence, uint32_t duration_ms = 600) {
+        Serial.printf("[BAILIAN-WAKE] >>> Wake Word '%s' FIRED (Conf: %.1f%%, Dur: %ums) <<<\n",
+                      StickS3WakeWordEngine::WAKE_WORD_NAME, confidence, (unsigned)duration_ms);
+
+        // 1. 若当前正在播报或思考，唤醒词充当硬件中途打断 (Barge-In)
+        if (_state == BL_STATE_SPEAKING || _state == BL_STATE_THINKING || StickS3Audio::getInstance().isPlaying()) {
+            interrupt("WakeWord-悄悄");
+            vTaskDelay(pdMS_TO_TICKS(40));
+        }
+
+        // 2. 激活问答聆听推流窗口
+        auto& cfg = StickS3ConfigManager::getInstance().getConfig();
+        uint32_t tout_sec = cfg.wakeword_timeout_sec > 0 ? cfg.wakeword_timeout_sec : 8;
+        _wake_window_until = millis() + (tout_sec * 1000);
+
+        // 3. 播放清脆提示音
+        StickS3Audio::getInstance().playTone(1760, 40, 0.45f);
+
+        // 4. 刷新屏幕为倾听提示
+        _user_query = "";
+        _ai_reply = "在呢，请吩咐！";
+        _rx_text_dirty = true;
+
+        if (_state != BL_STATE_SPEAKING) {
+            setState(BL_STATE_LISTENING);
+        }
+    }
+
+    bool isWakeWindowOpen() const {
+        return millis() < _wake_window_until;
+    }
+
+    uint32_t getWakeWindowRemainingMs() const {
+        if (millis() >= _wake_window_until) return 0;
+        return _wake_window_until - millis();
+    }
+
     void startNewConversation() {
         _user_query = "";
         _ai_reply = "";
@@ -663,6 +701,23 @@ private:
         }
         if (samples_read < 256) return;
 
+        // 1. 将麦克风采样送入离线唤醒词引擎持续分析
+        if (StickS3WakeWordEngine::getInstance().isEnabled()) {
+            StickS3WakeWordEngine::getInstance().feedSamples(s_samples, samples_read);
+        }
+
+        // 2. 离线唤醒词推流门控：若开启了唤醒词模式，并且当前未在唤醒窗口期内、且云端未处于主动交互期，
+        // 则停止向网络推流，节省云端 Token 并彻底杜绝环境杂音误触发
+        auto& cfg = StickS3ConfigManager::getInstance().getConfig();
+        if (cfg.wakeword_enabled && !isWakeWindowOpen() && !_server_in_speech && !_server_response_active) {
+            memcpy(&s_preroll_buf[s_preroll_head * 1024], s_samples, samples_read * sizeof(int16_t));
+            s_preroll_counts[s_preroll_head] = samples_read;
+            s_preroll_head = (s_preroll_head + 1) % 3;
+            if (s_preroll_valid < 3) s_preroll_valid++;
+            s_is_actively_streaming = false;
+            return;
+        }
+
         auto sendPcmFrame = [this](const int16_t* pcm, size_t count) -> bool {
             if (!pcm || count == 0 || !_ws_client || !isConnected()) return false;
             size_t pcm_bytes = count * sizeof(int16_t);
@@ -692,6 +747,11 @@ private:
 
         if (frame_vocal) {
             s_last_voice_tick = millis();
+            // 说话时自动续期唤醒窗口
+            if (cfg.wakeword_enabled) {
+                uint32_t tout_sec = cfg.wakeword_timeout_sec > 0 ? cfg.wakeword_timeout_sec : 8;
+                _wake_window_until = millis() + (tout_sec * 1000);
+            }
             if (!s_is_actively_streaming) {
                 s_is_actively_streaming = true;
                 // 唤醒瞬发：冲刷最近 1 帧 PSRAM 环形预滚缓冲 (Pre-roll 64ms)，完整保护开口辅音且防止突发 TCP 缓冲溢出
@@ -939,9 +999,14 @@ private:
             _last_activity_time = millis();
             Serial.println("[BAILIAN] LLM response streaming complete.");
 
+            auto& cfg = StickS3ConfigManager::getInstance().getConfig();
+            if (cfg.wakeword_enabled) {
+                // 播报完成，预留 2.5 秒追问缓冲窗口，若用户未追问则自然回退到等待唤醒
+                _wake_window_until = millis() + 2500;
+            }
+
             // 实时将本轮人机对话固化存储至记忆子系统 (PSRAM + Flash NVS)
             if (_user_query.length() > 0 && _ai_reply.length() > 0 && !was_cancelled) {
-                auto& cfg = StickS3ConfigManager::getInstance().getConfig();
                 StickS3MemoryStore::getInstance().addTurn(_user_query, _ai_reply, cfg.bailian_voice);
                 // 触发缓存清理与看门狗堆碎屑整理
                 StickS3MemoryStore::getInstance().cleanupCaches();
@@ -996,6 +1061,7 @@ private:
     uint32_t _last_state_change;
     uint32_t _total_interrupts;
     uint32_t _server_output_sample_rate;
+    uint32_t _wake_window_until;
     String _last_error;
     String _auth_header;
 

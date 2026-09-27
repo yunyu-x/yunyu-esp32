@@ -33,6 +33,9 @@ struct StickS3Config {
     String bailian_voice;
     String bailian_ws_url;
     String bailian_prompt;
+    bool wakeword_enabled;
+    uint8_t wakeword_sensitivity;
+    uint16_t wakeword_timeout_sec;
 };
 
 class StickS3ConfigManager {
@@ -47,6 +50,9 @@ public:
         _cfg.bailian_voice = "Tina";
         _cfg.bailian_ws_url = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
         _cfg.bailian_prompt = "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。";
+        _cfg.wakeword_enabled = true;
+        _cfg.wakeword_sensitivity = 75;
+        _cfg.wakeword_timeout_sec = 8;
     }
 
     static StickS3ConfigManager& getInstance() {
@@ -102,13 +108,47 @@ public:
         String p = prefs.getString("bl_prompt", "");
         if (p.length() > 0) _cfg.bailian_prompt = p;
 
+        _cfg.wakeword_enabled = prefs.getBool("ww_en", true);
+        _cfg.wakeword_sensitivity = (uint8_t)prefs.getUChar("ww_sens", 75);
+        _cfg.wakeword_timeout_sec = prefs.getUShort("ww_tout", 8);
+
         prefs.end();
 
-        Serial.printf("[NVS] Loaded config: SSID=\"%s\", BailianKey=%s, Model=\"%s\", Voice=\"%s\"\n",
+        Serial.printf("[NVS] Loaded config: SSID=\"%s\", BailianKey=%s, Model=\"%s\", Voice=\"%s\", WakeWord=%s(%u%%)\n",
                       _cfg.wifi_ssid.c_str(),
                       _cfg.bailian_key.length() > 6 ? (_cfg.bailian_key.substring(0, 4) + "****").c_str() : "NotSet",
                       _cfg.bailian_model.c_str(),
-                      _cfg.bailian_voice.c_str());
+                      _cfg.bailian_voice.c_str(),
+                      _cfg.wakeword_enabled ? "ON" : "OFF",
+                      (unsigned)_cfg.wakeword_sensitivity);
+    }
+
+    bool saveWakeWordConfig(bool enabled, uint8_t sensitivity, uint16_t timeout_sec = 8) {
+        if (sensitivity > 100) sensitivity = 100;
+        if (sensitivity < 10) sensitivity = 10;
+        if (timeout_sec < 3) timeout_sec = 3;
+        if (timeout_sec > 60) timeout_sec = 60;
+
+        if (enabled == _cfg.wakeword_enabled && sensitivity == _cfg.wakeword_sensitivity && timeout_sec == _cfg.wakeword_timeout_sec) {
+            Serial.println("[NVS] Wake word config unchanged. Skipping Flash write.");
+            return true;
+        }
+
+        Preferences prefs;
+        if (!prefs.begin(NVS_NAMESPACE, false)) return false;
+
+        _cfg.wakeword_enabled = enabled;
+        _cfg.wakeword_sensitivity = sensitivity;
+        _cfg.wakeword_timeout_sec = timeout_sec;
+
+        prefs.putBool("ww_en", enabled);
+        prefs.putUChar("ww_sens", sensitivity);
+        prefs.putUShort("ww_tout", timeout_sec);
+        prefs.end();
+
+        Serial.printf("[NVS] Saved Wake Word config: Enabled=%s, Sens=%u%%, Timeout=%us\n",
+                      enabled ? "true" : "false", (unsigned)sensitivity, (unsigned)timeout_sec);
+        return true;
     }
 
     bool saveWiFiConfig(const String& ssid, const String& pass) {

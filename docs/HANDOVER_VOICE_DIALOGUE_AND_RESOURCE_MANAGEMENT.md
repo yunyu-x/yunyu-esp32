@@ -116,7 +116,64 @@
 
 ---
 
-## 5. 关键 REST API 接口契约 (HTTP Endpoints)
+## 5. 本地离线语音唤醒词「悄悄」(Offline Wake Word Engine & Barge-In Synergy)
+
+为了彻底降低待机功耗、杜绝无意义的网络流量与云端 Token 消耗，系统集成了专为 ESP32-S3 定制的**超轻量级本地离线语音唤醒词「悄悄」(qiāo qiāo) 声学引擎** (`sticks3_wakeword.h`)：
+
+```
+           麦克风 16kHz PCM (20ms / 320 采样点)
+                         │
+                         ▼
+        ┌───────────────────────────────────┐
+        │  时频多子带特征提取 (extractFrameFeatures)
+        │  - RMS 能量 (0~32767)
+        │  - 过零率 ZCR (0~160)
+        │  - 3-Band 能量: Low/Mid/High 
+        │  - 高低频比 (hl_ratio = e_high / e_low)
+        └─────────────────┬─────────────────┘
+                          │
+                          ▼
+        ┌───────────────────────────────────┐
+        │   五阶段叠词声学状态机 (processFeatureFrame)
+        │   [IDLE] 待命
+        │     │  清塞擦 [q] (高 ZCR > 48, hl_ratio > 0.85)
+        │     ▼
+        │   [Q1]  (持续 40~140ms)
+        │     │  共振双元音 [iao] (低 ZCR < 42, 能量激增)
+        │     ▼
+        │   [IAO1] (持续 60~320ms)
+        │     │  能量回落 / 静音间隙 (跌破 45% 或进入背景)
+        │     ▼
+        │   [GAP] (持续 20~240ms, 支持连读直转 Q2)
+        │     │  清塞擦 [q] (再次出现高频与高 ZCR)
+        │     ▼
+        │   [Q2]  (持续 40~140ms)
+        │     │  共振双元音 [iao] (低 ZCR, 谐波起振)
+        │     ▼
+        │   [IAO2] (持续 80~320ms)
+        │     │  综合对称度评估 (evaluateConfidence >= 门限)
+        │     ▼
+        │   [TRIGGERED] 触发唤醒回调并在 20ms 后重置
+        └───────────────────────────────────┘
+```
+
+### 5.1 核心声学特性与设计亮点
+1. **零动态堆分配 (Zero Heap Overhead)**：全部特征环形历史与 FIFO 缓冲区直接常驻 PSRAM/静态内存，`feedSamples()` 每帧处理耗时 $< 0.4\text{ms}$，单核 CPU 占用率 $< 2.5\%$。
+2. **双音节对称度打分模型 (Syllable Symmetry Scoring)**：
+   - 时域持续时间对称性：$S_{\text{dur}} = 35 \times \min(T_1, T_2) / \max(T_1, T_2)$；
+   - 能量均衡度：$S_{\text{eng}} = 25 \times \min(E_1, E_2) / \max(E_1, E_2)$；
+   - 状态完整性奖励：$S_{\text{fsm}} = 40$；
+   - 综合置信度得分 $Conf = S_{\text{dur}} + S_{\text{eng}} + S_{\text{fsm}}$ (0~100%)。
+3. **灵敏度门限自适应动态缩放**：
+   - 灵敏度范围 10%~100%（默认 75%），触发要求置信度公式：$Conf_{\text{req}} = \max(45.0, 85.0 - 0.35 \times \text{Sensitivity})$。
+4. **全双工流式状态机联动**：
+   - **待命节流**：未被唤醒时不向阿里云百炼 WSS 上行推流，大幅节省网络与 Token 成本；
+   - **即时响应**：检测到唤醒词后立即触发提示和弦音（E5-G#5-B5-E6 四和弦），拉起 8~10 秒流式问答窗口（发音期间自动动态延期）；
+   - **Barge-In 联动**：AI 正在流式播音发声时，用户呼叫「悄悄」同样能可靠触发物理打断并转入新一轮聆听。
+
+---
+
+## 6. 关键 REST API 接口契约 (HTTP Endpoints)
 
 设备连接 Wi-Fi 后，在局域网内提供以下 REST API（可直接由 Python、上位机或 Web 浏览器调用）：
 
@@ -125,6 +182,9 @@
 | **`/bailian/status`** | GET | 无 | 获取百炼大模型连接状态、当前问答文本、打断统计、记忆轮数等。<br>`{"state_code":3,"state_name":"正在聆听...","user_query":"...","ai_reply":"...","memory_turns":8}` |
 | **`/bailian/send_text`** | POST | `text=<utf8_string>` | 向百炼直接注入用户文本并触发语音推理与流式播音。 |
 | **`/bailian/interrupt`** | POST | 无 | 立即硬件级打断当前播音，下发 `response.cancel`。 |
+| **`/wakeword/status`** | GET | 无 | 获取离线唤醒词状态、灵敏度、开窗倒计时与触发统计。<br>`{"enabled":true,"word":"悄悄","sensitivity":75,"window_open":true,"window_remaining_ms":5400,"total_wakes":3}` |
+| **`/wakeword/config`** | POST | `enabled=1&sensitivity=80&timeout=10` | 动态调整唤醒词使能、灵敏度 (10~100) 与超时时间 (3~30s)，持久化至 NVS。 |
+| **`/wakeword/trigger`** | POST | `confidence=98.5` | 手动/软件仿真触发唤醒词事件，拉起问答窗口并播放提示音。 |
 | **`/memory/list`** | GET | 无 | 查询当前 PSRAM 中存储的所有历史轮次与摘要记录。<br>`{"total":8,"next_id":10,"turns":[{"id":9,"user":"...","ai":"..."}]}` |
 | **`/memory/clear`** | POST | 无 | 清空 PSRAM 与 Flash NVS 中的所有历史记忆。 |
 | **`/system/metrics`** | GET | 无 | 实时获取 FPS、SRAM 可用及最大连续块、PSRAM 可用、I2C 事务统计。 |
@@ -133,11 +193,12 @@
 
 ---
 
-## 6. 自动化验证脚本与测试矩阵 (Verification Tooling)
+## 7. 自动化验证脚本与测试矩阵 (Verification Tooling)
 
 | 脚本路径 | 说明 | 执行命令 |
 | :--- | :--- | :--- |
-| `tests/` | 39 项全功能单元测试（协议合规、UTF-8 字符安全、PCM 转码、状态机） | `pytest tests/ -v` |
+| `tests/` | 46 项全功能单元测试（声学唤醒词引擎、WSS 协议、UTF-8 安全、PCM 转码、状态机） | `pytest tests/ -v` |
+| `tests/test_wakeword_engine.py` | 离线唤醒词「悄悄」仿真合成检测、抗负样本、灵敏度缩放与固件源码契约测试 | `pytest tests/test_wakeword_engine.py -v` |
 | `scripts/test_voice_dialogue_and_memory_compression.py` | 实机 9 轮端到端全双工对话与长程记忆压缩自动化压测 | `python scripts/test_voice_dialogue_and_memory_compression.py` |
 | `scripts/monitor_and_stress_continuous_dialogue.py` | 系统硬件资源看板（FPS, SRAM max_block, PSRAM, I2C 冲突）长程监控 | `python scripts/monitor_and_stress_continuous_dialogue.py` |
 | `scripts/test_audio_sample_rate_playback.py` | 16kHz I2S 硬件采样率与 7 种音色全集对比验证 | `python scripts/test_audio_sample_rate_playback.py` |
@@ -145,20 +206,20 @@
 
 ---
 
-## 7. 下一位 Agent 接手操作指南 (Onboarding for Next Agent)
+## 8. 下一位 Agent 接手操作指南 (Onboarding for Next Agent)
 
 若您是接手本工程的后续 Agent，请遵循以下标准流程开展工作：
 
-### 7.1 快速健康检查指令
+### 8.1 快速健康检查指令
 ```powershell
-# 1. 验证单元测试通过性 (当前基线: 39 passed in ~1.8s)
+# 1. 验证单元测试通过性 (当前基线: 46 passed in ~1.6s)
 pytest tests/ -v
 
 # 2. 检查固件源码编译 (确保 RAM < 25%, Flash < 75%)
 python -m platformio run -d firmware/m5sticks3_buddy
 
 # 3. 局域网端点快速探针 (设备已在局域网 192.168.110.67)
-python -c "import urllib.request, json; print(json.loads(urllib.request.urlopen('http://192.168.110.67/bailian/status', timeout=3).read().decode('utf-8')))"
+python -c "import urllib.request, json; print(json.loads(urllib.request.urlopen('http://192.168.110.67/wakeword/status', timeout=3).read().decode('utf-8')))"
 ```
 
 ### 7.2 研发红线与工程约束 (Engineering Invariants)

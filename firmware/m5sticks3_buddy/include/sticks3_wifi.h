@@ -31,6 +31,7 @@
 #include "sticks3_memory_store.h"
 #include "sticks3_i2c_mutex.h"
 #include "sticks3_system_metrics.h"
+#include "sticks3_wakeword.h"
 
 namespace sticks3 {
 
@@ -229,6 +230,32 @@ audio { width: 100%; height: 38px; border-radius: 8px; margin-top: 8px; outline:
   </button>
 
   <div class="status-bar" id="audioStatusHint" style="color: #38bdf8; min-height: 16px;">准备就绪</div>
+</div>
+
+<!-- 板块 W: 离线唤醒词【悄悄】管理 -->
+<div class="card" style="border-left: 4px solid #f59e0b;">
+  <div class="section-title">
+    <span>🗣️ 离线唤醒词「悄悄」管理</span>
+    <span class="badge" id="wwBadge" style="background:#065f46;color:#6ee7b7">待命中</span>
+  </div>
+  <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">
+    对准 StickS3 麦克风呼唤 <b>“悄悄”</b>，本地极速离线识别唤醒并接入大模型问答。
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <span style="font-size:13px;color:#cbd5e1;">启用离线唤醒词:</span>
+    <input type="checkbox" id="wwEnableCheck" checked onchange="saveWakeWordConfig()" style="width:20px;height:20px;accent-color:#f59e0b;cursor:pointer;">
+  </div>
+  <div style="margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#cbd5e1;margin-bottom:4px;">
+      <span>声学识别灵敏度:</span>
+      <span id="wwSensVal" style="color:#f59e0b;font-weight:bold;">75%</span>
+    </div>
+    <input type="range" id="wwSensRange" min="20" max="95" value="75" oninput="document.getElementById('wwSensVal').innerText=this.value+'%'" onchange="saveWakeWordConfig()" style="width:100%;">
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-primary" onclick="triggerWakeWordSim()" style="background:#d97706;">⚡ 模拟发声唤醒【悄悄】</button>
+  </div>
+  <div id="wwFeedback" style="font-size:11px;color:#94a3b8;margin-top:6px;">状态: 待命中 (0 次唤醒)</div>
 </div>
 
 <!-- 板块 F: 基础通信: 中文/汉字下发 -->
@@ -616,6 +643,32 @@ function clearMemory() {
 }
 
 // ==========================================
+// 核心 W: 离线唤醒词「悄悄」设置
+// ==========================================
+function saveWakeWordConfig() {
+  var en = document.getElementById('wwEnableCheck').checked;
+  var sens = document.getElementById('wwSensRange').value;
+  var fb = document.getElementById('wwFeedback');
+  fb.innerText = '正在保存唤醒词设置...';
+  fetch('/wakeword/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'enabled=' + (en ? 'true' : 'false') + '&sensitivity=' + sens + '&timeout_sec=8'
+  }).then(function(r) { return r.json(); }).then(function() {
+    fb.innerHTML = '<span style="color:#4ade80">✔ 唤醒词设置已更新并持久化</span>';
+  }).catch(function(e) {
+    fb.innerHTML = '<span style="color:#f87171">❌ 保存失败: ' + e + '</span>';
+  });
+}
+
+function triggerWakeWordSim() {
+  fetch('/wakeword/trigger', { method: 'POST' }).then(function() {
+    var fb = document.getElementById('wwFeedback');
+    fb.innerHTML = '<span style="color:#f59e0b">⚡ 已触发模拟唤醒词【悄悄】！</span>';
+  });
+}
+
+// ==========================================
 // 核心 C: 实时打断 (Barge-In) 与新会话控制
 // ==========================================
 function triggerBargeIn() {
@@ -750,6 +803,19 @@ function fetchStatus() {
 
   fetch('/status').then(function(r) { return r.json(); }).then(function(d) {
     document.getElementById('imu').innerText = 'R:' + d.roll + '° P:' + d.pitch + '°';
+  }).catch(function(){});
+
+  // 4. 离线唤醒词状态轮询
+  fetch('/wakeword/status').then(function(r) { return r.json(); }).then(function(d) {
+    var b = document.getElementById('wwBadge');
+    var fb = document.getElementById('wwFeedback');
+    if (b) {
+      b.innerText = d.enabled ? (d.wake_window_open ? '已唤醒 (推流中)' : '待命中') : '已关闭';
+      b.style.background = d.enabled ? (d.wake_window_open ? '#d97706' : '#065f46') : '#334155';
+    }
+    if (fb && fb.innerText.indexOf('正在保存') === -1) {
+      fb.innerHTML = '累计唤醒: <b>' + d.total_wakes + '</b> 次 | 灵敏度: ' + d.sensitivity + '% | 目标词: 「' + d.name + '」' + (d.wake_window_open ? ' <b style="color:#f59e0b">● 唤醒窗口剩余 ' + (d.remaining_ms / 1000).toFixed(1) + 's</b>' : '');
+    }
   }).catch(function(){});
 }
 
@@ -1081,6 +1147,64 @@ private:
         _web_server.on("/bailian/reconnect", HTTP_POST, [this]() {
             StickS3BailianClient::getInstance().connect();
             _web_server.send(200, "application/json", "{\"status\":\"reconnecting\"}");
+        });
+
+        // 查询离线唤醒词状态
+        _web_server.on("/wakeword/status", HTTP_GET, [this]() {
+            auto& ww = StickS3WakeWordEngine::getInstance();
+            auto& bl = StickS3BailianClient::getInstance();
+            auto& cfg = StickS3ConfigManager::getInstance().getConfig();
+
+            JsonDocument doc;
+            doc["enabled"] = ww.isEnabled();
+            doc["name"] = StickS3WakeWordEngine::WAKE_WORD_NAME;
+            doc["sensitivity"] = ww.getSensitivity();
+            doc["total_wakes"] = ww.getTotalWakeCount();
+            doc["last_wake_ms"] = ww.getLastWakeTime();
+            doc["last_confidence"] = ww.getLastConfidence();
+            doc["timeout_sec"] = cfg.wakeword_timeout_sec;
+            doc["wake_window_open"] = bl.isWakeWindowOpen();
+            doc["remaining_ms"] = bl.getWakeWindowRemainingMs();
+
+            String json;
+            serializeJson(doc, json);
+            _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
+        // 配置离线唤醒词
+        _web_server.on("/wakeword/config", HTTP_POST, [this]() {
+            auto& ww = StickS3WakeWordEngine::getInstance();
+            auto& cfg_mgr = StickS3ConfigManager::getInstance();
+            auto& cfg = cfg_mgr.getConfig();
+
+            bool enabled = cfg.wakeword_enabled;
+            if (_web_server.hasArg("enabled")) {
+                String en_str = _web_server.arg("enabled");
+                enabled = (en_str == "true" || en_str == "1" || en_str == "on");
+            }
+
+            uint8_t sens = cfg.wakeword_sensitivity;
+            if (_web_server.hasArg("sensitivity")) {
+                sens = (uint8_t)_web_server.arg("sensitivity").toInt();
+            }
+
+            uint16_t tout = cfg.wakeword_timeout_sec;
+            if (_web_server.hasArg("timeout_sec")) {
+                tout = (uint16_t)_web_server.arg("timeout_sec").toInt();
+            }
+
+            ww.setEnabled(enabled);
+            ww.setSensitivity(sens);
+            cfg_mgr.saveWakeWordConfig(enabled, sens, tout);
+
+            _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\"}");
+        });
+
+        // 软件模拟触发唤醒词
+        _web_server.on("/wakeword/trigger", HTTP_POST, [this]() {
+            StickS3WakeWordEngine::getInstance().forceTrigger(96.0f);
+            StickS3BailianClient::getInstance().onWakeWordDetected(96.0f, 650);
+            _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"triggered\"}");
         });
 
         // 系统全维度诊断指标监控 (CPU, 内存, I/O 总线, 任务堆栈)

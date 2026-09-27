@@ -34,6 +34,7 @@
 #include "sticks3_i2c_mutex.h"
 #include "sticks3_system_metrics.h"
 #include "sticks3_memory_store.h"
+#include "sticks3_wakeword.h"
 
 using namespace sticks3::protocol;
 
@@ -645,6 +646,15 @@ void setup() {
     bool audio_ok = sticks3::StickS3Audio::getInstance().begin(&Wire1);
     Serial.printf("[BOOT] Audio Subsystem: %s\n", audio_ok ? "ONLINE" : "FAILED");
 
+    // 8.5 初始化离线语音唤醒词「悄悄」引擎
+    sticks3::StickS3WakeWordEngine::getInstance().begin();
+    auto& cfg = sticks3::StickS3ConfigManager::getInstance().getConfig();
+    sticks3::StickS3WakeWordEngine::getInstance().setEnabled(cfg.wakeword_enabled);
+    sticks3::StickS3WakeWordEngine::getInstance().setSensitivity(cfg.wakeword_sensitivity);
+    sticks3::StickS3WakeWordEngine::getInstance().setWakeCallback([](float conf, uint32_t dur_ms) {
+        sticks3::StickS3BailianClient::getInstance().onWakeWordDetected(conf, dur_ms);
+    });
+
     // 播放开机上扬和弦音
     if (audio_ok) {
         sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_STARTUP);
@@ -739,6 +749,10 @@ void loop() {
                     } else if (cmd_or_msg == "i" || cmd_or_msg == "I") {
                         sticks3::StickS3BailianClient::getInstance().interrupt("Serial-I-Key");
                         Serial.println("{\"type\":\"interrupt_ack\",\"status\":\"ok\"}");
+                    } else if (cmd_or_msg == "k" || cmd_or_msg == "K" || cmd_or_msg == "wake") {
+                        sticks3::StickS3WakeWordEngine::getInstance().forceTrigger(98.0f);
+                        sticks3::StickS3BailianClient::getInstance().onWakeWordDetected(98.0f, 650);
+                        Serial.println("{\"type\":\"wakeword_sim\",\"word\":\"悄悄\",\"status\":\"triggered\"}");
                     } else if (cmd_or_msg.startsWith("q:") || cmd_or_msg.startsWith("Q:") ||
                                cmd_or_msg.startsWith("chat:") || cmd_or_msg.startsWith("CHAT:")) {
                         int colon_idx = cmd_or_msg.indexOf(':');
@@ -900,8 +914,8 @@ void loop() {
         }
         display.drawString(buf, 4, 53);
 
-        snprintf(buf, sizeof(buf), "M:%u I:%lu",
-                 (unsigned)sticks3::StickS3MemoryStore::getInstance().getTurnCount(),
+        snprintf(buf, sizeof(buf), "W:%lu I:%lu",
+                 (unsigned long)sticks3::StickS3WakeWordEngine::getInstance().getTotalWakeCount(),
                  (unsigned long)bl_client.getTotalInterrupts());
         display.setTextColor(TFT_WHITE, TFT_DARKGREY);
         display.drawString(buf, 66, 53);
@@ -926,10 +940,24 @@ void loop() {
                 hdr_txt = "⏹ 已中途打断!";
             } else if (bl_client.getState() == sticks3::BL_STATE_CONNECTED_IDLE) {
                 hdr_bg = TFT_NAVY;
-                hdr_txt = "✔ 百炼就绪 对麦讲话";
+                hdr_txt = "✔ 百炼就绪 说“悄悄”";
             } else if (bl_client.getState() == sticks3::BL_STATE_ERROR) {
                 hdr_bg = TFT_RED;
                 hdr_txt = "✖ 连接异常 重连中";
+            } else if (bl_client.getState() == sticks3::BL_STATE_LISTENING) {
+                auto& cfg_ww = sticks3::StickS3ConfigManager::getInstance().getConfig();
+                if (cfg_ww.wakeword_enabled) {
+                    if (bl_client.isWakeWindowOpen()) {
+                        hdr_bg = 0xD980; // Amber-gold
+                        hdr_txt = "⚡ [悄悄已唤醒] 聆听中";
+                    } else {
+                        hdr_bg = 0x0284;
+                        hdr_txt = "● 待命中 (说“悄悄”)";
+                    }
+                } else {
+                    hdr_bg = 0x0284;
+                    hdr_txt = "● 正在聆听中 (请讲话)";
+                }
             }
 
             display.fillRect(0, 70, SCREEN_W, 16, hdr_bg);
@@ -951,7 +979,12 @@ void loop() {
                 String query_str = "你: " + bl_client.getUserQuery();
                 drawChineseText(display, query_str, 6, 90, SCREEN_W - 12, 14, TFT_CYAN, TFT_BLACK, &fonts::efontCN_12);
             } else {
-                drawChineseText(display, "对准硅麦讲话\n支持全双工交互\n随时开口即可打断", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
+                auto& cfg_ww = sticks3::StickS3ConfigManager::getInstance().getConfig();
+                if (cfg_ww.wakeword_enabled && !bl_client.isWakeWindowOpen()) {
+                    drawChineseText(display, "呼唤【悄悄】唤醒\n随时打断与流式问答\n离线声学匹配引擎", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
+                } else {
+                    drawChineseText(display, "对准硅麦讲话\n支持全双工交互\n随时开口即可打断", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
+                }
             }
         } else if (is_recording) {
             // 录音状态专用高亮卡片 (红底 + 倒计时 + 能量动态)

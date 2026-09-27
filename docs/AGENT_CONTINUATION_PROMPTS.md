@@ -30,12 +30,13 @@
   - 全集 23,940 条目 GBK-to-Unicode Flash 映射表已落地，手机端发送汉字已无方格子。
   - 智能 Web 配网：网页端 (`http://192.168.4.1`) 扫描周边 AP、填密入网并持久化存入 NVS，掉电开机秒级自连。
   - 阿里云百炼大模型：DashScope Realtime WebSocket (WSS) 16kHz PCM 全双工流式对话已调通，网页端自由配置 API Key、音色与模型。
-  - 毫秒级中途打断 (Barge-In)：支持服务端 VAD 识别、本地硅麦能量检测与正面主键 A 物理打断，瞬间静音并发送 `response.cancel` 终止服务端生成。
+  - **离线语音唤醒词「悄悄」(qiāo qiāo)**：时频 3 子带滤波 + ZCR + 叠词对称度综合评分声学引擎 (`sticks3_wakeword.h`)，零动态堆碎片，未唤醒时待命挂起推流省 Token，唤醒后即刻和弦播音并拉起 8~10 秒问答窗口；AI 发声时说「悄悄」可瞬间 Barge-In 物理打断。
+  - 毫秒级中途打断 (Barge-In)：支持服务端 VAD 识别、本地硅麦能量检测、唤醒词打断与正面主键 A 物理打断，瞬间静音并发送 `response.cancel` 终止服务端生成。
   - **双级记忆压缩 (Two-Tier Compaction)**：PSRAM 平铺静态数组 (`MAX_TURNS_IN_MEMORY=8`)，零 Internal SRAM 碎片；第 9 轮触发滑动窗口自动提炼为 `[前期摘要]`；Flash NVS 持久化核心 5 轮。
   - **Unicode 字符级安全截断 (`safeTruncateUtf8`)**：彻底杜绝 UTF-8 变长多字节中文字符截断撕裂导致的 RFC 6455 1007 协议违规断连。
   - **I2C 全局互斥锁 (`g_i2c_mutex`)**：彻底隔离 BMI270/M5PM1 与 ES8311 跨核心并发冲突。
 - 自动化流水线：编译与烧录自愈请统一使用 `python scripts/autonomous_bringup_agent.py` 或 `python -m platformio run -d firmware/m5sticks3_buddy`。
-- 回归测试：全套 39 项自动化单元测试已就绪 (`pytest tests/ -v`)，实机 9 轮长程记忆压测使用 `python scripts/test_voice_dialogue_and_memory_compression.py`。
+- 回归测试：全套 46 项自动化单元测试已就绪 (`pytest tests/ -v`)，实机 9 轮长程记忆压测使用 `python scripts/test_voice_dialogue_and_memory_compression.py`，唤醒词测试使用 `pytest tests/test_wakeword_engine.py -v`。
 
 【本次开发目标】：
 [在这里填入您的具体需求，可直接选用下方第二章节的细分方向]
@@ -145,6 +146,17 @@
 3. 物理手势与晃动打断联动：结合 BMI270 六轴传感器，支持轻拍机身或摇晃手势即刻触发物理打断。
 ```
 
+### 方向 9：离线语音唤醒词「悄悄」演进与声学自适应调优 (Offline Wake Word Baseline & Expansion)
+
+```markdown
+【本次开发目标】：离线语音唤醒词「悄悄」演进与声学自适应调优
+基于已就绪的 Sticks3WakeWordEngine「悄悄」时频声学引擎 (3 子带滤波 + ZCR + 叠词对称度综合评分)：
+1. 声学模型增强：在现有 3 子带滤波基础上，引入 6 子带能量包络或简易 MFCC-8 倒谱距离匹配，提升不同语速、方言口音与童声的唤醒召回率；
+2. 动态环境噪声底噪跟踪：在 `IDLE` 状态下使用指数加权移动平均 (EMA) 动态校准环境底噪，动态浮动 `min_rms_q` 与 `min_rms_iao`，保证喧闹环境下不漏唤醒、宁静环境下不误触发；
+3. 自定义唤醒词扩展支持：在 Web 控制台增加“自定义唤醒词拼音序列”配置项，支持动态切换类似“你好小木”、“灵方灵方”等叠词或四字声学状态机模板；
+4. 约束：特征提取严禁在 `feedSamples()` 中调用 `malloc`，CPU 占用率控制在 3% 以内，确保与 60+ FPS ST7789 屏幕及 16kHz I2S 播放并行不卡顿。
+```
+
 ---
 
 ## 三、 代码提交与交接执行准则 (Commit SOP for Agents)
@@ -152,10 +164,11 @@
 所有后续 Agent 在完成任何阶段性功能开发并准备提交代码时，必须执行以下标准化闭环：
 
 1. **自动化校验先行**：
-   - 运行 `pytest tests/ -v` 确保全套 36 项单元测试全部通过。
-   - 运行真机回归脚本 `python scripts/test_bailian_realtime_e2e.py` 与 `python scripts/test_ble_encoding.py` 验证实际硬件功能。
+   - 运行 `pytest tests/ -v` 确保全套 46 项单元测试全部通过。
+   - 运行唤醒词专项测试 `pytest tests/test_wakeword_engine.py -v` 验证声学 FSM 状态机跳转与源码契约。
+   - 运行真机回归脚本 `python scripts/test_voice_dialogue_and_memory_compression.py` 验证实际硬件功能。
 2. **更新交接文档**：
-   - 在对应模块的文档（如 `docs/01_StickS3_Hardware_and_Bringup_Guide.md`）中记录最新修复的根因与方案。
+   - 在对应模块的文档（如 `docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md`）中记录最新演进、根因与方案。
    - 在本文件（`docs/AGENT_CONTINUATION_PROMPTS.md`）中登记新增功能方向的续写提示词。
 3. **提交信息规范**：
    Commit Message 遵循 Conventional Commits 规范，必须附带说明核心交付物与交接指引。
