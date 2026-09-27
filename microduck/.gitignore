@@ -1,0 +1,28 @@
+# Ignore cloned external repositories and build artifacts
+microduck/
+microduck_rl/
+microduck-gst-plugins/
+duck_detector/
+Open_Duck_Blender/
+external_repos/
+target/
+*.pyc
+__pycache__/
+*.blend1
+*.onnx
+*.rknn
+
+# Keep all markdown docs, diagrams, adapters, and configs
+!*.md
+!*.json
+!*.xml
+!*.py
+!docs/
+!docs/**
+!analysis/
+!analysis/**
+!adapters/
+!adapters/**
+adapters/**/__pycache__/
+adapters/**/*.pyc
+

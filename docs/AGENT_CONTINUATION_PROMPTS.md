@@ -13,21 +13,29 @@
 
 ```markdown
 你好！请接手并继续推进本项目开发。在开始编写代码前，请先完整阅读工作交接文档与核心源码：
-1. 核心交接文档：`doc/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md`
-2. 提示词标准库：`doc/AGENT_CONTINUATION_PROMPTS.md`
-3. 固件核心源码：`firmware/m5sticks3_buddy/src/main.cpp` 与 `include/gbk_to_utf8.h`
+1. 核心交接文档：`docs/01_StickS3_Hardware_and_Bringup_Guide.md`
+2. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`
+3. 固件核心源码：`firmware/m5sticks3_buddy/src/main.cpp` 与 `include/sticks3_bailian_client.h`
 
 【当前硬件与工程基线】：
-- 硬件平台：M5Stack StickS3 (ESP32-S3-PICO-1, 8MB Flash, 8MB PSRAM)，已连接在本地串口 `COM3`。
+- 硬件平台：M5Stack StickS3 (ESP32-S3-PICO-1, 8MB Flash, 8MB PSRAM)，已连接在本地串口 `COM3`，局域网 IP `192.168.110.67`。
+- 核心参考文档：
+  - `docs/01_StickS3_Hardware_and_Bringup_Guide.md` (全栈硬件与固件指南)
+  - `docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md` (全双工语音大模型与长程记忆压缩交接文档)
 - 底层已就绪：
   - M5PM1 电源门控（GPIO2 点亮 LCD 3.3V 供电，GPIO3 开启功放）已标定。
   - 按键引脚已修正为 G11 (Btn A) 与 G12 (Btn B)。
   - BMI270 姿态传感器、ES8311 音频和弦与麦克风 VU、ST7789v2 1.14" 屏幕均已点亮。
   - BLE Nordic UART (30字节广播合规包) 与 2.4GHz Wi-Fi (SoftAP/TCP/UDP/Web) 全互通。
   - 全集 23,940 条目 GBK-to-Unicode Flash 映射表已落地，手机端发送汉字已无方格子。
-  - 双向音频：按键 A 触发 10 秒 16kHz WAV 录音 (PSRAM 缓冲 320KB)，网页端 (`http://192.168.4.1`) 原生拉取回放与下发播放，iOS Safari 语音备忘录/音频上传与 16kHz 和弦合成试听已全调通。
-- 自动化流水线：编译与烧录自愈请统一使用 `python scripts/autonomous_bringup_agent.py`。
-- 回归测试：真机测试使用 `python scripts/verify_audio_e2e_hardware.py` 与 `python scripts/test_ble_encoding.py`。
+  - 智能 Web 配网：网页端 (`http://192.168.4.1`) 扫描周边 AP、填密入网并持久化存入 NVS，掉电开机秒级自连。
+  - 阿里云百炼大模型：DashScope Realtime WebSocket (WSS) 16kHz PCM 全双工流式对话已调通，网页端自由配置 API Key、音色与模型。
+  - 毫秒级中途打断 (Barge-In)：支持服务端 VAD 识别、本地硅麦能量检测与正面主键 A 物理打断，瞬间静音并发送 `response.cancel` 终止服务端生成。
+  - **双级记忆压缩 (Two-Tier Compaction)**：PSRAM 平铺静态数组 (`MAX_TURNS_IN_MEMORY=8`)，零 Internal SRAM 碎片；第 9 轮触发滑动窗口自动提炼为 `[前期摘要]`；Flash NVS 持久化核心 5 轮。
+  - **Unicode 字符级安全截断 (`safeTruncateUtf8`)**：彻底杜绝 UTF-8 变长多字节中文字符截断撕裂导致的 RFC 6455 1007 协议违规断连。
+  - **I2C 全局互斥锁 (`g_i2c_mutex`)**：彻底隔离 BMI270/M5PM1 与 ES8311 跨核心并发冲突。
+- 自动化流水线：编译与烧录自愈请统一使用 `python scripts/autonomous_bringup_agent.py` 或 `python -m platformio run -d firmware/m5sticks3_buddy`。
+- 回归测试：全套 39 项自动化单元测试已就绪 (`pytest tests/ -v`)，实机 9 轮长程记忆压测使用 `python scripts/test_voice_dialogue_and_memory_compression.py`。
 
 【本次开发目标】：
 [在这里填入您的具体需求，可直接选用下方第二章节的细分方向]
@@ -69,11 +77,11 @@
 我们需要为 StickS3 设计一套高响应、无闪烁的多页面切换框架。
 1. 页面规划：
    - 页面 1（Default）：实时仪表盘与双轴 IMU 动态姿态水准仪；
-   - 页面 2：手机端/蓝牙聊天文本历史瀑布流（支持查看最近 5 条历史消息）；
+   - 页面 2：大模型语音对话瀑布流（实时查看上下文问答历史）；
    - 页面 3：周边 2.4GHz Wi-Fi AP 深度嗅探列表（展示热点名、信道与 RSSI 信号强弱条）；
    - 页面 4：硬件底层硬件健康度看板（电池电压、CPU温度、I2C总线状态、RAM剩余）。
-2. 交互逻辑：长按正面按键 A（>800ms）轮询切页，短按侧键 B 在当前页面内翻页/确认；
-3. 约束：所有汉字渲染必须经由 `sanitizeAndConvertToUtf8()` 自动归一化，严禁出现方格子乱码。
+2. 交互逻辑：长按侧键 B（>800ms）轮询切页，短按正面按键 A 在当前页面内确认/操作；
+3. 约束：所有汉字渲染必须经由 `drawChineseText()` 自动归一化，严禁出现方格子乱码。
 ```
 
 ---
@@ -90,15 +98,51 @@
 
 ---
 
-### 方向 5：智能语音问答与 Claude Desktop 语音大模型伴侣 (Voice AI Agent & Whisper/TTS)
+### 方向 5：阿里云百炼实时语音大模型与多轮连续对话 (已落地就绪 Baseline)
 
 ```markdown
-【本次开发目标】：智能语音问答与 Claude Desktop 语音大模型网关
-我们希望将 StickS3 的双向音频流能力与大模型（如 Whisper ASR + Claude 3.7 / GPT-4o + Edge TTS）打通。
-1. 上位机桥接服务：编写 Python 网关脚本（如 `scripts/voice_ai_gateway.py`），监听 SoftAP 或局域网中的 StickS3 音频事件；
-2. ASR 语音转文字：当 StickS3 录音完成后，网关自动获取 `/audio/device_record.wav` 并送入 Whisper 进行中文语音识别；
-3. 大模型交互与 TTS 回传：将识别结果输入 Claude Desktop / API，生成的回复文本通过 Edge TTS 合成为 16kHz WAV 流，自动 POST 到 `/audio/upload`，由 StickS3 喇叭即时回放；
-4. 屏幕联动：在 ST7789 屏幕上使用 `drawChineseText()` 同步流式渲染 ASR 识别出的用户问话与 AI 回复摘要。
+【已就绪大模型能力与基线】：
+- 网页端智能配网与 NVS 凭据持久化：AP+STA 双模运行，配置脏检查加速，开机秒级自连。
+- 阿里云百炼 DashScope Realtime WSS 长连接：支持 Qwen3.8-Omni-Flash-Realtime，全双工流式 16kHz PCM 传输。
+- FreeRTOS 音频任务独立解耦：Core 1 独立 `audioTask` (Prio 3)，单次写后主动 yield，环形缓冲分块 `memcpy`，主循环帧率稳定在 65~74 FPS。
+- I2C 总线线程安全互斥锁 (`g_i2c_mutex`)：全面杜绝主线程与网络任务并发写 Codec/PMIC 导致的底层总线中断挂起死锁。
+- 麦克风语音活动门限 (VAG)：`mic_rms >= 12%` 带 500ms 尾随缓冲，彻底解决环境底噪推流并发互斥与自激发幻觉。
+- 全维度监控端点：`GET /system/metrics` 实时暴露 CPU FPS、SRAM 堆可用与最大连续块、PSRAM、I2C 锁状态；串口每 2s 打印 `[StickS3-SYS]` 诊断流。
+- 毫秒级中途打断 (Barge-In) 与自然播报闭环：支持自然播放完毕自动切回 `Listening` (`finishStreamPlayback`)；中途打断 160ms 级瞬时物理静音清空缓冲并下发 `response.cancel`。
+- 长程多轮极限压测已通过：实测连续 5 轮全双工问答 (`python scripts/monitor_and_stress_continuous_dialogue.py`)，0 死锁卡死、0 内存碎片耗尽、0 线程饥饿。
+```
+
+---
+
+### 方向 6：灵方机器人语音具身控制与大模型 Agent 动作执行 (Embodied Voice AI)
+
+```markdown
+【本次开发目标】：灵方机器人语音具身控制与大模型 Agent 动作执行
+我们将 StickS3 的全双工语音大模型问答能力升级为具身智能实体控制终端。
+1. Function Calling / Tool Use 扩展：在百炼大模型中注册灵方机器人动作函数（例如：`move_robot(direction, speed)`、`epm_magnetize(face, pulse_ms)`、`query_robot_status()`）；
+2. 语音指令意图识别：当用户对准 StickS3 说“向前翻滚两圈”或“吸附左侧机器人”，大模型识别意图并下发工具调用事件；
+3. 无线控制下发：StickS3 解析工具调用后，通过 2.4GHz Wi-Fi UDP 广播 (Port 8080) 或 Grove UART 向灵方机器人单体发送执行帧，并将执行结果语音反馈给用户；
+4. 屏幕反馈：在 ST7789 屏幕上高亮展示被调用的工具名称与执行状态。
+```
+
+### 方向 7：全双工长期记忆图谱与多模态情感陪伴终端 (Emotional Memory & Multimodal Companion)
+
+```markdown
+【本次开发目标】：全双工长期记忆图谱与多模态情感陪伴终端
+基于已落地的 StickS3MemoryStore 两级记忆缓存与音色热切换能力，进一步演进长期记忆图谱与情感交互：
+1. 实体与关系提取：在对话结束时，通过后台异步任务从对话历史中抽取用户画像（姓名、偏好、习惯、提醒事项）并结构化保存至 Flash；
+2. 动态情感状态机：结合 BMI270 姿态（摇晃、抚摸、翻转）与声学情感特征，动态调节 DashScope prompt 语气与 LCD 动态表情眼睛（M5GFX 眨眼/微笑/思考）；
+3. 定时主动提醒与主动搭话：利用 RTC 定时器，在特定时间或设备被拿起时，主动唤醒并用设定音色开口搭话。
+```
+
+### 方向 8：全双工声学回声自适应校准与环境降噪 (Adaptive Acoustic Echo Calibration & Streaming VAD)
+
+```markdown
+【本次开发目标】：全双工声学回声自适应校准与环境降噪
+在现已落地的 ES8311 全双工时钟 (Reg 0x01=0xBF)、喇叭参考动态解耦过滤 (Coupling 0.38) 与轻量级人声触发器的基础上：
+1. 声学耦合因子自适应在线估计 (Online Echo Coupling Estimation)：通过 LMS 最小均方误差算法在后台微调喇叭到麦克风的声学传递函数，自适应不同音量大小与贴近距离；
+2. 频域双频段谱减降噪 (Dual-Band Spectral Subtraction)：利用 ESP32-S3 双核矢量指令 (ESP-DSP) 在麦克风采集流中快速抑制风噪与风扇底噪，提升高信噪比识别率；
+3. 物理手势与晃动打断联动：结合 BMI270 六轴传感器，支持轻拍机身或摇晃手势即刻触发物理打断。
 ```
 
 ---
@@ -108,11 +152,11 @@
 所有后续 Agent 在完成任何阶段性功能开发并准备提交代码时，必须执行以下标准化闭环：
 
 1. **自动化校验先行**：
-   - 运行 `pytest tests/test_sticks3_three_schemes.py tests/test_firmware_driver_suite.py tests/test_audio_stream_pipeline.py` 确保全套 19 项单元测试通过。
-   - 运行真机回归脚本 `python scripts/test_ble_encoding.py` 验证实际硬件功能。
+   - 运行 `pytest tests/ -v` 确保全套 36 项单元测试全部通过。
+   - 运行真机回归脚本 `python scripts/test_bailian_realtime_e2e.py` 与 `python scripts/test_ble_encoding.py` 验证实际硬件功能。
 2. **更新交接文档**：
-   - 在对应模块的文档（如 `doc/26_...md`）中记录最新修复的根因与方案。
-   - 在本文件（`doc/AGENT_CONTINUATION_PROMPTS.md`）中登记新增功能方向的续写提示词。
+   - 在对应模块的文档（如 `docs/01_StickS3_Hardware_and_Bringup_Guide.md`）中记录最新修复的根因与方案。
+   - 在本文件（`docs/AGENT_CONTINUATION_PROMPTS.md`）中登记新增功能方向的续写提示词。
 3. **提交信息规范**：
    Commit Message 遵循 Conventional Commits 规范，必须附带说明核心交付物与交接指引。
 4. **向用户输出交接描述**：

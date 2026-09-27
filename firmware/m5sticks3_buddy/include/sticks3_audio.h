@@ -19,6 +19,7 @@
 #include <Wire.h>
 #include <driver/i2s.h>
 #include <cmath>
+#include "sticks3_i2c_mutex.h"
 
 namespace sticks3 {
 
@@ -28,6 +29,82 @@ enum ChimeType {
     CHIME_NOTIFY,      // 微信/蓝牙消息 Ding-Dong
     CHIME_ALERT,       // 权限审批急促警报
     CHIME_SUCCESS      // 成功提示音
+};
+
+// PSRAM 环形流式音频缓冲区 (用于大模型下行 response.audio.delta 毫秒级边收边播，多核安全)
+class AudioRingBuffer {
+public:
+    explicit AudioRingBuffer(size_t capacity)
+        : _capacity(capacity), _head(0), _tail(0), _count(0), _buf(nullptr),
+          _mux(portMUX_INITIALIZER_UNLOCKED) {
+        if (psramFound()) {
+            _buf = (uint8_t*)ps_malloc(capacity);
+        } else {
+            _buf = (uint8_t*)malloc(capacity);
+        }
+    }
+    ~AudioRingBuffer() {
+        if (_buf) free(_buf);
+    }
+    size_t write(const uint8_t* data, size_t len) {
+        if (!_buf || len == 0) return 0;
+        portENTER_CRITICAL(&_mux);
+        size_t space = _capacity - _count;
+        size_t to_write = (len < space) ? len : space;
+        if (to_write == 0) {
+            portEXIT_CRITICAL(&_mux);
+            return 0;
+        }
+
+        size_t first_chunk = (_head + to_write <= _capacity) ? to_write : (_capacity - _head);
+        memcpy(_buf + _head, data, first_chunk);
+        if (to_write > first_chunk) {
+            memcpy(_buf, data + first_chunk, to_write - first_chunk);
+        }
+        _head = (_head + to_write) % _capacity;
+        _count += to_write;
+        portEXIT_CRITICAL(&_mux);
+        return to_write;
+    }
+    size_t read(uint8_t* dest, size_t len) {
+        if (!_buf || len == 0) return 0;
+        portENTER_CRITICAL(&_mux);
+        if (_count == 0) {
+            portEXIT_CRITICAL(&_mux);
+            return 0;
+        }
+        size_t to_read = (len < _count) ? len : _count;
+        size_t first_chunk = (_tail + to_read <= _capacity) ? to_read : (_capacity - _tail);
+        memcpy(dest, _buf + _tail, first_chunk);
+        if (to_read > first_chunk) {
+            memcpy(dest + first_chunk, _buf, to_read - first_chunk);
+        }
+        _tail = (_tail + to_read) % _capacity;
+        _count -= to_read;
+        portEXIT_CRITICAL(&_mux);
+        return to_read;
+    }
+    void clear() {
+        portENTER_CRITICAL(&_mux);
+        _head = 0;
+        _tail = 0;
+        _count = 0;
+        portEXIT_CRITICAL(&_mux);
+    }
+    size_t available() {
+        portENTER_CRITICAL(&_mux);
+        size_t c = _count;
+        portEXIT_CRITICAL(&_mux);
+        return c;
+    }
+    size_t capacity() const { return _capacity; }
+private:
+    size_t _capacity;
+    size_t _head;
+    size_t _tail;
+    volatile size_t _count;
+    uint8_t* _buf;
+    portMUX_TYPE _mux;
 };
 
 class StickS3Audio {
@@ -54,7 +131,10 @@ public:
           _record_start_ms(0), _record_max_ms(10000), _device_audio_id(0),
           _has_device_audio(false), _playback_ptr(nullptr),
           _playback_total_bytes(0), _playback_offset(0),
-          _is_playing_stream(false), _playback_progress(0.0f) {}
+          _is_playing_stream(false), _playback_progress(0.0f),
+          _stream_ring_buf(nullptr), _is_streaming_llm(false),
+          _audio_task_handle(nullptr), _speaker_ref_rms(0.0f),
+          _voice_consecutive_frames(0) {}
 
     static StickS3Audio& getInstance() {
         static StickS3Audio instance;
@@ -156,8 +236,18 @@ public:
         // 3. 配置 ES8311 Codec 寄存器 (双通使能)
         initES8311();
 
-        // 4. 预先在 PSRAM 中初始化录音缓冲区
+        // 4. 预先在 PSRAM 中初始化录音缓冲区与下行流式缓冲区
         ensureRecordBuffer();
+        if (!_stream_ring_buf) {
+            _stream_ring_buf = new AudioRingBuffer(256 * 1024); // 256KB PSRAM 环形流式缓冲区 (~8s PCM16)
+            Serial.println("[AUDIO] Allocated 256KB PSRAM stream ring buffer for LLM playback");
+        }
+
+        // 5. 启动独立 FreeRTOS 音频流式播放任务 (Core 1, 优先级 3, 栈 4KB)
+        if (!_audio_task_handle) {
+            xTaskCreatePinnedToCore(audioTaskStatic, "audioTask", 4096, this, 3, &_audio_task_handle, 1);
+            Serial.println("[AUDIO] FreeRTOS audioTask pinned to Core 1 (Prio: 3)");
+        }
 
         _initialized = true;
         Serial.println("[AUDIO] ES8311 Codec & AW8737 PA & MEMS Mic ONLINE!");
@@ -166,6 +256,9 @@ public:
 
     void enablePA(bool enable) {
         if (!_wire) return;
+        I2CLockGuard guard(50);
+        if (!guard.isAcquired()) return;
+
         // PM1 寄存器控制 GPIO3 (AW8737 供电门控)
         auto readPM1 = [this](uint8_t reg) -> uint8_t {
             _wire->beginTransmission(PM1_ADDR);
@@ -234,14 +327,14 @@ public:
             }
 
             size_t bytes_written = 0;
-            i2s_write(I2S_NUM_0, buf, to_write * sizeof(int16_t), &bytes_written, portMAX_DELAY);
+            i2s_write(I2S_NUM_0, buf, to_write * sizeof(int16_t), &bytes_written, 50 / portTICK_PERIOD_MS);
             samples_generated += to_write;
         }
 
         // 静音缓冲消除尾部直流偏置
         memset(buf, 0, sizeof(buf));
         size_t dummy = 0;
-        i2s_write(I2S_NUM_0, buf, sizeof(buf), &dummy, portMAX_DELAY);
+        i2s_write(I2S_NUM_0, buf, sizeof(buf), &dummy, 50 / portTICK_PERIOD_MS);
 
         setCodecMicMode();
         _playing_sound = false;
@@ -287,14 +380,21 @@ public:
 
     // 读取当前环境音频能量 RMS (0 ~ 100%)
     uint8_t readMicRMS() {
-        if (!_initialized || _playing_sound) return _last_mic_rms;
-        if (_is_recording) return _last_mic_rms; // 录音中直接由 processRecording 实时解算能量
+        if (!_initialized) return _last_mic_rms;
+        // 若大模型正在流式发声，由 checkVoiceBargeInTrigger 高频采样更新 _last_mic_rms，直接返回最新值
+        if (_is_streaming_llm) return _last_mic_rms;
+        if (_is_recording || _playing_sound) return _last_mic_rms;
+
+        // 若处于百炼工作状态，由 readMicSamples 统一采样解算能量，避免争抢 I2S DMA
+        static uint32_t last_rms_read = 0;
+        if (millis() - last_rms_read < 40) return _last_mic_rms;
+        last_rms_read = millis();
 
         const size_t SAMPLES_COUNT = 64;
         int16_t sample_buf[SAMPLES_COUNT];
         size_t bytes_read = 0;
 
-        esp_err_t res = i2s_read(I2S_NUM_0, sample_buf, sizeof(sample_buf), &bytes_read, 10 / portTICK_PERIOD_MS);
+        esp_err_t res = i2s_read(I2S_NUM_0, sample_buf, sizeof(sample_buf), &bytes_read, 0);
         if (res != ESP_OK || bytes_read == 0) return _last_mic_rms;
 
         size_t samples = bytes_read / sizeof(int16_t);
@@ -446,11 +546,20 @@ public:
             stopRecording();
         }
 
-        // 解析 WAV 头以提取纯 PCM 数据体
+        // 解析 WAV 头以提取纯 PCM 数据体与采样率
         const uint8_t* pcm_start = data;
         size_t pcm_len = len;
+        uint32_t wav_sr = SAMPLE_RATE;
 
         if (len >= 44 && memcmp(data, "RIFF", 4) == 0 && memcmp(data + 8, "WAVE", 4) == 0) {
+            uint32_t header_sr = (uint32_t)data[24] |
+                                 ((uint32_t)data[25] << 8) |
+                                 ((uint32_t)data[26] << 16) |
+                                 ((uint32_t)data[27] << 24);
+            if (header_sr >= 8000 && header_sr <= 48000) {
+                wav_sr = header_sr;
+            }
+
             size_t offset = 12;
             while (offset + 8 <= len) {
                 if (memcmp(data + offset, "data", 4) == 0) {
@@ -475,6 +584,11 @@ public:
             return false;
         }
 
+        if (wav_sr != SAMPLE_RATE) {
+            Serial.printf("[AUDIO] WAV custom sample rate %u Hz detected, dynamically switching I2S clock...\n", (unsigned)wav_sr);
+            i2s_set_sample_rates(I2S_NUM_0, wav_sr);
+        }
+
         _playback_ptr = pcm_start;
         _playback_total_bytes = pcm_len;
         _playback_offset = 0;
@@ -483,9 +597,10 @@ public:
 
         enablePA(true);
         setCodecSpeakerMode();
-        Serial.printf("[AUDIO] >>> Playback STARTED (%u PCM bytes, ~%u ms) <<<\n",
+        Serial.printf("[AUDIO] >>> Playback STARTED (%u PCM bytes, ~%u ms, Rate: %u Hz) <<<\n",
                       (unsigned)_playback_total_bytes,
-                      (unsigned)((_playback_total_bytes * 1000) / (SAMPLE_RATE * 2)));
+                      (unsigned)((_playback_total_bytes * 1000) / (wav_sr * 2)),
+                      (unsigned)wav_sr);
         return true;
     }
 
@@ -515,6 +630,9 @@ public:
         size_t dummy = 0;
         i2s_write(I2S_NUM_0, silence, sizeof(silence), &dummy, 10 / portTICK_PERIOD_MS);
 
+        // 恢复 I2S 硬件时钟为标准 16000 Hz
+        i2s_set_sample_rates(I2S_NUM_0, SAMPLE_RATE);
+
         setCodecMicMode();
         _is_playing_stream = false;
         _playing_sound = false;
@@ -522,11 +640,305 @@ public:
         _playback_offset = 0;
         _playback_total_bytes = 0;
         _playback_progress = 0.0f;
-        Serial.println("[AUDIO] >>> Playback FINISHED. Codec restored to Mic mode. <<<");
+        Serial.println("[AUDIO] >>> Playback FINISHED. Codec restored to Mic mode (16kHz). <<<");
     }
 
     bool isPlayingStream() const { return _is_playing_stream; }
     float getPlaybackProgress() const { return _playback_progress; }
+
+    // ==========================================
+    // 大模型实时下行流式音频播放与毫秒级中途打断
+    // ==========================================
+
+    // 压入来自 WebSocket response.audio.delta 的 PCM 数据 (支持 16kHz 与 24kHz 自适应下采样)
+    void feedStreamPCM(const uint8_t* pcm_data, size_t len, uint32_t src_sample_rate = 16000) {
+        if (!_initialized || !pcm_data || len == 0 || !_stream_ring_buf) return;
+        
+        // 若上游因模型差异或未生效下发 24kHz 音频，就地执行 3:2 快速线性插值降采样为 16kHz
+        if (src_sample_rate == 24000 && len >= 6) {
+            static int16_t* s_resample_buf = nullptr;
+            if (!s_resample_buf) {
+                s_resample_buf = (int16_t*)ps_malloc(32768);
+            }
+            if (s_resample_buf) {
+                const int16_t* in_ptr = (const int16_t*)pcm_data;
+                size_t in_samples = len / sizeof(int16_t);
+                size_t out_idx = 0;
+                size_t i = 0;
+                // 3 个输入点对应 2 个输出点 (24000 * 2 / 3 = 16000)
+                for (; i + 2 < in_samples && out_idx + 1 < 16384; i += 3) {
+                    s_resample_buf[out_idx++] = in_ptr[i];
+                    s_resample_buf[out_idx++] = (int16_t)(((int32_t)in_ptr[i + 1] + (int32_t)in_ptr[i + 2]) >> 1);
+                }
+                // 处理末尾剩余 1~2 个孤立采样点
+                for (; i < in_samples && out_idx < 16384; ++i) {
+                    s_resample_buf[out_idx++] = in_ptr[i];
+                }
+                _stream_ring_buf->write((const uint8_t*)s_resample_buf, out_idx * sizeof(int16_t));
+            } else {
+                _stream_ring_buf->write(pcm_data, len);
+            }
+        } else {
+            // 原生 16kHz 直通写入 PSRAM 环形队列
+            _stream_ring_buf->write(pcm_data, len);
+        }
+
+        if (!_is_streaming_llm) {
+            _is_streaming_llm = true;
+            _playing_sound = true;
+            _speaker_ref_rms = 0.0f;
+            _voice_consecutive_frames = 0;
+            enablePA(true);
+            setCodecFullDuplexMode(); // 全双工时钟保活，保证麦克风在放音时持续采集
+            Serial.printf("[AUDIO] >>> LLM Full-Duplex Stream Playback STARTED (Src: %uHz, Buffered %u bytes) <<<\n",
+                          (unsigned)src_sample_rate, (unsigned)_stream_ring_buf->available());
+        }
+    }
+
+    static void audioTaskStatic(void* arg) {
+        StickS3Audio* self = static_cast<StickS3Audio*>(arg);
+        self->audioTaskLoop();
+    }
+
+    void audioTaskLoop() {
+        const size_t WRITE_CHUNK = 512;
+        uint8_t chunk[WRITE_CHUNK];
+
+        while (true) {
+            if (_is_streaming_llm && _stream_ring_buf && _stream_ring_buf->available() > 0) {
+                size_t to_read = (_stream_ring_buf->available() < WRITE_CHUNK) ? _stream_ring_buf->available() : WRITE_CHUNK;
+                size_t n = _stream_ring_buf->read(chunk, to_read);
+                if (n > 0) {
+                    size_t bytes_written = 0;
+                    i2s_write(I2S_NUM_0, chunk, n, &bytes_written, 25 / portTICK_PERIOD_MS);
+
+                    // 实时解算喇叭写入能量，采用 Fast Attack & Slow Decay 包络跟踪
+                    // 补偿 I2S DMA 128ms 硬件延迟，防止因物理声学滞后导致参考信号过低
+                    size_t spk_samples = bytes_written / sizeof(int16_t);
+                    if (spk_samples > 0) {
+                        int16_t* spk_ptr = (int16_t*)chunk;
+                        int64_t spk_sum_sq = 0;
+                        for (size_t i = 0; i < spk_samples; ++i) {
+                            int32_t val = spk_ptr[i];
+                            spk_sum_sq += val * val;
+                        }
+                        float cur_spk_rms = std::sqrt((float)(spk_sum_sq / spk_samples));
+                        if (cur_spk_rms > _speaker_ref_rms) {
+                            _speaker_ref_rms = cur_spk_rms; // 瞬时吸收峰值 (Fast Attack)
+                        } else {
+                            _speaker_ref_rms = (_speaker_ref_rms * 0.94f) + (cur_spk_rms * 0.06f); // 慢释音衰减 (~180ms Slow Decay)
+                        }
+                    }
+                }
+                vTaskDelay(pdMS_TO_TICKS(1)); // 主动交出 CPU 调度权，防止独占 Core 1 导致 TWDT 触发或 loopTask 饥饿
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(4));
+            }
+        }
+    }
+
+    uint32_t getAudioTaskStackHighWaterMark() const {
+        return _audio_task_handle ? (uint32_t)uxTaskGetStackHighWaterMark(_audio_task_handle) : 0;
+    }
+
+    void processStreamingPlayback() {
+        // 由独立 FreeRTOS audioTask 持续异步接管，保持该方法以兼容旧接口
+    }
+
+    // 毫秒级中途打断 (Barge-In) 核心方法
+    void interruptPlayback() {
+        if (!_is_streaming_llm && !_is_playing_stream && !_playing_sound) return;
+
+        Serial.println("[AUDIO] >>> Playback INTERRUPTED (Barge-In)! Immediate mute & buffer clear <<<");
+        if (_stream_ring_buf) {
+            _stream_ring_buf->clear();
+        }
+
+        // 写入轻量静音段消除直流残余爆音
+        int16_t silence[128] = {0};
+        size_t dummy = 0;
+        i2s_write(I2S_NUM_0, silence, sizeof(silence), &dummy, 10 / portTICK_PERIOD_MS);
+
+        setCodecMicMode();
+        _is_streaming_llm = false;
+        _is_playing_stream = false;
+        _playing_sound = false;
+        _speaker_ref_rms = 0.0f;
+        _voice_consecutive_frames = 0;
+        _playback_ptr = nullptr;
+        _playback_offset = 0;
+        _playback_total_bytes = 0;
+        _playback_progress = 0.0f;
+    }
+
+    void finishStreamPlayback() {
+        if (!_is_streaming_llm && !_playing_sound) return;
+
+        // 写入轻量静音段消除直流残余爆音
+        int16_t silence[64] = {0};
+        size_t dummy = 0;
+        i2s_write(I2S_NUM_0, silence, sizeof(silence), &dummy, 10 / portTICK_PERIOD_MS);
+
+        setCodecMicMode();
+        _is_streaming_llm = false;
+        _is_playing_stream = false;
+        _playing_sound = false;
+        _speaker_ref_rms = 0.0f;
+        _voice_consecutive_frames = 0;
+        Serial.println("[AUDIO] >>> LLM Stream Playback FINISHED. Codec restored to Mic mode. <<<");
+    }
+
+    // ==========================================
+    // 极轻量级人声采集打断触发器 (Voice Barge-In)
+    // 1. 动态过滤喇叭播放音频耦合 (Acoustic Echo Filtering)
+    // 2. 时域过零率 (Zero Crossing Rate) 人声频带鉴别 (排除低频撞击与高频白噪)
+    // 3. 连续帧平滑鉴别 (32ms~48ms 持续开口)，杜绝单点爆音误触
+    // ==========================================
+    bool checkVoiceBargeInTrigger() {
+        if (!_initialized || !_is_streaming_llm) return false;
+
+        const size_t CHUNK_SAMPLES = 256; // 16ms 采样窗
+        int16_t mic_buf[CHUNK_SAMPLES];
+        size_t bytes_read = 0;
+        esp_err_t res = i2s_read(I2S_NUM_0, mic_buf, sizeof(mic_buf), &bytes_read, 0);
+        if (res != ESP_OK || bytes_read < 64) return false;
+
+        size_t samples = bytes_read / sizeof(int16_t);
+        if (samples == 0) return false;
+
+        // 1. 提取直流偏置与计算麦克风总能量
+        int32_t mean = 0;
+        for (size_t i = 0; i < samples; ++i) mean += mic_buf[i];
+        mean /= (int32_t)samples;
+
+        int64_t sum_sq = 0;
+        int zero_crossings = 0;
+        int16_t prev_s = mic_buf[0] - mean;
+
+        for (size_t i = 0; i < samples; ++i) {
+            int16_t s = mic_buf[i] - mean;
+            sum_sq += (int32_t)s * (int32_t)s;
+            // 计算时域过零点 (Zero Crossing)
+            if ((prev_s < 0 && s >= 0) || (prev_s >= 0 && s < 0)) {
+                zero_crossings++;
+            }
+            prev_s = s;
+        }
+
+        float mic_raw_rms = std::sqrt((float)(sum_sq / samples));
+        int norm_zcr = (int)((float)zero_crossings * 256.0f / (float)samples);
+
+        // 2. 声学回声能量动态解耦 (结合 StickS3 腔体物理耦合标定与 DMA 滞后保护)
+        float echo_est = _speaker_ref_rms * 0.78f;
+        if (echo_est < 60.0f && _speaker_ref_rms > 30.0f) {
+            echo_est = 60.0f;
+        }
+        float clean_voice_rms = mic_raw_rms - echo_est;
+        if (clean_voice_rms < 0.0f) clean_voice_rms = 0.0f;
+
+        // 3. 映射到 0~100% 相对音量百分比
+        int clean_pct = (clean_voice_rms > 50.0f) ? static_cast<int>(((clean_voice_rms - 50.0f) / 800.0f) * 100.0f) : 0;
+        if (clean_pct > 100) clean_pct = 100;
+
+        // 同步更新屏幕 VU 能量
+        if (clean_pct > _last_mic_rms) {
+            _last_mic_rms = static_cast<uint8_t>((_last_mic_rms * 2 + clean_pct * 8) / 10);
+        } else {
+            _last_mic_rms = static_cast<uint8_t>((_last_mic_rms * 8 + clean_pct * 2) / 10);
+        }
+
+        // 4. 严谨灵敏人声特征判决 (声学自激抑制 + 灵敏人声响应)：
+        // a) 净人声音量显著高于喇叭回声: clean_pct >= 10% 且 clean_voice_rms >= 110.0f
+        // b) 总麦克风能量需超越喇叭回声门限: mic_raw_rms > (echo_est * 1.06f + 70.0f)
+        // c) 时域归一化过零率处于人类声学频段 [8, 145] (覆盖男低音80Hz至女高音与摩擦辅音)
+        bool frame_is_voice = (clean_pct >= 10) && (clean_voice_rms >= 110.0f) &&
+                              (norm_zcr >= 8 && norm_zcr <= 145) &&
+                              (mic_raw_rms > (echo_est * 1.06f + 70.0f));
+
+        if (frame_is_voice) {
+            _voice_consecutive_frames++;
+            if (_voice_consecutive_frames >= 2) { // 连续 2 帧 (~32ms) 确认为稳定人类开口说话，响应灵敏
+                _voice_consecutive_frames = 0;
+                Serial.printf("[AUDIO-VAD] True voice barge-in fired! MicRMS=%.1f, EchoEst=%.1f, CleanRMS=%.1f (Pct=%d%%), NormZCR=%d\n",
+                              mic_raw_rms, echo_est, clean_voice_rms, clean_pct, norm_zcr);
+                return true;
+            }
+        } else {
+            if (_voice_consecutive_frames > 0) {
+                _voice_consecutive_frames--;
+            }
+        }
+
+        return false;
+    }
+
+    // 智能本地人声活动判定 (过滤键盘敲击、碰桌子、呼吸声等非语音杂音)
+    // 返回: 是否处于真实稳定人声发音区间
+    bool isHumanVocalActivity(const int16_t* samples, size_t count) {
+        if (!samples || count < 128) return false;
+
+        int32_t mean = 0;
+        for (size_t i = 0; i < count; ++i) mean += samples[i];
+        mean /= (int32_t)count;
+
+        int64_t sum_sq = 0;
+        int zero_crossings = 0;
+        int16_t prev = samples[0] - mean;
+        for (size_t i = 0; i < count; ++i) {
+            int16_t s = samples[i] - mean;
+            sum_sq += (int32_t)s * (int32_t)s;
+            if ((prev < 0 && s >= 0) || (prev >= 0 && s < 0)) {
+                zero_crossings++;
+            }
+            prev = s;
+        }
+
+        float rms = std::sqrt((float)(sum_sq / count));
+        int norm_zcr = (int)((float)zero_crossings * 256.0f / (float)count);
+
+        // 真实人声特征灵敏标定：
+        // RMS >= 75.0f (约 2%~5% 音量，完全覆盖正常室内 30~50cm 正常人声发音，杜绝过高门槛将用户说话误杀)
+        // 且归一化过零率处于人类声学频段 [6, 150] (排除 <6 机械低频颠簸 与 >150 清脆高频爆破杂音)
+        return (rms >= 75.0f && norm_zcr >= 6 && norm_zcr <= 150);
+    }
+
+    bool isStreamingLLM() const { return _is_streaming_llm; }
+    size_t getStreamBufferAvailable() const { return _stream_ring_buf ? _stream_ring_buf->available() : 0; }
+
+    // 全双工麦克风非阻塞采样读取 (用于大模型上行 input_audio_buffer.append)
+    bool readMicSamples(int16_t* dest, size_t max_samples, size_t& samples_read) {
+        samples_read = 0;
+        if (!_initialized || !dest || max_samples == 0) return false;
+
+        size_t bytes_read = 0;
+        esp_err_t res = i2s_read(I2S_NUM_0, dest, max_samples * sizeof(int16_t), &bytes_read, 0);
+        if (res == ESP_OK && bytes_read > 0) {
+            samples_read = bytes_read / sizeof(int16_t);
+            // 同步解算麦克风实时能量 RMS 驱动屏幕 VU 表和本地 VAD
+            int32_t mean = 0;
+            for (size_t i = 0; i < samples_read; ++i) mean += dest[i];
+            mean /= (int32_t)samples_read;
+            int64_t sum_sq = 0;
+            for (size_t i = 0; i < samples_read; ++i) {
+                int32_t diff = dest[i] - mean;
+                sum_sq += (diff * diff);
+            }
+            _raw_rms = std::sqrt((float)(sum_sq / samples_read));
+            int pct = 0;
+            if (_raw_rms > 60.0f) {
+                pct = static_cast<int>(((_raw_rms - 60.0f) / 1000.0f) * 100.0f);
+            }
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+            if (pct > _last_mic_rms) {
+                _last_mic_rms = static_cast<uint8_t>((_last_mic_rms * 2 + pct * 8) / 10);
+            } else {
+                _last_mic_rms = static_cast<uint8_t>((_last_mic_rms * 8 + pct * 2) / 10);
+            }
+            return true;
+        }
+        return false;
+    }
 
     // 主线程周期性处理切片
     void update() {
@@ -538,9 +950,10 @@ public:
     }
 
     float getRawRMS() const { return _raw_rms; }
-    bool isPlaying() const { return _playing_sound || _is_playing_stream; }
+    bool isPlaying() const { return _playing_sound || _is_playing_stream || _is_streaming_llm; }
 
 private:
+    TaskHandle_t _audio_task_handle;
     TwoWire* _wire;
     bool _initialized;
     bool _speaker_powered;
@@ -564,6 +977,12 @@ private:
     bool _is_playing_stream;
     float _playback_progress;
 
+    // 流式大模型下行缓冲
+    AudioRingBuffer* _stream_ring_buf;
+    bool _is_streaming_llm;
+    volatile float _speaker_ref_rms;
+    volatile uint8_t _voice_consecutive_frames;
+
     void ensureRecordBuffer() {
         if (!_record_buf) {
             if (psramFound()) {
@@ -577,6 +996,10 @@ private:
     }
 
     bool writeESReg(uint8_t reg, uint8_t val) {
+        if (!_wire) return false;
+        I2CLockGuard guard(50);
+        if (!guard.isAcquired()) return false;
+
         _wire->beginTransmission(ES8311_ADDR);
         _wire->write(reg);
         _wire->write(val);
@@ -597,6 +1020,20 @@ private:
         writeESReg(0x16, 0x03); // ADC PGA Gain (+18dB)
         writeESReg(0x17, 0xDF); // ADC Volume (+10dB)
         writeESReg(0x1C, 0x6A); // ADC Equalizer Bypass & DC Offset Cancel
+        writeESReg(0x32, 0xBF); // DAC Volume (0dB)
+        writeESReg(0x37, 0x08); // Bypass DAC Equalizer
+    }
+
+    void setCodecFullDuplexMode() {
+        // 全双工模式：同时开启 ADC 拾音与 DAC 放音，保证麦克风硬件时钟与放大器持续工作
+        writeESReg(0x01, 0xBF); // CLKADC_ON=1 & CLKDAC_ON=1 (同时保持 ADC 和 DAC 时钟)
+        writeESReg(0x0E, 0x02); // Enable Analog PGA & ADC Modulator
+        writeESReg(0x14, 0x10); // Mic1p-Mic1n Differential Input
+        writeESReg(0x16, 0x03); // ADC PGA Gain (+18dB)
+        writeESReg(0x17, 0xDF); // ADC Volume (+10dB)
+        writeESReg(0x1C, 0x6A); // ADC Equalizer Bypass & DC Offset Cancel
+        writeESReg(0x12, 0x00); // Power Up DAC
+        writeESReg(0x13, 0x10); // Enable Output to HP/PA
         writeESReg(0x32, 0xBF); // DAC Volume (0dB)
         writeESReg(0x37, 0x08); // Bypass DAC Equalizer
     }

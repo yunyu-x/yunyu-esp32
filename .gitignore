@@ -45,3 +45,23 @@ Desktop.ini
 # SPICE simulation transient logs
 hardware/tools/ngspice/work/*.log
 hardware/tools/ngspice/work/*.raw
+
+# External Microduck repositories & large assets
+/microduck/microduck/
+/microduck/microduck_rl/
+/microduck/microduck-gst-plugins/
+/microduck/duck_detector/
+/microduck/Open_Duck_Blender/
+/microduck/Open_Duck_Mini/
+/microduck/Open_Duck_Mini_Runtime/
+/microduck/Open_Duck_Playground/
+/microduck/Open_Duck_reference_motion_generator/
+/microduck/external_repos/
+
+# Test audio dumps and trace logs
+scripts/*.pcm
+scripts/*.wav
+*.log
+
+
+

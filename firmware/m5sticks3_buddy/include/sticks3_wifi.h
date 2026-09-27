@@ -3,15 +3,17 @@
  * -----------------------------------------------
  * M5Stack StickS3 2.4GHz Wi-Fi (802.11 b/g/n) 全功能网络通信子系统：
  * 1. 射频模式：
- *    - WIFI_AP_STA 双模并行运行 (SoftAP 免密热点 + STA 后台环境 AP 嗅探)
+ *    - WIFI_AP_STA 双模并行运行 (SoftAP 极速热点 + STA 真实局域网高速联网)
  *    - 运行在 ESP32-S3 双核架构下，与 BLE NUS 无缝时分复用共存
- * 2. 核心通信通道：
+ * 2. 核心网络通道：
  *    - SoftAP: SSID="StickS3-Buddy", IP="192.168.4.1" (免密极速连接)
- *    - TCP Server: 监听端口 8080，微信小程序“WiFi调试助手”/“TCP UDP助手”即连即发
- *    - UDP Server: 监听端口 8080，支持 UDP 调试报文与即时回显
- *    - HTTP Web Server: 监听端口 80，手机浏览器直连控制台（支持汉字提交与实时遥测）
- * 3. 消息统一分发：
- *    - 提供 setMessageCallback() 将来自 TCP / UDP / Web 的汉字指令统一交由主流程处理
+ *    - STA: 业界标准 Web 配网、环境 AP 列表扫描、NVS 持久化自动回连
+ *    - HTTP Web Server: 监听端口 80，全功能响应式手机/电脑控制台
+ *    - TCP Server: 监听端口 8080 (调试助手支持)
+ *    - UDP Server: 监听端口 8080 (调试助手支持)
+ * 3. 阿里云百炼 (Model Studio) 实时控制中枢：
+ *    - 网页端配置 API Key、音色与大模型
+ *    - 实时对话流式看板与中途打断 (Barge-In) 远程控制
  */
 
 #pragma once
@@ -24,6 +26,11 @@
 #include <WebServer.h>
 #include <functional>
 #include "sticks3_audio.h"
+#include "sticks3_wifi_config.h"
+#include "sticks3_bailian_client.h"
+#include "sticks3_memory_store.h"
+#include "sticks3_i2c_mutex.h"
+#include "sticks3_system_metrics.h"
 
 namespace sticks3 {
 
@@ -42,7 +49,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>StickS3 灵方双向音频与终端控制台</title>
+<title>StickS3 灵方双向音频与大模型语音终端</title>
 <style>
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 12px; }
 .card { background: #1e293b; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); border: 1px solid #334155; }
@@ -51,8 +58,9 @@ h1 { font-size: 16px; margin: 0 0 4px 0; color: #38bdf8; display: flex; align-it
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
 .stat { background: #0f172a; padding: 8px 10px; border-radius: 8px; }
 .stat-val { font-size: 14px; font-weight: bold; color: #4ade80; margin-top: 2px; }
-input[type=text] { width: 100%; box-sizing: border-box; padding: 11px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 14px; margin-bottom: 8px; }
-.btn { display: block; width: 100%; box-sizing: border-box; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; text-align: center; text-decoration: none; }
+input[type=text], input[type=password] { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 14px; margin-bottom: 8px; }
+select { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 13px; margin-bottom: 8px; }
+.btn { display: block; width: 100%; box-sizing: border-box; padding: 11px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; text-align: center; text-decoration: none; }
 .btn-primary { background: #0284c7; color: white; margin-bottom: 8px; }
 .btn-primary:active { background: #0369a1; }
 .btn-emerald { background: #059669; color: white; margin-bottom: 8px; }
@@ -60,8 +68,12 @@ input[type=text] { width: 100%; box-sizing: border-box; padding: 11px; border-ra
 .btn-sec { background: #334155; color: #cbd5e1; margin-bottom: 8px; }
 .btn-sec:active { background: #1e293b; }
 .btn-danger { background: #dc2626; color: white; margin-bottom: 8px; }
+.btn-danger:active { background: #b91c1c; }
+.btn-purple { background: #6366f1; color: white; margin-bottom: 8px; }
+.btn-amber { background: #d97706; color: white; margin-bottom: 8px; }
 .tag-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .tag { background: #334155; color: #38bdf8; font-size: 12px; padding: 5px 9px; border-radius: 6px; cursor: pointer; }
+.tag:hover { background: #475569; }
 .status-bar { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 6px; }
 .badge { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #334155; color: #93c5fd; }
 audio { width: 100%; height: 38px; border-radius: 8px; margin-top: 8px; outline: none; }
@@ -71,15 +83,114 @@ audio { width: 100%; height: 38px; border-radius: 8px; margin-top: 8px; outline:
 <body>
 
 <div class="card">
-  <h1>🤖 StickS3 灵方双向音频控制台</h1>
-  <div class="sub">WiFi热点: <b>StickS3-Buddy</b> | 终端IP: <b>192.168.4.1</b></div>
+  <h1>🤖 StickS3 智能语音与双向音频终端</h1>
+  <div class="sub">热点: <b>StickS3-Buddy (192.168.4.1)</b> | 局域网: <b id="lanIp">未联网</b></div>
   <div class="grid">
     <div class="stat"><div>姿态俯仰 / 横滚</div><div class="stat-val" id="imu">0° / 0°</div></div>
-    <div class="stat"><div>环境 Wi-Fi</div><div class="stat-val" id="wifi">扫描中...</div></div>
+    <div class="stat"><div>百炼大模型状态</div><div class="stat-val" id="blStateHeader">未连接</div></div>
   </div>
 </div>
 
-<!-- 核心板块 1: 设备端录音回放 (StickS3 -> 网页) -->
+<!-- 板块 A: 业界标准 Wi-Fi 智能配网中心 -->
+<div class="card" style="border-left: 4px solid #6366f1;">
+  <div class="section-title">
+    <span>📶 Wi-Fi 智能网页配网 (STA 局域网)</span>
+    <span class="badge" id="staBadge" style="background:#312e81;color:#a5b4fc">检查中...</span>
+  </div>
+  <div style="font-size: 12px; color: #cbd5e1; margin-bottom: 6px;" id="staStatusText">⚪ 正在读取 Wi-Fi 联网状态...</div>
+  
+  <div style="margin-bottom: 8px;">
+    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">周边 2.4GHz Wi-Fi (点击快速填入):</div>
+    <div class="tag-group" id="apTags">
+      <span class="tag" onclick="refreshAPs()">🔄 点击扫描周边 Wi-Fi</span>
+    </div>
+  </div>
+
+  <input type="text" id="wifiSsidInput" placeholder="Wi-Fi 名称 (SSID)">
+  <input type="password" id="wifiPassInput" placeholder="Wi-Fi 密码 (无密码留空)">
+  <button class="btn btn-purple" onclick="connectWiFi()">⚡ 连接并保存真实 Wi-Fi (入网)</button>
+  <div class="status-bar" id="wifiFeedback">💡 配网成功后 StickS3 自动加入局域网并具备公网访问能力</div>
+</div>
+
+<!-- 板块 B: 阿里云百炼 (Model Studio) 设置中心 -->
+<div class="card" style="border-left: 4px solid #f59e0b;">
+  <div class="section-title">
+    <span>⚙️ 阿里云百炼大模型设置中心</span>
+    <span class="badge" id="blBadge" style="background:#78350f;color:#fcd34d">未配置</span>
+  </div>
+  <div style="font-size: 12px; color: #cbd5e1; margin-bottom: 6px;" id="blStatusText">⚪ 正在检查百炼大模型连接状态...</div>
+
+  <div style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">百炼 DashScope API Key:</div>
+  <input type="password" id="blKeyInput" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+  
+  <div class="grid" style="margin-bottom: 8px;">
+    <div>
+      <div style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">对话音色:</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <select id="blVoiceSelect" style="flex:1;">
+          <option value="Tina">Tina (甜美温暖 推荐)</option>
+          <option value="Serena">Serena (知性自然)</option>
+          <option value="Cindy">Cindy (活泼台湾腔)</option>
+          <option value="Raymond">Raymond (清亮男声)</option>
+          <option value="Zane">Zane (磁性男声)</option>
+          <option value="Katerina">Katerina (成熟御姐)</option>
+          <option value="Mia">Mia (温柔细腻)</option>
+          <option value="Chloe">Chloe (活力俏皮)</option>
+        </select>
+        <button class="btn btn-purple" style="margin-bottom:0;padding:7px 11px;font-size:12px;white-space:nowrap;" onclick="previewSelectedVoice()">🔊 试听</button>
+      </div>
+    </div>
+    <div>
+      <div style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">实时大模型:</div>
+      <select id="blModelSelect">
+        <option value="qwen3.8-omni-flash-realtime">qwen3.8-omni-flash (极速推荐)</option>
+        <option value="qwen-omni-turbo-realtime">qwen-omni-turbo</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="btn btn-amber" onclick="saveBailianConfig()">💾 保存配置并连接百炼</button>
+  <div class="status-bar" id="blFeedback">💡 密钥持久化加密保存于 StickS3 NVS 分区，重启不丢失</div>
+</div>
+
+<!-- 板块 C: 大模型实时流式对话与中途打断控制台 -->
+<div class="card" style="border-left: 4px solid #ef4444;">
+  <div class="section-title">
+    <span>🎙️ 智能大模型问答流 (全双工 + 实时打断)</span>
+    <span class="badge" id="chatStateBadge" style="background:#991b1b;color:#fca5a5">待命中</span>
+  </div>
+  
+  <div style="background:#020617;border:1px solid #1e293b;border-radius:8px;padding:10px;margin-bottom:10px;min-height:70px;font-size:13px;line-height:1.5;">
+    <div style="color:#38bdf8;margin-bottom:4px;" id="liveUserQuery">🗣️ 问话: 等待你对准 StickS3 麦克风讲话...</div>
+    <div style="color:#4ade80;" id="liveAiReply">🤖 回复: 准备就绪，实时流式语音问答中...</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <button class="btn btn-danger" style="margin-bottom:0;" onclick="triggerBargeIn()">⏹ 立即中途打断 (Barge-In)</button>
+    <button class="btn btn-sec" style="margin-bottom:0;" onclick="resetChat()">🔄 开启新会话</button>
+  </div>
+  <div class="status-bar" style="margin-top:8px;">💡 说话过程中任何时候开口或按正面键 A，均可毫秒级打断 AI 播音</div>
+</div>
+
+<!-- 板块 M: 全双工实时对话记忆与历史存档 (Flash NVS + PSRAM) -->
+<div class="card" style="border-left: 4px solid #10b981;">
+  <div class="section-title">
+    <span>🧠 全双工实时对话记忆与历史存档</span>
+    <span class="badge" id="memCountBadge" style="background:#064e3b;color:#a7f3d0">0 轮记忆</span>
+  </div>
+  <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;">
+    Flash NVS + PSRAM 实时持久化，支持跨会话与断电记忆回忆，多轮上下文自动注入大模型。
+  </div>
+  <div id="memoryTimeline" style="max-height: 220px; overflow-y: auto; background: #020617; border: 1px solid #1e293b; border-radius: 8px; padding: 8px; margin-bottom: 8px; font-size: 12px;">
+    <div style="color: #64748b; text-align: center; padding: 12px;">暂无历史对话记忆</div>
+  </div>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+    <button class="btn btn-sec" style="margin-bottom:0;" onclick="refreshMemoryList()">🔄 刷新记忆</button>
+    <button class="btn btn-danger" style="margin-bottom:0;" onclick="clearMemory()">🗑️ 清空记忆</button>
+  </div>
+</div>
+
+<!-- 板块 D: 设备端录音回放 (StickS3 -> 网页) -->
 <div class="card" style="border-left: 4px solid #38bdf8;">
   <div class="section-title">
     <span>📻 设备端按键录音回放</span>
@@ -95,53 +206,47 @@ audio { width: 100%; height: 38px; border-radius: 8px; margin-top: 8px; outline:
     <button class="btn btn-primary" onclick="playDeviceAudio()">▶ 播放 StickS3 录音</button>
     <button class="btn btn-sec" onclick="triggerDeviceRecord()">🔴 远程控制录音</button>
   </div>
-  <div class="status-bar">💡 按 StickS3 正面主键 A 随时录制 10 秒内音频，网页端自动同步</div>
 </div>
 
-<!-- 核心板块 2: 网页端录音下发至设备播放 (网页 -> StickS3, 针对 iOS Safari 优化) -->
+<!-- 板块 E: 网页端录音下发至设备播放 (针对 iOS Safari 优化) -->
 <div class="card" style="border-left: 4px solid #34d399;">
   <div class="section-title">
     <span>🎙️ 网页录音下发 StickS3 播放</span>
     <span class="badge" style="background:#064e3b;color:#6ee7b7">iOS/Android 双模</span>
   </div>
   
-  <!-- 通用及 iOS Safari 专用音频文件通道 (去除 capture 属性，严禁调起相机) -->
   <label class="btn btn-emerald" style="cursor: pointer;">
     📁 选取音频文件 / 语音备忘录上传
     <input type="file" id="audioFileInput" accept="audio/*,.wav,.mp3,.m4a,.aac,.caf" style="display:none">
   </label>
 
-  <!-- 现代浏览器实时麦克风录音通道 (Android / PC Chrome) -->
   <button class="btn btn-sec" id="btnLiveRec" onclick="toggleLiveRecord()">
     🎙️ 实时按住/点击录音 (最长 10 秒)
   </button>
 
-  <!-- 一键测试和弦下发 (免麦克风授权极速验证喇叭发声) -->
   <button class="btn btn-sec" style="background:#1e293b;border:1px solid #059669;color:#6ee7b7;" onclick="sendTestAudio()">
-    🎵 生成 16kHz 和弦测试音下发 (iPhone 免授权极速试听)
+    🎵 生成 16kHz 和弦测试音下发
   </button>
 
   <div class="status-bar" id="audioStatusHint" style="color: #38bdf8; min-height: 16px;">准备就绪</div>
-  <div class="status-bar">💡 iPhone 优先选取语音备忘录/音频文件；Android/PC 可直接点击实时录音</div>
 </div>
 
-<!-- 基础通信板块: 中文/汉字下发与测试 -->
+<!-- 板块 F: 基础通信: 中文/汉字下发 -->
 <div class="card">
-  <div class="section-title">💬 发送中文/信息到屏幕</div>
+  <div class="section-title">💬 发送中文/指令到屏幕</div>
   <div class="tag-group">
-    <span class="tag" onclick="fill('灵方机器人 就绪')">灵方机器人</span>
-    <span class="tag" onclick="fill('双向音频测试通过')">音频测试</span>
+    <span class="tag" onclick="fill('大模型流式问答就绪')">百炼问答</span>
+    <span class="tag" onclick="fill('中途打断测试正常')">打断测试</span>
     <span class="tag" onclick="fill('你好 StickS3')">你好StickS3</span>
-    <span class="tag" onclick="fill('微信WiFi助手 连接成功')">微信连接</span>
+    <span class="tag" onclick="fill('WiFi 配网成功')">配网成功</span>
   </div>
   <input type="text" id="msgInput" placeholder="输入任意汉字或指令...">
   <button class="btn btn-primary" onclick="sendMsg()">🚀 发送到 StickS3 屏幕</button>
   <button class="btn btn-sec" onclick="playBeep()">🔔 播放和弦提示音</button>
-  <div class="status-bar" id="statusHint">支持微信小程序: WiFi调试助手 / TCP 192.168.4.1:8080</div>
 </div>
 
 <script>
-// 音频重采样并转码为标准 16kHz 16-bit Mono WAV Blob (纯 JS，零外部依赖，100% 浏览器兼容)
+// 音频重采样并转码为标准 16kHz 16-bit Mono WAV Blob
 function audioBufferTo16kMonoWav(audioBuffer) {
   var targetSampleRate = 16000;
   var srcRate = audioBuffer.sampleRate;
@@ -196,7 +301,6 @@ function audioBufferTo16kMonoWav(audioBuffer) {
   return new Blob([view], { type: 'audio/wav' });
 }
 
-// 上传 WAV 音频 Blob 到 StickS3 并触发喇叭回放
 function uploadWavBlob(blob, filename) {
   var statusHint = document.getElementById('audioStatusHint');
   statusHint.innerText = '正在上传到 StickS3 播放 (' + Math.round(blob.size / 1024) + ' KB)...';
@@ -213,7 +317,6 @@ function uploadWavBlob(blob, filename) {
     });
 }
 
-// 监听音频文件选择 (iOS 原生语音备忘录 / 本地音频文件上传)
 document.getElementById('audioFileInput').addEventListener('change', function(e) {
   var file = e.target.files[0];
   if (!file) return;
@@ -238,7 +341,6 @@ document.getElementById('audioFileInput').addEventListener('change', function(e)
   reader.readAsArrayBuffer(file);
 });
 
-// 生成 1 秒 16kHz 双频和弦测试 WAV 并上传 (C5 523Hz + E5 659Hz，免授权极速验证喇叭)
 function sendTestAudio() {
   var statusHint = document.getElementById('audioStatusHint');
   statusHint.innerText = '正在合成 16kHz 双频和弦测试音...';
@@ -257,8 +359,8 @@ function sendTestAudio() {
   writeStr(8, 'WAVE');
   writeStr(12, 'fmt ');
   view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, 1, true); // Mono
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
   view.setUint32(24, sampleRate, true);
   view.setUint32(28, sampleRate * 2, true);
   view.setUint16(32, 2, true);
@@ -279,7 +381,6 @@ function sendTestAudio() {
   uploadWavBlob(testBlob, 'chord_test_16k.wav');
 }
 
-// 现代浏览器实时麦克风录音处理 (Android / PC Chrome)
 var mediaRecorder = null;
 var audioChunks = [];
 var recTimer = null;
@@ -296,9 +397,8 @@ function toggleLiveRecord() {
     return;
   }
 
-  // 严禁在此调用 file input click，彻底杜绝 iOS 调起相机
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    statusHint.innerHTML = '<span style="color:#fbbf24">💡 提示: 苹果 iOS 限制普通 HTTP 页面访问麦克风。请点击上方【📁 选取音频文件/语音备忘录】或【🎵 和弦测试音】！</span>';
+    statusHint.innerHTML = '<span style="color:#fbbf24">💡 提示: 苹果 iOS 限制普通 HTTP 页面访问麦克风。请点击上方【选取音频文件/语音备忘录】或【和弦测试音】！</span>';
     return;
   }
 
@@ -333,31 +433,18 @@ function toggleLiveRecord() {
       }
     }, 500);
   }).catch(function(err) {
-    statusHint.innerHTML = '<span style="color:#fbbf24">⚠️ 麦克风无法开启: ' + (err.message || err.name) + '，请使用上方文件选取或测试音</span>';
+    statusHint.innerHTML = '<span style="color:#fbbf24">⚠️ 麦克风无法开启: ' + (err.message || err.name) + '</span>';
   });
 }
 
-// 设备端录音状态同步与控制
+// 设备端录音
 var lastDevAudioId = 0;
 var devAudioPlayer = document.getElementById('deviceAudioPlayer');
-
-devAudioPlayer.onerror = function() {
-  var err = devAudioPlayer.error;
-  var msg = '未知错误';
-  if (err) {
-    if (err.code === 1) msg = '播放被中断';
-    else if (err.code === 2) msg = '网络加载错误';
-    else if (err.code === 3) msg = '音频解码失败 (格式或损坏)';
-    else if (err.code === 4) msg = '音频源不支持或无录音文件';
-  }
-  var devStatus = document.getElementById('devRecStatus');
-  devStatus.innerHTML = '<span style="color:#ef4444;font-weight:600;">❌ 播放错误: ' + msg + ' (代码 ' + (err ? err.code : 0) + ')</span>';
-};
 
 function playDeviceAudio() {
   var player = document.getElementById('deviceAudioPlayer');
   var devStatus = document.getElementById('devRecStatus');
-  if (!player.src || player.src === '' || player.src.indexOf('/audio/device_record.wav') === -1) {
+  if (!player.src || player.src.indexOf('/audio/device_record.wav') === -1) {
     player.src = '/audio/device_record.wav?t=' + Date.now();
   }
   player.load();
@@ -366,8 +453,7 @@ function playDeviceAudio() {
     playPromise.then(function() {
       devStatus.innerHTML = '<span style="color:#38bdf8;font-weight:600;">▶ 正在播放 StickS3 录音...</span>';
     }).catch(function(e) {
-      console.warn("Audio play error:", e);
-      devStatus.innerHTML = '<span style="color:#f87171;">⚠️ 播放失败: ' + (e.message || e) + ' (请先按键录音)</span>';
+      devStatus.innerHTML = '<span style="color:#f87171;">⚠️ 播放失败: ' + (e.message || e) + '</span>';
     });
   }
 }
@@ -384,13 +470,265 @@ function sendMsg() {
   if(!t) return;
   fetch('/send', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'msg=' + encodeURIComponent(t) })
   .then(function(r) { return r.json(); }).then(function(d) {
-    document.getElementById('statusHint').innerText = '屏幕已更新: ' + t;
     document.getElementById('msgInput').value = '';
-  }).catch(function() { document.getElementById('statusHint').innerText = '发送完成'; });
+  });
 }
 function playBeep() { fetch('/beep'); }
 
+// ==========================================
+// 核心 A: Wi-Fi 智能配网交互逻辑
+// ==========================================
+function selectSSID(ssid) {
+  document.getElementById('wifiSsidInput').value = ssid;
+  document.getElementById('wifiPassInput').focus();
+}
+
+function refreshAPs() {
+  var apBox = document.getElementById('apTags');
+  apBox.innerHTML = '<span class="tag">⏳ 正在扫描周边 AP...</span>';
+  fetch('/wifi/scan_list')
+    .then(function(r) { return r.json(); })
+    .then(function(aps) {
+      if (!aps || aps.length === 0) {
+        apBox.innerHTML = '<span class="tag" onclick="refreshAPs()">🔄 未发现 AP，点击重试</span>';
+        return;
+      }
+      var html = '<span class="tag" onclick="refreshAPs()" style="background:#475569;">🔄 刷新</span>';
+      for (var i = 0; i < aps.length; i++) {
+        var ap = aps[i];
+        html += '<span class="tag" onclick="selectSSID(\'' + ap.ssid + '\')">' + ap.ssid + ' (' + ap.rssi + 'dBm)</span>';
+      }
+      apBox.innerHTML = html;
+    })
+    .catch(function() {
+      apBox.innerHTML = '<span class="tag" onclick="refreshAPs()">🔄 扫描失败，点击重试</span>';
+    });
+}
+
+function connectWiFi() {
+  var ssid = document.getElementById('wifiSsidInput').value.trim();
+  var pass = document.getElementById('wifiPassInput').value;
+  var fb = document.getElementById('wifiFeedback');
+  if (!ssid) {
+    fb.innerHTML = '<span style="color:#f87171">⚠️ 请输入或选择 Wi-Fi 名称</span>';
+    return;
+  }
+  fb.innerHTML = '<span style="color:#38bdf8">⏳ 正在连接 "' + ssid + '"，请稍候约 5~10 秒...</span>';
+  fetch('/wifi/connect', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'ssid=' + encodeURIComponent(ssid) + '&pass=' + encodeURIComponent(pass)
+  }).then(function(r) { return r.json(); })
+    .then(function(res) {
+      fb.innerHTML = '<span style="color:#4ade80">✔ 连接指令已下发！StickS3 正在握手中...</span>';
+    })
+    .catch(function(err) {
+      fb.innerHTML = '<span style="color:#f87171">❌ 发送配网指令失败: ' + err + '</span>';
+    });
+}
+
+// ==========================================
+// 核心 B: 阿里云百炼配置交互逻辑与即时试听
+// ==========================================
+function saveBailianConfig() {
+  var key = document.getElementById('blKeyInput').value.trim();
+  var voice = document.getElementById('blVoiceSelect').value;
+  var model = document.getElementById('blModelSelect').value;
+  var fb = document.getElementById('blFeedback');
+
+  fb.innerHTML = '<span style="color:#38bdf8">⏳ 正在保存配置并应用音色/模型设置...</span>';
+
+  fetch('/bailian/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'key=' + encodeURIComponent(key) + '&voice=' + encodeURIComponent(voice) + '&model=' + encodeURIComponent(model)
+  }).then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.status === 'ok') {
+        fb.innerHTML = '<span style="color:#4ade80">✔ 配置已生效！当前音色: <b>' + (res.voice || voice) + '</b>，正在同步会话...</span>';
+      } else {
+        fb.innerHTML = '<span style="color:#f87171">⚠️ ' + (res.message || '保存失败，请检查 API Key') + '</span>';
+      }
+    })
+    .catch(function(err) {
+      fb.innerHTML = '<span style="color:#f87171">❌ 保存百炼配置失败: ' + err + '</span>';
+    });
+}
+
+function previewSelectedVoice() {
+  var voice = document.getElementById('blVoiceSelect').value;
+  var fb = document.getElementById('blFeedback');
+  fb.innerHTML = '<span style="color:#38bdf8">🔊 正在请求 StickS3 以 <b>' + voice + '</b> 音色发声试听...</span>';
+  fetch('/bailian/preview_voice', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'voice=' + encodeURIComponent(voice)
+  }).then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.status === 'ok') {
+        fb.innerHTML = '<span style="color:#4ade80">✔ 已触发 <b>' + voice + '</b> 音色自我介绍试听播报！请聆听音响。</span>';
+      } else {
+        fb.innerHTML = '<span style="color:#f87171">⚠️ 试听失败: ' + (d.message || '') + '</span>';
+      }
+    }).catch(function(e) {
+      fb.innerHTML = '<span style="color:#f87171">❌ 试听网络错误: ' + e + '</span>';
+    });
+}
+
+// ==========================================
+// 核心 M: 全双工实时对话记忆与历史存档管理
+// ==========================================
+function refreshMemoryList() {
+  fetch('/memory/list')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var badge = document.getElementById('memCountBadge');
+      var tl = document.getElementById('memoryTimeline');
+      if (!d.turns || d.turns.length === 0) {
+        badge.innerText = '0 轮记忆';
+        badge.style.background = '#334155';
+        tl.innerHTML = '<div style="color: #64748b; text-align: center; padding: 12px;">暂无历史对话记忆</div>';
+        return;
+      }
+      badge.innerText = d.total + ' 轮记忆';
+      badge.style.background = '#064e3b';
+      var html = '';
+      for (var i = 0; i < d.turns.length; i++) {
+        var t = d.turns[i];
+        html += '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:6px;padding:6px 8px;margin-bottom:6px;">' +
+                '<div style="display:flex;justify-content:space-between;color:#94a3b8;font-size:11px;margin-bottom:2px;">' +
+                '<span><b>#' + t.id + '</b> [' + (t.voice || 'Tina') + ']</span><span>' + t.time + '</span>' +
+                '</div>' +
+                '<div style="color:#38bdf8;margin-bottom:2px;">🗣️ ' + t.user + '</div>' +
+                '<div style="color:#4ade80;">🤖 ' + t.ai + '</div>' +
+                '</div>';
+      }
+      tl.innerHTML = html;
+    }).catch(function(){});
+}
+
+function clearMemory() {
+  if (!confirm('确定清空 StickS3 当前全部对话记忆与 Flash 存档吗？')) return;
+  fetch('/memory/clear', { method: 'POST' })
+    .then(function() {
+      refreshMemoryList();
+    });
+}
+
+// ==========================================
+// 核心 C: 实时打断 (Barge-In) 与新会话控制
+// ==========================================
+function triggerBargeIn() {
+  fetch('/bailian/interrupt', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+      document.getElementById('chatStateBadge').innerText = '已打断';
+      document.getElementById('chatStateBadge').style.background = '#ea580c';
+    });
+}
+
+function resetChat() {
+  fetch('/bailian/new_chat', { method: 'POST' });
+}
+
+// ==========================================
+// 周期性轮询与动态状态看板刷新
+// ==========================================
 function fetchStatus() {
+  // 1. Wi-Fi STA 状态轮询
+  fetch('/wifi/status').then(function(r) { return r.json(); }).then(function(d) {
+    var staBadge = document.getElementById('staBadge');
+    var staText = document.getElementById('staStatusText');
+    var lanIp = document.getElementById('lanIp');
+
+    var wfb = document.getElementById('wifiFeedback');
+    if (d.sta_state === 'connected') {
+      staBadge.innerText = '已联网 (' + d.sta_ip + ')';
+      staBadge.style.background = '#065f46';
+      staBadge.style.color = '#6ee7b7';
+      staText.innerHTML = '<span style="color:#4ade80">🟢 已连接至 <b>' + d.sta_ssid + '</b> | IP: <b>' + d.sta_ip + '</b> | 信号: ' + d.sta_rssi + ' dBm</span>';
+      lanIp.innerText = d.sta_ip;
+      if (wfb && (wfb.innerText.indexOf('握手') !== -1 || wfb.innerText.indexOf('正在连接') !== -1)) {
+        wfb.innerHTML = '<span style="color:#4ade80">✔ 已成功连入 ' + d.sta_ssid + '！局域网 IP: <b>' + d.sta_ip + '</b></span>';
+      }
+    } else if (d.sta_state === 'connecting') {
+      staBadge.innerText = '连接中...';
+      staBadge.style.background = '#854d0e';
+      staBadge.style.color = '#fef08a';
+      staText.innerHTML = '<span style="color:#facc15">🟡 正在连接 Wi-Fi: ' + d.sta_ssid + '...</span>';
+    } else if (d.sta_state === 'failed') {
+      staBadge.innerText = '未联网 (仅热点)';
+      staBadge.style.background = '#7f1d1d';
+      staBadge.style.color = '#fca5a5';
+      staText.innerHTML = '<span style="color:#f87171">🔴 连接失败或密码错误，请重新选择配网</span>';
+      lanIp.innerText = '未联网';
+      if (wfb && (wfb.innerText.indexOf('握手') !== -1 || wfb.innerText.indexOf('正在连接') !== -1)) {
+        wfb.innerHTML = '<span style="color:#f87171">❌ 连接失败或超时，请检查密码重新连接</span>';
+      }
+    } else {
+      staBadge.innerText = '未配网';
+      staBadge.style.background = '#334155';
+      staBadge.style.color = '#94a3b8';
+      staText.innerHTML = '<span style="color:#94a3b8">⚪ 尚未配置可用 Wi-Fi，请在下方选择 AP 配网</span>';
+      lanIp.innerText = '未联网';
+    }
+  }).catch(function(){});
+
+  // 2. 阿里云百炼大模型状态轮询
+  fetch('/bailian/status').then(function(r) { return r.json(); }).then(function(d) {
+    var blBadge = document.getElementById('blBadge');
+    var blText = document.getElementById('blStatusText');
+    var blHeader = document.getElementById('blStateHeader');
+    var chatBadge = document.getElementById('chatStateBadge');
+
+    blHeader.innerText = d.state_name;
+    blBadge.innerText = d.state_name;
+
+    if (d.state_code === 3) { // LISTENING
+      blBadge.style.background = '#0284c7'; blBadge.style.color = '#fff';
+      chatBadge.innerText = '● 正在聆听中'; chatBadge.style.background = '#0284c7';
+    } else if (d.state_code === 4) { // THINKING
+      blBadge.style.background = '#d97706'; blBadge.style.color = '#fff';
+      chatBadge.innerText = '⚡ 思考推理中'; chatBadge.style.background = '#d97706';
+    } else if (d.state_code === 5) { // SPEAKING
+      blBadge.style.background = '#059669'; blBadge.style.color = '#fff';
+      chatBadge.innerText = '▶ AI 回复中'; chatBadge.style.background = '#059669';
+    } else if (d.state_code === 6) { // INTERRUPTED
+      blBadge.style.background = '#dc2626'; blBadge.style.color = '#fff';
+      chatBadge.innerText = '⏹ 中途打断'; chatBadge.style.background = '#dc2626';
+    } else if (d.state_code === 2) { // CONNECTED_IDLE
+      blBadge.style.background = '#15803d'; blBadge.style.color = '#fff';
+      chatBadge.innerText = '待命中'; chatBadge.style.background = '#334155';
+    } else {
+      blBadge.style.background = '#334155'; blBadge.style.color = '#94a3b8';
+      chatBadge.innerText = d.state_name; chatBadge.style.background = '#334155';
+    }
+
+    blText.innerHTML = '大模型状态: <b>' + d.state_name + '</b> | 当前音色: <b>' + (d.configured_voice || 'Tina') + '</b> | 累计打断: <b>' + d.interrupts + '</b> 次' + (d.state_code === 7 && d.error ? ' | 错误: <span style="color:#f87171">' + d.error + '</span>' : '');
+
+    if (d.has_key && !document.getElementById('blKeyInput').placeholder.includes('已保存')) {
+      document.getElementById('blKeyInput').placeholder = 'sk-•••••••••••••••• (已保存，留空保持不变)';
+    }
+    if (d.configured_voice && !window._voice_initialized) {
+      window._voice_initialized = true;
+      var sel = document.getElementById('blVoiceSelect');
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === d.configured_voice) {
+          sel.selectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (d.user_query) {
+      document.getElementById('liveUserQuery').innerText = '🗣️ 问话: ' + d.user_query;
+    }
+    if (d.ai_reply) {
+      document.getElementById('liveAiReply').innerText = '🤖 回复: ' + d.ai_reply;
+    }
+  }).catch(function(){});
+
+  // 3. 原生音频与姿态遥测
   fetch('/audio/status').then(function(r) { return r.json(); }).then(function(d) {
     var devStatus = document.getElementById('devRecStatus');
     var player = document.getElementById('deviceAudioPlayer');
@@ -406,18 +744,20 @@ function fetchStatus() {
         player.load();
       }
     } else {
-      devStatus.innerHTML = '<span style="color:#94a3b8">⚪ 暂无录音 (按 StickS3 正面主键 A 开始录音)</span>';
+      devStatus.innerHTML = '<span style="color:#94a3b8">⚪ 暂无本地录音</span>';
     }
   }).catch(function(){});
 
   fetch('/status').then(function(r) { return r.json(); }).then(function(d) {
-    document.getElementById('imu').innerText = 'R:' + d.roll + ' P:' + d.pitch;
-    document.getElementById('wifi').innerText = d.aps + ' 个AP';
+    document.getElementById('imu').innerText = 'R:' + d.roll + '° P:' + d.pitch + '°';
   }).catch(function(){});
 }
 
-setInterval(fetchStatus, 1500);
+setInterval(fetchStatus, 1200);
+setInterval(refreshMemoryList, 3000);
 fetchStatus();
+refreshMemoryList();
+refreshAPs();
 </script>
 </body>
 </html>)rawliteral";
@@ -473,37 +813,47 @@ public:
         _web_server.begin();
         Serial.println("[WIFI-WEB] Mobile Web Console running on http://192.168.4.1:80");
 
+        // 6. 初始化 NVS 配网与百炼客户端
+        StickS3ConfigManager::getInstance().begin();
+        StickS3BailianClient::getInstance().begin();
+
         _initialized = true;
 
-        // 6. 启动首次环境 AP 异步扫描
+        // 7. 启动首次环境 AP 异步扫描
         triggerScan();
         Serial.println("[WIFI] Wi-Fi Multi-Channel Subsystem ONLINE!");
     }
 
-    // 触发非阻塞异步扫描
     void triggerScan() {
         if (!_initialized) return;
         if (_is_scanning) return;
+        // 若百炼语音连接活跃，严格禁止执行 WiFi 扫描，避免 RF 离频导致 WebSocket 丢包中断与 errno=11
+        if (StickS3BailianClient::getInstance().isConnected()) {
+            return;
+        }
 
         WiFi.scanNetworks(true, true);
         _is_scanning = true;
         _last_scan_time = millis();
     }
 
-    // 周期性轮询与网络事件分发 (在 loop() 中高频调用)
     void update() {
         if (!_initialized) return;
 
         // A. 处理 Web Server 请求
         _web_server.handleClient();
 
-        // B. 处理 TCP 客户端连接与收发 (微信小程序 WiFi/TCP 调试助手)
+        // B. 处理 TCP 客户端连接与收发
         handleTCP();
 
-        // C. 处理 UDP 数据报文 (UDP 调试工具)
+        // C. 处理 UDP 数据报文
         handleUDP();
 
-        // D. 轮询环境 AP 异步扫描状态
+        // D. 更新 STA 配网状态机与百炼大模型客户端
+        StickS3ConfigManager::getInstance().update();
+        StickS3BailianClient::getInstance().update();
+
+        // E. 轮询环境 AP 异步扫描状态
         if (_is_scanning) {
             int16_t status = WiFi.scanComplete();
             if (status >= 0) {
@@ -521,7 +871,7 @@ public:
                 }
 
                 _cached_scan_json = "{\"type\":\"wifi_list\",\"count\":" + String(_networks_found) + ",\"networks\":[";
-                int limit = _networks_found < 5 ? _networks_found : 5;
+                int limit = _networks_found < 8 ? _networks_found : 8;
                 for (int i = 0; i < limit; ++i) {
                     if (i > 0) _cached_scan_json += ",";
                     _cached_scan_json += "{\"ssid\":\"" + WiFi.SSID(i) + "\",\"rssi\":" + String(WiFi.RSSI(i)) + "}";
@@ -534,7 +884,9 @@ public:
                 _is_scanning = false;
             }
         } else {
-            if (millis() - _last_scan_time > _scan_interval_ms) {
+            // 仅在 STA 尚未连接成功且百炼未在线时，才进行低频周期性 AP 扫描
+            if (!StickS3ConfigManager::getInstance().isStaConnected() &&
+                millis() - _last_scan_time > _scan_interval_ms) {
                 triggerScan();
             }
         }
@@ -563,10 +915,219 @@ private:
         });
 
         // ==========================================
+        // 核心板块 1: 业界标准 Wi-Fi 智能配网端点
+        // ==========================================
+
+        // 获取 AP 扫描列表 (JSON Array)
+        _web_server.on("/wifi/scan_list", HTTP_GET, [this]() {
+            int n = WiFi.scanComplete();
+            if (n < 0) {
+                triggerScan();
+                _web_server.send(200, "application/json", "[]");
+                return;
+            }
+            String json = "[";
+            int limit = (n > 10) ? 10 : n;
+            for (int i = 0; i < limit; i++) {
+                if (i > 0) json += ",";
+                json += "{\"ssid\":\"" + WiFi.SSID(i) + "\",\"rssi\":" + String(WiFi.RSSI(i)) + "}";
+            }
+            json += "]";
+            _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
+        // 提交 Wi-Fi 配网参数并触发连接
+        _web_server.on("/wifi/connect", HTTP_POST, [this]() {
+            String ssid = _web_server.hasArg("ssid") ? _web_server.arg("ssid") : "";
+            String pass = _web_server.hasArg("pass") ? _web_server.arg("pass") : "";
+            ssid.trim();
+            if (ssid.length() == 0) {
+                _web_server.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"empty_ssid\"}");
+                return;
+            }
+
+            // 保存到 NVS 并启动异步连接
+            auto& cfg_mgr = StickS3ConfigManager::getInstance();
+            cfg_mgr.saveWiFiConfig(ssid, pass);
+            cfg_mgr.startConnectSTA(ssid, pass);
+
+            _web_server.send(200, "application/json; charset=utf-8",
+                             "{\"status\":\"connecting\",\"ssid\":\"" + ssid + "\"}");
+        });
+
+        // 查询 Wi-Fi STA 联网状态
+        _web_server.on("/wifi/status", HTTP_GET, [this]() {
+            auto& cfg_mgr = StickS3ConfigManager::getInstance();
+            String st = "idle";
+            if (cfg_mgr.isStaConnected()) st = "connected";
+            else if (cfg_mgr.getStaState() == STA_STATE_CONNECTING) st = "connecting";
+            else if (cfg_mgr.getStaState() == STA_STATE_FAILED) st = "failed";
+
+            char json[256];
+            snprintf(json, sizeof(json),
+                     "{\"sta_state\":\"%s\",\"sta_ip\":\"%s\",\"sta_ssid\":\"%s\",\"sta_rssi\":%d}",
+                     st.c_str(), cfg_mgr.getStaIP().c_str(),
+                     cfg_mgr.getConfig().wifi_ssid.c_str(), cfg_mgr.getStaRSSI());
+            _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
+        // ==========================================
+        // 核心板块 2: 阿里云百炼大模型设置端点
+        // ==========================================
+
+        // 保存百炼配置 (支持在线热切换音色)
+        _web_server.on("/bailian/config", HTTP_POST, [this]() {
+            String key = _web_server.hasArg("key") ? _web_server.arg("key") : "";
+            String voice = _web_server.hasArg("voice") ? _web_server.arg("voice") : "Tina";
+            String model = _web_server.hasArg("model") ? _web_server.arg("model") : "qwen3.8-omni-flash-realtime";
+            key.trim();
+
+            auto& cfg_mgr = StickS3ConfigManager::getInstance();
+            if (key.length() == 0) {
+                // 若前端留空，则复用 NVS 中已保存的 key
+                key = cfg_mgr.getConfig().bailian_key;
+            }
+
+            if (key.length() > 0) {
+                if (!StickS3ConfigManager::isVoiceSupported(voice)) {
+                    voice = "Tina";
+                }
+                cfg_mgr.saveBailianConfig(key, model, voice);
+
+                auto& bl = StickS3BailianClient::getInstance();
+                if (bl.isConnected()) {
+                    // 在线热切换音色并清空旧文本
+                    bl.switchVoice(voice, false);
+                } else if (cfg_mgr.isStaConnected()) {
+                    bl.connect();
+                }
+                _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\",\"voice\":\"" + voice + "\"}");
+            } else {
+                _web_server.send(400, "application/json; charset=utf-8", "{\"status\":\"error\",\"message\":\"API Key 不能为空，请输入百炼 Key\"}");
+            }
+        });
+
+        // 即时音色试听播报
+        _web_server.on("/bailian/preview_voice", HTTP_POST, [this]() {
+            String voice = _web_server.hasArg("voice") ? _web_server.arg("voice") : "";
+            if (voice.length() > 0 && StickS3ConfigManager::isVoiceSupported(voice)) {
+                StickS3BailianClient::getInstance().switchVoice(voice, true);
+                _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\",\"voice\":\"" + voice + "\"}");
+            } else {
+                _web_server.send(400, "application/json; charset=utf-8", "{\"status\":\"error\",\"message\":\"不支持的音色\"}");
+            }
+        });
+
+        // 对话记忆历史时间线列表
+        _web_server.on("/memory/list", HTTP_GET, [this]() {
+            String json = StickS3MemoryStore::getInstance().getHistoryJSON();
+            _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
+        // 一键清空对话记忆
+        _web_server.on("/memory/clear", HTTP_POST, [this]() {
+            StickS3BailianClient::getInstance().clearMemory();
+            _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"cleared\"}");
+        });
+
+        // 查询百炼大模型状态
+        _web_server.on("/bailian/status", HTTP_GET, [this]() {
+            auto& bl = StickS3BailianClient::getInstance();
+            auto& cfg = StickS3ConfigManager::getInstance().getConfig();
+            JsonDocument doc;
+            doc["state_code"] = (int)bl.getState();
+            doc["state_name"] = bl.getStateName();
+            doc["user_query"] = bl.getUserQuery();
+            doc["ai_reply"] = bl.getAiReply();
+            doc["interrupts"] = bl.getTotalInterrupts();
+            doc["error"] = bl.getLastError();
+            doc["configured_voice"] = cfg.bailian_voice;
+            doc["configured_model"] = cfg.bailian_model;
+            doc["has_key"] = (cfg.bailian_key.length() > 10);
+            doc["is_connected"] = bl.isConnected();
+            doc["memory_turns"] = StickS3MemoryStore::getInstance().getTurnCount();
+
+            String json;
+            serializeJson(doc, json);
+            _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
+        // 远程触发中途打断 (Barge-In)
+        _web_server.on("/bailian/interrupt", HTTP_POST, [this]() {
+            StickS3BailianClient::getInstance().interrupt("Web-UI");
+            _web_server.send(200, "application/json", "{\"status\":\"interrupted\"}");
+        });
+
+        // 开启新对话
+        _web_server.on("/bailian/new_chat", HTTP_POST, [this]() {
+            StickS3BailianClient::getInstance().startNewConversation();
+            _web_server.send(200, "application/json", "{\"status\":\"ok\"}");
+        });
+
+        // 模拟/下发文本问答至百炼 (触发大模型实时语音回复)
+        _web_server.on("/bailian/send_text", HTTP_POST, [this]() {
+            String text = _web_server.hasArg("text") ? _web_server.arg("text") : "";
+            text.trim();
+            if (text.length() > 0) {
+                bool ok = StickS3BailianClient::getInstance().sendTextMessage(text);
+                _web_server.send(200, "application/json; charset=utf-8",
+                                 ok ? "{\"status\":\"ok\"}" : "{\"status\":\"error\",\"msg\":\"send_failed\"}");
+            } else {
+                _web_server.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"empty_text\"}");
+            }
+        });
+
+        // 重连百炼 WSS
+        _web_server.on("/bailian/reconnect", HTTP_POST, [this]() {
+            StickS3BailianClient::getInstance().connect();
+            _web_server.send(200, "application/json", "{\"status\":\"reconnecting\"}");
+        });
+
+        // 系统全维度诊断指标监控 (CPU, 内存, I/O 总线, 任务堆栈)
+        _web_server.on("/system/metrics", HTTP_GET, [this]() {
+            auto& bl = StickS3BailianClient::getInstance();
+            auto& audio = StickS3Audio::getInstance();
+
+            JsonDocument doc;
+            
+            // 1. CPU & Task
+            JsonObject cpu = doc["cpu"].to<JsonObject>();
+            cpu["loop_fps"] = getSystemLoopFPS();
+            cpu["audio_stack_hwm"] = audio.getAudioTaskStackHighWaterMark();
+
+            // 2. Memory (Internal SRAM & PSRAM)
+            JsonObject mem = doc["memory"].to<JsonObject>();
+            mem["free_internal_heap"] = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+            mem["largest_internal_block"] = (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+            mem["min_free_heap"] = (uint32_t)esp_get_minimum_free_heap_size();
+            mem["free_psram"] = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+            mem["largest_psram_block"] = (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+
+            // 3. I/O & Bus
+            JsonObject io = doc["io"].to<JsonObject>();
+            io["i2c_tx_count"] = (uint32_t)getI2CTransactionCount();
+            io["i2c_lock_failures"] = (uint32_t)getI2CLockFailures();
+            io["audio_ring_avail"] = (uint32_t)audio.getStreamBufferAvailable();
+            io["is_streaming_llm"] = audio.isStreamingLLM();
+            io["mic_rms"] = audio.getRawRMS();
+
+            // 4. Bailian State
+            JsonObject bailian = doc["bailian"].to<JsonObject>();
+            bailian["state_code"] = (int)bl.getState();
+            bailian["state_name"] = bl.getStateName();
+            bailian["interrupts"] = bl.getTotalInterrupts();
+            bailian["user_query_len"] = bl.getUserQuery().length();
+            bailian["ai_reply_len"] = bl.getAiReply().length();
+
+            String json;
+            serializeJson(doc, json);
+            _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
+        // ==========================================
         // 双向音频端点：设备录音流出与网页音频上传
         // ==========================================
 
-        // 1. 获取设备端音频与录音状态
         _web_server.on("/audio/status", HTTP_GET, [this]() {
             auto& audio = StickS3Audio::getInstance();
             char json[256];
@@ -584,14 +1145,12 @@ private:
             _web_server.send(200, "application/json; charset=utf-8", json);
         });
 
-        // 2. 下载并播放设备端 16kHz 16-bit Mono WAV 录音文件
         _web_server.on("/audio/device_record.wav", HTTP_GET, [this]() {
             auto& audio = StickS3Audio::getInstance();
             if (!audio.hasDeviceAudio() || audio.getWavSize() == 0) {
                 _web_server.send(404, "text/plain", "No audio recorded on StickS3 yet");
                 return;
             }
-            // 关键修复：设置 Content-Length 告知底层 WebServer，避免 _prepareHeader 注入冲突的 Content-Length: 0
             _web_server.setContentLength(audio.getWavSize());
             _web_server.sendHeader("Content-Disposition", "inline; filename=\"device_record.wav\"");
             _web_server.sendHeader("Accept-Ranges", "none");
@@ -612,7 +1171,6 @@ private:
             }
         });
 
-        // 3. 接收来自网页端上传的音频流并在 StickS3 上播放
         _web_server.on("/audio/upload", HTTP_POST, [this]() {
             if (_upload_audio_size > 44) {
                 Serial.printf("[WEB-AUDIO] Upload finished! %u bytes. Triggering StickS3 speaker playback...\n",
@@ -630,27 +1188,18 @@ private:
                 if (!_upload_audio_buf) {
                     if (psramFound()) {
                         _upload_audio_buf = (uint8_t*)ps_malloc(StickS3Audio::MAX_UPLOAD_BYTES);
-                        Serial.printf("[WEB-AUDIO] Allocated %u bytes in PSRAM for upload\n",
-                                      (unsigned)StickS3Audio::MAX_UPLOAD_BYTES);
                     } else {
                         _upload_audio_buf = (uint8_t*)malloc(StickS3Audio::MAX_UPLOAD_BYTES);
-                        Serial.printf("[WEB-AUDIO] Allocated %u bytes in Heap for upload\n",
-                                      (unsigned)StickS3Audio::MAX_UPLOAD_BYTES);
                     }
                 }
-                Serial.printf("[WEB-AUDIO] Upload starting: %s (Type: %s)\n",
-                              upload.filename.c_str(), upload.type.c_str());
             } else if (upload.status == UPLOAD_FILE_WRITE) {
                 if (_upload_audio_buf && _upload_audio_size + upload.currentSize <= StickS3Audio::MAX_UPLOAD_BYTES) {
                     memcpy(_upload_audio_buf + _upload_audio_size, upload.buf, upload.currentSize);
                     _upload_audio_size += upload.currentSize;
                 }
-            } else if (upload.status == UPLOAD_FILE_END) {
-                Serial.printf("[WEB-AUDIO] Upload complete: %u bytes received.\n", (unsigned)_upload_audio_size);
             }
         });
 
-        // 4. 远程控制设备录音触发 (开始/停止)
         _web_server.on("/audio/record_trigger", HTTP_POST, [this]() {
             String act = _web_server.hasArg("action") ? _web_server.arg("action") : "toggle";
             auto& audio = StickS3Audio::getInstance();
@@ -668,18 +1217,12 @@ private:
         // 接收汉字/文本发送上屏
         auto handleSend = [this]() {
             String msg = "";
-            if (_web_server.hasArg("msg")) {
-                msg = _web_server.arg("msg");
-            } else if (_web_server.hasArg("plain")) {
-                msg = _web_server.arg("plain");
-            }
+            if (_web_server.hasArg("msg")) msg = _web_server.arg("msg");
+            else if (_web_server.hasArg("plain")) msg = _web_server.arg("plain");
             msg.trim();
             if (msg.length() > 0) {
                 _msg_counter++;
-                Serial.printf("[WEB-RX] Received text (#%u): \"%s\"\n", _msg_counter, msg.c_str());
-                if (_on_message) {
-                    _on_message(msg, "Web/HTTP");
-                }
+                if (_on_message) _on_message(msg, "Web/HTTP");
                 _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\",\"ack\":" + String(_msg_counter) + "}");
             } else {
                 _web_server.send(400, "application/json", "{\"status\":\"empty\"}");
@@ -688,15 +1231,11 @@ private:
         _web_server.on("/send", HTTP_POST, handleSend);
         _web_server.on("/send", HTTP_GET, handleSend);
 
-        // 播放提示音
         _web_server.on("/beep", HTTP_GET, [this]() {
-            if (_on_message) {
-                _on_message("beep", "Web/Beep");
-            }
+            if (_on_message) _on_message("beep", "Web/Beep");
             _web_server.send(200, "application/json", "{\"status\":\"beep_triggered\"}");
         });
 
-        // 实时遥测状态接口
         _web_server.on("/status", HTTP_GET, [this]() {
             char json[128];
             snprintf(json, sizeof(json), "{\"roll\":%.1f,\"pitch\":%.1f,\"aps\":%d,\"clients\":%d}",
@@ -721,16 +1260,9 @@ private:
             rx.trim();
             if (rx.length() > 0) {
                 _msg_counter++;
-                Serial.printf("[TCP-RX] From %s (#%u): \"%s\"\n",
-                              client.remoteIP().toString().c_str(), _msg_counter, rx.c_str());
-                
-                // 立即回传 ACK 报文，小程序对话框可即时查回收据
                 client.printf("[StickS3 TCP ACK #%u]: %s\n", _msg_counter, rx.c_str());
                 client.flush();
-
-                if (_on_message) {
-                    _on_message(rx, "TCP-8080");
-                }
+                if (_on_message) _on_message(rx, "TCP-8080");
             }
             client.stop();
         }
@@ -747,18 +1279,10 @@ private:
                 msg.trim();
                 if (msg.length() > 0) {
                     _msg_counter++;
-                    Serial.printf("[UDP-RX] From %s:%d (#%u): \"%s\"\n",
-                                  _udp_server.remoteIP().toString().c_str(),
-                                  _udp_server.remotePort(), _msg_counter, msg.c_str());
-
-                    // 回送即时 ACK
                     _udp_server.beginPacket(_udp_server.remoteIP(), _udp_server.remotePort());
                     _udp_server.printf("[StickS3 UDP ACK #%u]: %s\n", _msg_counter, msg.c_str());
                     _udp_server.endPacket();
-
-                    if (_on_message) {
-                        _on_message(msg, "UDP-8080");
-                    }
+                    if (_on_message) _on_message(msg, "UDP-8080");
                 }
             }
         }

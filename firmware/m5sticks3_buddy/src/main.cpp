@@ -27,8 +27,13 @@
 #include "sticks3_hal.h"
 #include "buddy_protocol.h"
 #include "sticks3_audio.h"
+#include "sticks3_wifi_config.h"
+#include "sticks3_bailian_client.h"
 #include "sticks3_wifi.h"
 #include "gbk_to_utf8.h"
+#include "sticks3_i2c_mutex.h"
+#include "sticks3_system_metrics.h"
+#include "sticks3_memory_store.h"
 
 using namespace sticks3::protocol;
 
@@ -341,6 +346,9 @@ bool initM5PM1() {
 }
 
 static uint8_t readI2CReg(uint8_t addr, uint8_t reg) {
+    sticks3::I2CLockGuard guard(50);
+    if (!guard.isAcquired()) return 0xFF;
+
     Wire1.beginTransmission(addr);
     Wire1.write(reg);
     if (Wire1.endTransmission(false) != 0) return 0xFF;
@@ -351,6 +359,9 @@ static uint8_t readI2CReg(uint8_t addr, uint8_t reg) {
 }
 
 static bool writeI2CReg(uint8_t addr, uint8_t reg, uint8_t val) {
+    sticks3::I2CLockGuard guard(50);
+    if (!guard.isAcquired()) return false;
+
     Wire1.beginTransmission(addr);
     Wire1.write(reg);
     Wire1.write(val);
@@ -489,6 +500,9 @@ bool initBMI270() {
 // 读取当前 3 轴加速度并解算俯仰/横滚角
 void readBMI270(float& roll, float& pitch) {
     if (!bmi270_online) return;
+
+    sticks3::I2CLockGuard guard(25);
+    if (!guard.isAcquired()) return;
     
     Wire1.beginTransmission(bmi270_actual_addr);
     Wire1.write(0x0C); // ACC_X_LSB
@@ -511,10 +525,13 @@ void readBMI270(float& roll, float& pitch) {
 }
 
 void setup() {
+    // 提升主循环 loopTask 优先级至 4 (高于 audioTask 3 与 websocket_task 1，确保控制流指令与打断必定优先执行，彻底杜绝互斥锁垄断与饥饿)
+    vTaskPrioritySet(NULL, 4);
+
     Serial.begin(115200);
     delay(200);
     Serial.println("\n=======================================================");
-    Serial.println(">>> [StickS3-BOOT] Starting Hardware Bring-Up...");
+    Serial.println(">>> [StickS3-BOOT] Starting Hardware Bring-Up (loopTask Prio: 4)...");
     Serial.println("=======================================================");
 
     // 1. 初始化按键引脚
@@ -615,6 +632,9 @@ void setup() {
     Serial.printf("[BOOT] BLE Online! Name: StickS3 (Buddy) | UUID: %s | MAC: %s\n",
                   SERVICE_UUID, BLEDevice::getAddress().toString().c_str());
 
+    // 6.5 初始化全双工对话记忆与持久化存储子系统 (Flash NVS + PSRAM)
+    sticks3::StickS3MemoryStore::getInstance().begin();
+
     // 7. 初始化 2.4GHz Wi-Fi (SoftAP + TCP 8080 + UDP 8080 + WebPortal 80 + 环境 AP 嗅探)
     sticks3::StickS3WiFi::getInstance().setMessageCallback([](const String& msg, const String& source) {
         onNewTextMessage(msg, source);
@@ -653,6 +673,10 @@ void loop() {
             }
         }
     }
+
+    // 0. 系统全维度性能与健康度指标更新 (CPU Loop FPS, 内存与I/O监控)
+    sticks3::updateSystemLoopFPS();
+    sticks3::printSystemDiagnostics();
 
     // 0.1 更新 Wi-Fi 遥测、后台扫描与多通道网络服务
     sticks3::StickS3WiFi::getInstance().updateTelemetry(imu_roll, imu_pitch);
@@ -706,6 +730,23 @@ void loop() {
                         Serial.println(sticks3::StickS3WiFi::getInstance().getScanResultsJSON().c_str());
                     } else if (cmd_or_msg == "m" || cmd_or_msg == "M") {
                         Serial.printf("{\"type\":\"mic_level\",\"rms_percent\":%d}\n", mic_rms);
+                    } else if (cmd_or_msg == "btn_a" || cmd_or_msg == "BTN_A") {
+                        btnA_clicked = true;
+                        Serial.println("{\"type\":\"btn_sim\",\"button\":\"A\"}");
+                    } else if (cmd_or_msg == "btn_b" || cmd_or_msg == "BTN_B") {
+                        btnB_clicked = true;
+                        Serial.println("{\"type\":\"btn_sim\",\"button\":\"B\"}");
+                    } else if (cmd_or_msg == "i" || cmd_or_msg == "I") {
+                        sticks3::StickS3BailianClient::getInstance().interrupt("Serial-I-Key");
+                        Serial.println("{\"type\":\"interrupt_ack\",\"status\":\"ok\"}");
+                    } else if (cmd_or_msg.startsWith("q:") || cmd_or_msg.startsWith("Q:") ||
+                               cmd_or_msg.startsWith("chat:") || cmd_or_msg.startsWith("CHAT:")) {
+                        int colon_idx = cmd_or_msg.indexOf(':');
+                        String query_text = cmd_or_msg.substring(colon_idx + 1);
+                        query_text.trim();
+                        if (query_text.length() > 0) {
+                            sticks3::StickS3BailianClient::getInstance().sendTextMessage(query_text);
+                        }
                     } else {
                         // 接收串口任意测试文本（支持 UTF-8 和 GBK 中文！）并显示上屏
                         onNewTextMessage(cmd_or_msg, "Serial");
@@ -758,37 +799,72 @@ void loop() {
         display.drawString("[B] Deny", 10, 220);
         display.endWrite();
     } else {
-        // 按键 A: 控制 10 秒板载硅麦录音与 WAV 生成 (再次单击可提前停止并保存)
-        if (btnA_clicked) {
-            auto& audio = sticks3::StickS3Audio::getInstance();
-            if (audio.isRecording()) {
-                audio.stopRecording();
-                sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
-                Serial.printf("[AUDIO-EVENT] Btn A clicked -> Stopped recording. Total %u ms, WAV ID #%u\n",
-                              (unsigned)audio.getRecordDurationMs(), (unsigned)audio.getDeviceAudioId());
-            } else {
-                audio.startRecording(10000);
-                sticks3::StickS3Audio::getInstance().playTone(1800, 40, 0.45f);
-                Serial.println("[AUDIO-EVENT] Btn A clicked -> Started 10s recording");
-            }
-        }
+        auto& bl = sticks3::StickS3BailianClient::getInstance();
+        auto& audio = sticks3::StickS3Audio::getInstance();
 
-        // 按键 B: 切换 Grove 5V 或触发 Wi-Fi 深度扫描
-        if (btnB_clicked) {
+        bool is_ai_busy = (bl.getState() == sticks3::BL_STATE_SPEAKING || 
+                           bl.getState() == sticks3::BL_STATE_THINKING || 
+                           audio.isPlaying());
+
+        // 核心打断拦截：大模型说话、大模型思考或音频流播放中，按下【正面按键 A】或【侧面按键 B】均可毫秒级物理打断！
+        if (is_ai_busy && (btnA_clicked || btnB_clicked)) {
+            const char* btn_src = btnA_clicked ? "Physical-Btn-A(Front)" : "Physical-Btn-B(Side)";
+            bl.interrupt(btn_src);
+            audio.playTone(2200, 20, 0.45f);
+            Serial.printf("[PHYSICAL-INTERRUPT] Successfully triggered by %s!\n", btn_src);
+        } else if (btnA_clicked) {
+            // 按键 A: 空闲时发起新会话 / 未连云端时触发 10s 本地录音控制
+            if (bl.isConnected()) {
+                bl.startNewConversation();
+                audio.playTone(1600, 30, 0.40f);
+                Serial.println("[EVENT] Btn A clicked -> Started new conversation");
+            } else {
+                if (audio.isRecording()) {
+                    audio.stopRecording();
+                    audio.playChime(sticks3::CHIME_SUCCESS);
+                    Serial.printf("[AUDIO-EVENT] Btn A clicked -> Stopped recording. Total %u ms, WAV ID #%u\n",
+                                  (unsigned)audio.getRecordDurationMs(), (unsigned)audio.getDeviceAudioId());
+                } else {
+                    audio.startRecording(10000);
+                    audio.playTone(1800, 40, 0.45f);
+                    Serial.println("[AUDIO-EVENT] Btn A clicked -> Started 10s recording");
+                }
+            }
+        } else if (btnB_clicked) {
+            // 按键 B: 空闲时切换 Grove 5V 或触发 Wi-Fi 深度扫描
             ext_5v_enabled = !ext_5v_enabled;
-            sticks3::StickS3Audio::getInstance().playTone(1500, 25, 0.40f);
+            audio.playTone(1500, 25, 0.40f);
             sticks3::StickS3WiFi::getInstance().triggerScan();
             Serial.printf("[EVENT] Btn B clicked -> Grove 5V: %s | WiFi Scan Triggered\n", ext_5v_enabled ? "ON" : "OFF");
         }
 
-        // 刷新渲染双模仪表盘
-        display.startWrite();
+        // 自动连接百炼 WebSocket
+        auto& bl_client = sticks3::StickS3BailianClient::getInstance();
+        auto& cfg_mgr = sticks3::StickS3ConfigManager::getInstance();
+        if (cfg_mgr.isStaConnected() && cfg_mgr.hasBailianKey() && bl_client.getState() == sticks3::BL_STATE_DISCONNECTED) {
+            static uint32_t last_bl_try = 0;
+            if (millis() - last_bl_try > 8000) {
+                last_bl_try = millis();
+                Serial.println("[AUTO-CONNECT] STA Online & Key present -> Connecting to Bailian...");
+                bl_client.connect();
+            }
+        }
+
+        // 刷新渲染双模仪表盘 (最高 15 FPS / 66ms，为后台 FreeRTOS 音频与网络任务释放 CPU)
+        static uint32_t last_display_draw = 0;
+        if (millis() - last_display_draw >= 66) {
+            last_display_draw = millis();
+            display.startWrite();
 
         // 1. 顶部标题栏 (0 ~ 24)
         display.fillRect(0, 0, SCREEN_W, 24, theme_color);
         display.setTextColor(TFT_WHITE, theme_color);
         display.setTextDatum(MC_DATUM);
-        display.drawString("M5StickS3 Buddy", SCREEN_W / 2, 12);
+        if (cfg_mgr.isStaConnected()) {
+            display.drawString("StickS3 | " + cfg_mgr.getStaIP(), SCREEN_W / 2, 12);
+        } else {
+            display.drawString("M5StickS3 Buddy", SCREEN_W / 2, 12);
+        }
 
         // 2. 信息卡片区 (26 ~ 68)
         display.fillRect(0, 26, SCREEN_W, 42, TFT_DARKGREY);
@@ -799,31 +875,85 @@ void loop() {
         snprintf(buf, sizeof(buf), "Vbat: %.2fV", battery_voltage);
         display.drawString(buf, 4, 35);
 
-        snprintf(buf, sizeof(buf), "BLE: %s", device_connected ? "Connected" : "Adv:Buddy");
-        display.setTextColor(device_connected ? TFT_GREEN : TFT_CYAN, TFT_DARKGREY);
-        display.drawString(buf, 66, 35);
+        // 显示百炼大模型状态
+        String bl_str = "BL: " + bl_client.getStateName();
+        uint16_t bl_color = TFT_LIGHTGREY;
+        if (bl_client.getState() == sticks3::BL_STATE_SPEAKING) bl_color = TFT_GREEN;
+        else if (bl_client.getState() == sticks3::BL_STATE_LISTENING) bl_color = TFT_CYAN;
+        else if (bl_client.getState() == sticks3::BL_STATE_THINKING) bl_color = TFT_YELLOW;
+        else if (bl_client.getState() == sticks3::BL_STATE_INTERRUPTED) bl_color = TFT_RED;
+        else if (bl_client.isConnected()) bl_color = TFT_GREENYELLOW;
+        display.setTextColor(bl_color, TFT_DARKGREY);
+        display.drawString(bl_str.substring(0, 10), 66, 35);
 
-        // 显示 Wi-Fi 发现热点数量
-        int wf_cnt = sticks3::StickS3WiFi::getInstance().getNetworkCount();
-        if (sticks3::StickS3WiFi::getInstance().isScanning()) {
-            snprintf(buf, sizeof(buf), "WiFi: Scan...");
+        // 显示 Wi-Fi 状态
+        if (cfg_mgr.isStaConnected()) {
+            snprintf(buf, sizeof(buf), "STA: %ddBm", cfg_mgr.getStaRSSI());
+            display.setTextColor(TFT_GREENYELLOW, TFT_DARKGREY);
+        } else if (cfg_mgr.getStaState() == sticks3::STA_STATE_CONNECTING) {
+            snprintf(buf, sizeof(buf), "STA: Conn...");
             display.setTextColor(TFT_YELLOW, TFT_DARKGREY);
         } else {
-            snprintf(buf, sizeof(buf), "WiFi: %d APs", wf_cnt);
-            display.setTextColor(wf_cnt > 0 ? TFT_GREENYELLOW : TFT_LIGHTGREY, TFT_DARKGREY);
+            int wf_cnt = sticks3::StickS3WiFi::getInstance().getNetworkCount();
+            snprintf(buf, sizeof(buf), "WiFi: %d AP", wf_cnt);
+            display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
         }
         display.drawString(buf, 4, 53);
 
-        snprintf(buf, sizeof(buf), "RX: %lu msgs", (unsigned long)total_ble_msgs_received);
-        display.setTextColor(total_ble_msgs_received > 0 ? TFT_GREEN : TFT_LIGHTGREY, TFT_DARKGREY);
+        snprintf(buf, sizeof(buf), "M:%u I:%lu",
+                 (unsigned)sticks3::StickS3MemoryStore::getInstance().getTurnCount(),
+                 (unsigned long)bl_client.getTotalInterrupts());
+        display.setTextColor(TFT_WHITE, TFT_DARKGREY);
         display.drawString(buf, 66, 53);
 
-        // 3. 手机蓝牙/WiFi多通道消息与音频录音/回放展示区 (70 ~ 138)
+        // 3. 手机蓝牙/WiFi多通道消息与大模型语音交互展示区 (70 ~ 138)
         auto& audio_inst = sticks3::StickS3Audio::getInstance();
         bool is_recording = audio_inst.isRecording();
         bool is_playing_stream = audio_inst.isPlayingStream();
 
-        if (is_recording) {
+        // 优先级 1: 百炼大模型交互状态 (已就绪、正在聆听、思考或播报中)
+        if (bl_client.getState() != sticks3::BL_STATE_DISCONNECTED && bl_client.getState() != sticks3::BL_STATE_CONNECTING) {
+            uint16_t hdr_bg = 0x0284;
+            String hdr_txt = "● 正在聆听中 (请讲话)";
+            if (bl_client.getState() == sticks3::BL_STATE_SPEAKING) {
+                hdr_bg = TFT_DARKGREEN;
+                hdr_txt = "▶ AI回复中 [按A打断]";
+            } else if (bl_client.getState() == sticks3::BL_STATE_THINKING) {
+                hdr_bg = 0xD4A0; // Amber
+                hdr_txt = "⚡ 思考推理中...";
+            } else if (bl_client.getState() == sticks3::BL_STATE_INTERRUPTED) {
+                hdr_bg = TFT_RED;
+                hdr_txt = "⏹ 已中途打断!";
+            } else if (bl_client.getState() == sticks3::BL_STATE_CONNECTED_IDLE) {
+                hdr_bg = TFT_NAVY;
+                hdr_txt = "✔ 百炼就绪 对麦讲话";
+            } else if (bl_client.getState() == sticks3::BL_STATE_ERROR) {
+                hdr_bg = TFT_RED;
+                hdr_txt = "✖ 连接异常 重连中";
+            }
+
+            display.fillRect(0, 70, SCREEN_W, 16, hdr_bg);
+            display.setTextColor(TFT_WHITE, hdr_bg);
+            display.setTextDatum(MC_DATUM);
+            display.drawString(hdr_txt, SCREEN_W / 2, 78);
+
+            display.fillRect(0, 86, SCREEN_W, 52, TFT_BLACK);
+            display.drawRect(0, 86, SCREEN_W, 52, hdr_bg);
+
+            // 实时流式渲染大模型问答汉字
+            if (bl_client.getState() == sticks3::BL_STATE_ERROR) {
+                String err_str = "异常: " + bl_client.getLastError();
+                drawChineseText(display, err_str, 6, 90, SCREEN_W - 12, 14, TFT_RED, TFT_BLACK, &fonts::efontCN_12);
+            } else if (bl_client.getAiReply().length() > 0) {
+                String reply_str = "AI: " + bl_client.getAiReply();
+                drawChineseText(display, reply_str, 6, 90, SCREEN_W - 12, 14, TFT_YELLOW, TFT_BLACK, &fonts::efontCN_12);
+            } else if (bl_client.getUserQuery().length() > 0) {
+                String query_str = "你: " + bl_client.getUserQuery();
+                drawChineseText(display, query_str, 6, 90, SCREEN_W - 12, 14, TFT_CYAN, TFT_BLACK, &fonts::efontCN_12);
+            } else {
+                drawChineseText(display, "对准硅麦讲话\n支持全双工交互\n随时开口即可打断", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
+            }
+        } else if (is_recording) {
             // 录音状态专用高亮卡片 (红底 + 倒计时 + 能量动态)
             display.fillRect(0, 70, SCREEN_W, 16, TFT_RED);
             display.setTextColor(TFT_WHITE, TFT_RED);
@@ -890,7 +1020,7 @@ void loop() {
             } else if (sticks3::StickS3WiFi::getInstance().getConnectedStations() > 0) {
                 drawChineseText(display, "手机已连热点!\n小程序/网页发汉字\nIP: 192.168.4.1", 6, 90, SCREEN_W - 12, 14, TFT_GREENYELLOW, TFT_BLACK, &fonts::efontCN_12);
             } else {
-                drawChineseText(display, "WiFi: StickS3-Buddy\n按[A]键开始录音\n网页: 192.168.4.1", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
+                drawChineseText(display, "WiFi: StickS3-Buddy\n网页配网/百炼\nIP: 192.168.4.1", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
             }
         }
         display.setFont(nullptr);
@@ -923,10 +1053,14 @@ void loop() {
         display.fillRect(0, 196, SCREEN_W, 20, TFT_NAVY);
         display.setTextColor(TFT_WHITE, TFT_NAVY);
         display.setTextDatum(MC_DATUM);
-        if (audio_inst.isRecording()) {
+        if (bl_client.getState() == sticks3::BL_STATE_SPEAKING) {
+            display.drawString("[A] 立即打断  [B] 5V/扫描", SCREEN_W / 2, 206);
+        } else if (bl_client.isConnected()) {
+            display.drawString("[A] 新问答  [B] 5V/扫描", SCREEN_W / 2, 206);
+        } else if (audio_inst.isRecording()) {
             display.drawString("[A] 停止保存  [B] 5V/WiFi", SCREEN_W / 2, 206);
         } else {
-            display.drawString("[A] 录音10s  [B] 5V/WiFi", SCREEN_W / 2, 206);
+            display.drawString("[A] 问答/录音  [B] 5V/WiFi", SCREEN_W / 2, 206);
         }
 
         // 动态麦克风音量能量条 (218 ~ 238)
@@ -956,6 +1090,7 @@ void loop() {
         display.drawString(buf, SCREEN_W - 4, 228);
 
         display.endWrite();
+        }
     }
 
     // 动画定时器 (每 600ms 切帧)
@@ -989,5 +1124,5 @@ void loop() {
         old_device_connected = device_connected;
     }
 
-    delay(25);
+    delay(5);
 }
