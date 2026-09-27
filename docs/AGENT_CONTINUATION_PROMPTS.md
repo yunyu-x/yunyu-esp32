@@ -185,11 +185,12 @@
 所有后续 Agent 在完成任何阶段性功能开发并准备提交代码时，必须执行以下标准化闭环：
 
 1. **自动化校验先行**：
-   - 运行 `pytest tests/ -v` 确保全套 46 项单元测试全部通过。
-   - 运行唤醒词专项测试 `pytest tests/test_wakeword_engine.py -v` 验证声学 FSM 状态机跳转与源码契约。
-   - 运行真机回归脚本 `python scripts/test_voice_dialogue_and_memory_compression.py` 验证实际硬件功能。
+   - 运行 `pytest tests/ -v` 确保全套 52 项单元测试（46 项既有基线 + 6 项新增 Avatar 拟真情感与 BLE 记忆测试）全部通过。
+   - 运行灵宠表情与具身动力学测试：`pytest tests/test_avatar_and_empathy.py -v`。
+   - 运行唤醒词专项测试：`pytest tests/test_wakeword_engine.py -v` 验证声学 FSM 状态机跳转与源码契约。
+   - 运行硬件在环与真机端到端验证：`python scripts/test_avatar_hardware.py` 验证串口交互指令、生命动力学与 BLE GATT 服务合规性。
 2. **更新交接文档**：
-   - 在对应模块的文档（如 `docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md`）中记录最新演进、根因与方案。
+   - 在对应模块的文档（如 `docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md` 与 `docs/27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md`）中记录最新演进、根因与方案。
    - 在本文件（`docs/AGENT_CONTINUATION_PROMPTS.md`）中登记新增功能方向的续写提示词。
 3. **提交信息规范**：
    Commit Message 遵循 Conventional Commits 规范，必须附带说明核心交付物与交接指引。
