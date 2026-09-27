@@ -1,0 +1,7 @@
+{
+  "desc": "LingBuddy WeChat Mini Program Sitemap",
+  "rules": [{
+    "action": "allow",
+    "page": "*"
+  }]
+}

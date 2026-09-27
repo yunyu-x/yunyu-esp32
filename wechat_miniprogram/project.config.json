@@ -1,0 +1,31 @@
+{
+  "miniprogramRoot": "./",
+  "projectname": "lingbuddy-miniprogram",
+  "description": "M5StickS3 灵宠伴侣 (LingBuddy) 微信小程序控制台与拓麻歌子互动中枢",
+  "appid": "touristappid",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "preloadBackgroundData": false,
+    "minified": true,
+    "newFeature": true,
+    "coverView": true,
+    "nodeModules": false,
+    "autoAudits": false,
+    "showShadowRootInWxmlPanel": true,
+    "scopeDataCheck": false,
+    "uglifyFileName": false,
+    "checkInvalidPkgFiles": true,
+    "checkSiteMap": true,
+    "uploadWithSourceMap": true,
+    "compileHotReLoad": false,
+    "lazyCodeLoading": "requiredComponents"
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.3.4",
+  "simulatorType": "wechat",
+  "simulatorPluginLibVersion": {},
+  "condition": {}
+}

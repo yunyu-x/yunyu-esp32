@@ -1,0 +1,11 @@
+/** app.wxss **/
+page {
+  background-color: #080c16;
+  color: #f0f4f8;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
+view, text, button, input {
+  box-sizing: border-box;
+}

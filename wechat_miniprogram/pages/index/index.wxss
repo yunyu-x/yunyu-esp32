@@ -1,0 +1,358 @@
+/* pages/index/index.wxss */
+.container {
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+/* 顶部状态栏 */
+.header-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #121929;
+  border: 1px solid rgba(0, 242, 254, 0.18);
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.app-icon {
+  font-size: 44rpx;
+}
+
+.app-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #00f2fe;
+  display: block;
+}
+
+.app-subtitle {
+  font-size: 20rpx;
+  color: #8a99ad;
+  display: block;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 40rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.status-online {
+  background: rgba(0, 230, 118, 0.15);
+  border: 1px solid #00e676;
+  color: #00e676;
+}
+
+.status-offline {
+  background: rgba(148, 163, 184, 0.15);
+  border: 1px solid #64748b;
+  color: #94a3b8;
+}
+
+.status-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 灵宠主画板区 */
+.avatar-card {
+  display: flex;
+  flex-direction: row;
+  background: #121929;
+  border: 1px solid rgba(255, 117, 140, 0.25);
+  border-radius: 24rpx;
+  padding: 20rpx;
+  gap: 24rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.4);
+}
+
+.canvas-wrapper {
+  width: 270rpx;
+  height: 480rpx;
+  border-radius: 20rpx;
+  overflow: hidden;
+  border: 2rpx solid #334155;
+  background: #000;
+  flex-shrink: 0;
+}
+
+.pet-canvas {
+  width: 270rpx;
+  height: 480rpx;
+}
+
+.hud-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 24rpx;
+  margin-bottom: 6rpx;
+}
+
+.meta-label {
+  color: #94a3b8;
+}
+
+.highlight-pink {
+  color: #f472b6;
+  font-weight: 700;
+}
+
+.highlight-cyan {
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.bar-bg {
+  width: 100%;
+  height: 16rpx;
+  background: #020617;
+  border-radius: 999rpx;
+  overflow: hidden;
+  border: 1px solid #1e293b;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 999rpx;
+  transition: width 0.3s ease;
+}
+
+.xp-fill {
+  background: linear-gradient(90deg, #ec4899, #f43f5e);
+}
+
+.energy-fill {
+  background: linear-gradient(90deg, #06b6d4, #3b82f6);
+}
+
+.stat-tags {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10rpx;
+  margin-top: 24rpx;
+}
+
+.stat-tag {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12rpx;
+  padding: 8rpx 12rpx;
+  font-size: 20rpx;
+  color: #cbd5e1;
+  text-align: center;
+}
+
+/* 连接网格 */
+.connect-grid {
+  display: flex;
+  gap: 12rpx;
+}
+
+.btn-connect, .btn-sim {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 16rpx 0;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  border: none;
+  color: #fff;
+  background: #1e293b;
+}
+
+.btn-connect:active, .btn-sim:active {
+  opacity: 0.85;
+}
+
+.btn-active {
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+}
+
+/* 心声日记 */
+.diary-card, .tamagotchi-card, .memory-card {
+  background: #121929;
+  border: 1px solid #1e293b;
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+}
+
+.diary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.diary-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #f6d365;
+}
+
+.diary-badge {
+  font-size: 20rpx;
+  color: #94a3b8;
+  background: #0f172a;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+}
+
+.diary-bubble {
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 14rpx;
+  padding: 16rpx;
+  font-size: 24rpx;
+  color: #e2e8f0;
+  line-height: 1.6;
+}
+
+/* 拓麻歌子互动区 */
+.section-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #f472b6;
+  margin-bottom: 16rpx;
+}
+
+.feed-selector-box {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.picker-input {
+  background: #020617;
+  border: 1px solid #475569;
+  border-radius: 14rpx;
+  padding: 16rpx;
+  font-size: 24rpx;
+  color: #f8fafc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-width: 320rpx;
+}
+
+.picker-arrow {
+  font-size: 18rpx;
+  color: #94a3b8;
+  margin-left: 10rpx;
+}
+
+.btn-feed {
+  flex: 1;
+  background: linear-gradient(135deg, #ec4899, #d946ef);
+  color: white;
+  font-size: 24rpx;
+  font-weight: 700;
+  border-radius: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.btn-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  padding: 20rpx;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: white;
+  border: none;
+}
+
+.btn-action:active {
+  transform: scale(0.98);
+}
+
+.btn-groom { background: linear-gradient(135deg, #06b6d4, #0ea5e9); }
+.btn-play  { background: linear-gradient(135deg, #f59e0b, #eab308); }
+.btn-pet   { background: linear-gradient(135deg, #10b981, #059669); }
+.btn-shake { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+
+.sub-action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12rpx;
+}
+
+.btn-sub {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  font-size: 22rpx;
+  border-radius: 14rpx;
+  padding: 14rpx 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 历史记忆流 */
+.memory-scroll {
+  max-height: 240rpx;
+}
+
+.empty-tip {
+  text-align: center;
+  color: #64748b;
+  font-size: 22rpx;
+  padding: 30rpx 0;
+}
+
+.turn-item {
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 12rpx;
+  padding: 12rpx 16rpx;
+  margin-bottom: 10rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.turn-user {
+  color: #38bdf8;
+  margin-bottom: 4rpx;
+}
+
+.turn-ai {
+  color: #4ade80;
+}

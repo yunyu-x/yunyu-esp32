@@ -353,3 +353,37 @@ def test_web_companion_disney_rendering_contract():
     assert "/pet/action" in html, "必须支持向硬件下发 /pet/action"
 
 
+def test_wechat_miniprogram_suite_contract():
+    """验证微信小程序全套架构设计文档、SDK 与前端工程契约完整性"""
+    repo_root = os.path.abspath(os.path.join(FW_ROOT, "..", ".."))
+    doc_28 = os.path.join(repo_root, "docs", "28_M5StickS3微信小程序对接架构与通信协议工程指南.md")
+    assert os.path.exists(doc_28), "必须包含 28 号微信小程序架构与协议指南文档"
+    with open(doc_28, "r", encoding="utf-8") as f:
+        doc_src = f.read()
+
+    assert "gstack-plan-eng-review" in doc_src, "架构文档必须包含工程总监审查"
+    assert "gstack-cso" in doc_src, "架构文档必须包含首席安全官 STRIDE 威胁建模"
+    assert "gstack-qa" in doc_src, "架构文档必须包含测试总监极端环境矩阵"
+    assert "0000FFB0" in doc_src, "必须详细定义 0xFFB0 BLE 服务"
+    assert "20 字节安全 MTU 分包" in doc_src, "必须规定 20 字节分包准则"
+
+    # 微信小程序工程源码完整性
+    mp_root = os.path.join(repo_root, "wechat_miniprogram")
+    assert os.path.exists(os.path.join(mp_root, "project.config.json")), "必须存在 project.config.json"
+    assert os.path.exists(os.path.join(mp_root, "app.json")), "必须存在 app.json"
+    assert os.path.exists(os.path.join(mp_root, "utils", "sticks3_ble.js")), "必须存在 sticks3_ble.js"
+    assert os.path.exists(os.path.join(mp_root, "utils", "sticks3_wifi.js")), "必须存在 sticks3_wifi.js"
+    assert os.path.exists(os.path.join(mp_root, "utils", "avatar_renderer.js")), "必须存在 avatar_renderer.js"
+    assert os.path.exists(os.path.join(mp_root, "utils", "crypto_guard.js")), "必须存在 crypto_guard.js"
+    assert os.path.exists(os.path.join(mp_root, "pages", "index", "index.wxml")), "必须存在 index.wxml"
+    assert os.path.exists(os.path.join(mp_root, "pages", "index", "index.js")), "必须存在 index.js"
+
+    # 驱动关键逻辑断言
+    with open(os.path.join(mp_root, "utils", "sticks3_ble.js"), "r", encoding="utf-8") as f:
+        ble_src = f.read()
+    assert "0000FFB0" in ble_src
+    assert "writeInChunks" in ble_src, "BLE 驱动必须包含 20 字节切片写入器"
+    assert "handleMemoryChunk" in ble_src, "BLE 驱动必须包含长程记忆还原器"
+
+
+
