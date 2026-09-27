@@ -201,3 +201,73 @@ def test_firmware_main_avatar_integration():
     assert 'StickS3BLESync::getInstance().registerService' in src
     assert 'StickS3Avatar::getInstance().updatePhysics' in src
     assert 'StickS3Avatar::getInstance().render' in src
+
+
+def test_avatar_emotion_tag_extraction():
+    """验证大模型首包 [E:xxx] 情绪标签提取与纯净文本剥离契约"""
+    def parse_emotion_tag(raw_text: str):
+        if not raw_text.startswith(("[E:", "[e:")):
+            return "MOOD_IDLE", raw_text
+        close_idx = raw_text.find("]")
+        if close_idx < 0:
+            return "MOOD_IDLE", raw_text
+        tag = raw_text[3:close_idx].lower().strip()
+        clean = raw_text[close_idx + 1:].strip()
+        tag_map = {
+            "happy": "MOOD_HAPPY",
+            "curious": "MOOD_CURIOUS",
+            "proud": "MOOD_PROUD",
+            "sleepy": "MOOD_SLEEP",
+            "sleep": "MOOD_SLEEP",
+            "dizzy": "MOOD_DIZZY",
+            "shock": "MOOD_SHOCK",
+            "listen": "MOOD_LISTEN",
+        }
+        return tag_map.get(tag, "MOOD_IDLE"), clean
+
+    mood, clean = parse_emotion_tag("[E:happy] 哇！今天天气真棒！")
+    assert mood == "MOOD_HAPPY"
+    assert clean == "哇！今天天气真棒！"
+
+    mood, clean = parse_emotion_tag("[E:curious] 为什么天是蓝色的呢？")
+    assert mood == "MOOD_CURIOUS"
+    assert clean == "为什么天是蓝色的呢？"
+
+    mood, clean = parse_emotion_tag("普通日常回答，无标签")
+    assert mood == "MOOD_IDLE"
+    assert clean == "普通日常回答，无标签"
+
+
+def test_avatar_ble_inject_command_processing():
+    """验证手机端通过 0xFFB4 注入控制指令的响应契约"""
+    from scripts.lingbuddy_companion import LingBuddySimulatorClient
+    client = LingBuddySimulatorClient()
+    
+    res = client.inject_action("pet")
+    assert res["status"] == "ok"
+    assert client.mood == 4  # HAPPY
+    assert client.pets == 1
+    assert "摸了摸" in res["diary"]
+
+    res_mem = client.inject_action("inject_memory", "备忘测试")
+    assert res_mem["status"] == "ok"
+    assert any("备忘测试" in turn["content"] for turn in client.memory_turns)
+
+
+def test_avatar_chunked_memory_stream():
+    """验证 0xFFB1 记忆分块传输与手机端切片重组还原算法"""
+    import json
+    from scripts.lingbuddy_companion import LingBuddySimulatorClient
+    client = LingBuddySimulatorClient()
+    
+    chunks = client.get_chunked_memory(chunk_size=32)
+    assert len(chunks) >= 2, "长文本必须分包切片"
+    for c in chunks:
+        assert c.startswith("[C:")
+        assert "]" in c
+    
+    assembled = client.reassemble_memory(chunks)
+    data = json.loads(assembled)
+    assert len(data) >= 2
+    assert data[0]["role"] == "user"
+

@@ -27,7 +27,9 @@ enum AvatarMood {
     MOOD_HAPPY,         // 开心/抚摸 (爱心泛红笑眼)
     MOOD_DIZZY,         // 晃动晕眩 (X_X 圈圈眼、眼冒金星)
     MOOD_SHOCK,         // 惊吓/失重 (圆睁极小瞳孔、O型嘴)
-    MOOD_SLEEP          // 平放打呼噜 (闭眼平线、Zzz 气泡飘动)
+    MOOD_SLEEP,         // 平放打呼噜 (闭眼平线、Zzz 气泡飘动)
+    MOOD_CURIOUS,       // 好奇歪头 (一眼大一眼小、歪头听)
+    MOOD_PROUD          // 傲娇得意 (扬起下巴眯眼微笑)
 };
 
 struct PetStats {
@@ -79,6 +81,60 @@ public:
 
     const PetStats& getStats() const { return _stats; }
     
+    void setPetName(const String& name) {
+        if (name.length() > 0 && name.length() < 24) {
+            _stats.pet_name = name;
+        }
+    }
+
+    void setDiary(const String& diary) {
+        if (diary.length() > 0) {
+            _stats.current_diary = diary;
+        }
+    }
+
+    // 动态生成第一人称灵宠观察日记
+    void generateDiaryEntry(const String& custom_event = "") {
+        if (custom_event.length() > 0) {
+            _stats.current_diary = custom_event;
+            return;
+        }
+        if (_stats.intimacy_level >= 5) {
+            _stats.current_diary = "今天和主人形影不离，心里感觉特别踏实和温暖！";
+        } else if (_stats.total_pets > 3) {
+            _stats.current_diary = "主人刚刚摸了摸我的小脑袋，开心得头顶冒泡泡~";
+        } else if (_stats.total_convos > 5) {
+            _stats.current_diary = "今天主人跟我聊了好多话，我学到了好多新知识！";
+        } else {
+            _stats.current_diary = "今天在桌面上晒太阳，等待主人下一次唤醒我。";
+        }
+    }
+
+    // 解析大模型返回文本中的 [E:xxx] 情绪标签并自动提取纯净文本
+    static AvatarMood parseEmotionTag(const String& raw_text, String& clean_text) {
+        clean_text = raw_text;
+        if (!raw_text.startsWith("[E:") && !raw_text.startsWith("[e:")) {
+            return MOOD_IDLE;
+        }
+        int close_idx = raw_text.indexOf(']');
+        if (close_idx < 0) return MOOD_IDLE;
+
+        String tag = raw_text.substring(3, close_idx);
+        tag.toLowerCase();
+        tag.trim();
+        clean_text = raw_text.substring(close_idx + 1);
+        clean_text.trim();
+
+        if (tag == "happy") return MOOD_HAPPY;
+        if (tag == "curious") return MOOD_CURIOUS;
+        if (tag == "proud") return MOOD_PROUD;
+        if (tag == "sleepy" || tag == "sleep") return MOOD_SLEEP;
+        if (tag == "dizzy") return MOOD_DIZZY;
+        if (tag == "shock") return MOOD_SHOCK;
+        if (tag == "listen") return MOOD_LISTEN;
+        return MOOD_IDLE;
+    }
+
     // 增加亲密度经验值
     void addIntimacy(int xp) {
         if (xp <= 0) return;
@@ -250,6 +306,25 @@ public:
             // 随流式音频开合的小嘴
             int cur_mh = (int)_mouth_h;
             d.fillRoundRect(mouth_x - 10, mouth_y - cur_mh / 2, 20, cur_mh + 4, 4, 0xF980);
+        }
+        else if (_current_mood == MOOD_CURIOUS) {
+            // 好奇歪头：左眼大右眼略小，微微倾斜
+            d.fillRoundRect(eye_lx - 14, eye_y - 18, 28, 36, 12, 0x07FF);
+            d.fillRoundRect(eye_rx - 11, eye_y - 12, 22, 26, 9, 0x07FF);
+            d.fillCircle(eye_lx, eye_y - 2, 6, 0x0000);
+            d.fillCircle(eye_rx, eye_y - 2, 4, 0x0000);
+            // 俏皮小圆嘴
+            d.drawCircle(mouth_x + 3, mouth_y, 4, 0x5D1F);
+        }
+        else if (_current_mood == MOOD_PROUD) {
+            // 傲娇得意：昂首向上弯眼 + 俏皮小虎牙嘴
+            d.fillCircle(eye_lx, eye_y - 4, 13, 0xFFE0);
+            d.fillCircle(eye_lx, eye_y + 2, 13, 0x0000);
+            d.fillCircle(eye_rx, eye_y - 4, 13, 0xFFE0);
+            d.fillCircle(eye_rx, eye_y + 2, 13, 0x0000);
+            d.fillCircle(20, 92, 5, 0xFDC0); // 金粉腮红
+            d.fillCircle(115, 92, 5, 0xFDC0);
+            d.drawLine(mouth_x - 8, mouth_y - 2, mouth_x + 8, mouth_y - 4, 0xFFE0);
         }
         else {
             // 标准/倾听/思考圆角胶囊眼

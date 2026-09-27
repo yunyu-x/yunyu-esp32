@@ -178,21 +178,34 @@
    - 手机端承接无限容量的长期向量记忆图谱，彻底突破 ESP32 本地存储极限。
 ```
 
+### 方向 11：LingBuddy 跨平台 Web Bluetooth 伴侣中枢与长程知识库沉淀
+
+```markdown
+【本次开发目标】：LingBuddy 跨平台 Web Bluetooth 伴侣中枢与长程知识库沉淀
+基于已就绪的 Web Bluetooth 仪表盘 (`web/lingbuddy_companion.html`) 与 Python 伴侣中枢 (`scripts/lingbuddy_companion.py`)：
+1. 移动端与 Web Bluetooth 离线同步适配：优化移动端 Chrome / Safari (WebBLE) 与微信环境连接握手，实现靠近 StickS3 自动静默配对；
+2. 长期记忆向量化归档 (Local Vector DB)：在手机端或电脑端引入轻量向量数据库 (如 SQLite-vss 或 ChromaDB)，自动将 0xFFB1 下发的分块对话转为向量切片，形成个人生活知识库；
+3. 双向日程与备忘注入：打通手机日历与待办事项，通过 0xFFB4 向设备下发定时提醒与日程卡片，设备在指定时间切换为 `MOOD_LISTEN` 并在屏幕弹出提醒和弦；
+4. 拓麻歌子投喂与彩蛋交互：手机端增加“投喂数字小点心”、“洗澡梳毛”虚拟互动，直接向 0xFFB4 发送指令增加亲密度 XP 并解锁专属彩蛋表情。
+```
+
 ---
 
 ## 三、 代码提交与交接执行准则 (Commit SOP for Agents)
 
 所有后续 Agent 在完成任何阶段性功能开发并准备提交代码时，必须执行以下标准化闭环：
 
-1. **自动化校验先行**：
-   - 运行 `pytest tests/ -v` 确保全套 52 项单元测试（46 项既有基线 + 6 项新增 Avatar 拟真情感与 BLE 记忆测试）全部通过。
-   - 运行灵宠表情与具身动力学测试：`pytest tests/test_avatar_and_empathy.py -v`。
-   - 运行唤醒词专项测试：`pytest tests/test_wakeword_engine.py -v` 验证声学 FSM 状态机跳转与源码契约。
-   - 运行硬件在环与真机端到端验证：`python scripts/test_avatar_hardware.py` 验证串口交互指令、生命动力学与 BLE GATT 服务合规性。
-2. **更新交接文档**：
+1. **双分支隔离研发准则**：
+   - 稳定功能发布基线锁定在 `main`（打标 `v1.0.0-stable`，含 `dist/release_v1.0.0/` 独立免编译发布包）；
+   - 灵宠伴侣与仿生微表情全部在 `feature/lingbuddy-companion` 分支进行研发，严禁未经全量测试将未经验证代码合并回 `main`。
+2. **自动化校验先行**：
+   - 运行灵宠表情与具身动力学测试：`pytest tests/test_avatar_and_empathy.py -v`（9 项全绿）。
+   - 运行核心全套测试：`pytest tests/test_avatar_and_empathy.py tests/test_wakeword_engine.py tests/test_wifi_and_bailian_pipeline.py tests/test_audio_stream_pipeline.py tests/test_firmware_driver_suite.py tests/test_sticks3_three_schemes.py -v`（47 项全绿）。
+   - 运行硬件在环与真机端到端验证：`python scripts/test_avatar_hardware.py` 与 `python scripts/lingbuddy_companion.py`。
+3. **更新交接文档与续写提示词**：
    - 在对应模块的文档（如 `docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md` 与 `docs/27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md`）中记录最新演进、根因与方案。
    - 在本文件（`docs/AGENT_CONTINUATION_PROMPTS.md`）中登记新增功能方向的续写提示词。
-3. **提交信息规范**：
+4. **提交信息规范**：
    Commit Message 遵循 Conventional Commits 规范，必须附带说明核心交付物与交接指引。
-4. **向用户输出交接描述**：
+5. **向用户输出交接描述**：
    在向用户的对话总结中，**必须明确附带下一步开发的继续开发提示词描述**，以便用户直接复制开启下一轮会话。

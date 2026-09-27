@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LingBuddy 灵宠伴侣 · 随身记忆与情感中枢</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #141b2d;
+            --accent-cyan: #00f2fe;
+            --accent-blue: #4facfe;
+            --accent-pink: #ff0844;
+            --accent-yellow: #f6d365;
+            --accent-green: #00e676;
+            --text-main: #f0f4f8;
+            --text-sub: #8a99ad;
+            --border-glow: rgba(0, 242, 254, 0.25);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+        }
+
+        .header {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #ff5252;
+        }
+
+        .status-dot.online {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        .main-container {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* 灵宠屏幕画板 */
+        .avatar-card {
+            background: var(--card-bg);
+            border-radius: 24px;
+            border: 1px solid var(--border-glow);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screen-frame {
+            width: 200px;
+            height: 280px;
+            background: #000;
+            border-radius: 28px;
+            border: 4px solid #2d3748;
+            box-shadow: inset 0 0 16px rgba(0, 242, 254, 0.2);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        canvas#avatarCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 羁绊进度条 */
+        .intimacy-box {
+            width: 100%;
+            margin-top: 14px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 10px 14px;
+        }
+
+        .intimacy-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #2d3748;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 15%;
+            background: linear-gradient(90deg, #ff0844, #ffb199);
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        /* 交互面板 */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+        }
+
+        .btn-action {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-main);
+            border-radius: 16px;
+            padding: 12px 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-action:active {
+            transform: scale(0.94);
+            border-color: var(--accent-cyan);
+            background: rgba(0, 242, 254, 0.15);
+        }
+
+        .btn-action span.icon {
+            font-size: 1.3rem;
+        }
+
+        /* 灵宠日记面板 */
+        .diary-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 16px;
+        }
+
+        .diary-card h2 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent-yellow);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .diary-bubble {
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #e2e8f0;
+            border-left: 3px solid var(--accent-yellow);
+            margin-bottom: 8px;
+        }
+
+        .diary-time {
+            font-size: 0.7rem;
+            color: var(--text-sub);
+            margin-top: 4px;
+        }
+
+        /* 记忆备份区 */
+        .memory-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 16px;
+        }
+
+        .memory-card h2 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-export {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            border: none;
+            color: #0b0f19;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 6px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .memory-text {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            padding: 10px;
+            font-size: 0.75rem;
+            font-family: monospace;
+            max-height: 120px;
+            overflow-y: auto;
+            color: #a0aec0;
+            white-space: pre-wrap;
+        }
+
+        /* 连接条 */
+        .connect-bar {
+            width: 100%;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            flex: 1;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            color: #0b0f19;
+            border: none;
+            border-radius: 16px;
+            padding: 14px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0, 242, 254, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.97);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 14px 18px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>LingBuddy 灵宠中枢</h1>
+        <div class="status-badge">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">未连接 BLE</span>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- 灵宠主卡片 -->
+        <div class="avatar-card">
+            <div class="screen-frame">
+                <canvas id="avatarCanvas" width="135" height="240"></canvas>
+            </div>
+            
+            <div class="intimacy-box">
+                <div class="intimacy-header">
+                    <span><strong id="petName">小木</strong> 的羁绊等级</span>
+                    <span id="levelLabel">Lv.1 (15/100 XP)</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="xpBar" style="width: 15%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 蓝牙连接控制条 -->
+        <div class="connect-bar">
+            <button class="btn-primary" id="btnConnect" onclick="connectBle()">⚡ 连接 StickS3 伴侣</button>
+            <button class="btn-secondary" id="btnSim" onclick="toggleSimMode()">🎮 演示仿真</button>
+        </div>
+
+        <!-- 拟真交互触控区 -->
+        <div class="controls-grid">
+            <button class="btn-action" onclick="sendAction('pet')">
+                <span class="icon">🌸</span>
+                <span>摸摸头</span>
+            </button>
+            <button class="btn-action" onclick="sendAction('shake')">
+                <span class="icon">🌀</span>
+                <span>摇一摇</span>
+            </button>
+            <button class="btn-action" onclick="sendAction('wake')">
+                <span class="icon">👂</span>
+                <span>呼唤聆听</span>
+            </button>
+            <button class="btn-action" onclick="sendAction('sleep')">
+                <span class="icon">🌙</span>
+                <span>哄睡休息</span>
+            </button>
+        </div>
+
+        <!-- 灵宠日记面板 -->
+        <div class="diary-card">
+            <h2>📖 灵宠第一人称日记 (Moments)</h2>
+            <div id="diaryContainer">
+                <div class="diary-bubble">
+                    <div id="diaryText">今天刚刚苏醒，期待和主人一起探索世界！</div>
+                    <div class="diary-time" id="diaryTime">刚刚 · 羁绊 Lv.1</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 长程记忆备份与导出 -->
+        <div class="memory-card">
+            <h2>
+                <span>🧠 对话记忆快照 (GATT 0xFFB1)</span>
+                <button class="btn-export" onclick="exportMemoryFile()">📥 导出日记与对话</button>
+            </h2>
+            <div class="memory-text" id="memoryDisplay">[
+  {"role": "assistant", "content": "你好呀主人！我是小木，随时听候你的差遣~"}
+]</div>
+        </div>
+    </div>
+
+    <script>
+        // BLE GATT UUIDs
+        const SERVICE_UUID        = "0000ffb0-0000-1000-8000-00805f9b34fb";
+        const CHAR_MEMORY_UUID    = "0000ffb1-0000-1000-8000-00805f9b34fb";
+        const CHAR_STATUS_UUID    = "0000ffb2-0000-1000-8000-00805f9b34fb";
+        const CHAR_DIARY_UUID     = "0000ffb3-0000-1000-8000-00805f9b34fb";
+        const CHAR_INJECT_UUID    = "0000ffb4-0000-1000-8000-00805f9b34fb";
+
+        let bleDevice = null;
+        let charStatus = null;
+        let charDiary = null;
+        let charMemory = null;
+        let charInject = null;
+        let isSimMode = false;
+
+        // 灵宠状态
+        const petState = {
+            name: "小木",
+            level: 1,
+            xp: 15,
+            pets: 0,
+            shakes: 0,
+            mood: 0, // 0: IDLE, 1: LISTEN, 2: THINK, 3: SPEAK, 4: HAPPY, 5: DIZZY, 6: SHOCK, 7: SLEEP, 8: CURIOUS, 9: PROUD
+            diary: "今天刚刚苏醒，期待和主人一起探索世界！",
+            pupil_r: 7.0,
+            mouth_h: 2.0,
+            blink_progress: 0.0,
+            is_blinking: false,
+            last_blink: Date.now()
+        };
+
+        // Canvas 渲染引擎 (忠实还原 ST7789 135x240)
+        const canvas = document.getElementById("avatarCanvas");
+        const ctx = canvas.getContext("2d");
+
+        function drawAvatar() {
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(0, 0, 135, 240);
+
+            // 顶部条
+            ctx.fillStyle = "#101827";
+            ctx.fillRect(0, 0, 135, 18);
+            ctx.fillStyle = "#f6d365";
+            ctx.font = "bold 9px sans-serif";
+            ctx.fillText(`${petState.name} Lv.${petState.level}`, 4, 12);
+            ctx.fillStyle = "#00e676";
+            ctx.textAlign = "right";
+            const tags = ["就绪", "聆听中", "思考中", "说话中", "开心", "晕眩", "惊吓", "打呼中", "好奇", "傲娇"];
+            ctx.fillText(tags[petState.mood] || "就绪", 131, 12);
+            ctx.textAlign = "left";
+
+            // 眼睛中心
+            const eye_y = 75;
+            const eye_lx = 38;
+            const eye_rx = 97;
+            const eye_w = 26;
+            const eye_h = 36;
+            const mouth_x = 67;
+            const mouth_y = 120;
+
+            let eyeColor = "#5d1f00";
+            if (petState.mood === 1) eyeColor = "#00f2fe"; // 聆听蓝
+            else if (petState.mood === 4) eyeColor = "#ff758c"; // 暖粉红
+            else if (petState.mood === 5) eyeColor = "#f6d365"; // 晕眩黄
+            else if (petState.mood === 2) eyeColor = "#ffd200"; // 思考琥珀
+            else if (petState.mood === 8) eyeColor = "#00f2fe"; // 好奇青
+            else if (petState.mood === 9) eyeColor = "#ffd200"; // 傲娇金
+            else eyeColor = "#4facfe"; // 默认柔和蓝
+
+            // 自主眨眼计算
+            const now = Date.now();
+            if (!petState.is_blinking && now - petState.last_blink > 3200) {
+                petState.is_blinking = true;
+                petState.last_blink = now;
+            }
+            if (petState.is_blinking) {
+                const b_dur = now - petState.last_blink;
+                if (b_dur < 100) petState.blink_progress = b_dur / 100.0;
+                else if (b_dur < 200) petState.blink_progress = 1.0 - (b_dur - 100) / 100.0;
+                else {
+                    petState.is_blinking = false;
+                    petState.blink_progress = 0.0;
+                }
+            }
+
+            // 表情分支渲染
+            if (petState.mood === 5) {
+                // 晕眩 X_X
+                ctx.strokeStyle = eyeColor;
+                ctx.lineWidth = 3;
+                [eye_lx, eye_rx].forEach(x => {
+                    ctx.beginPath();
+                    ctx.moveTo(x - 9, eye_y - 9); ctx.lineTo(x + 9, eye_y + 9);
+                    ctx.moveTo(x - 9, eye_y + 9); ctx.lineTo(x + 9, eye_y - 9);
+                    ctx.stroke();
+                });
+                ctx.beginPath();
+                ctx.arc(mouth_x, mouth_y + 2, 6, 0, Math.PI * 2);
+                ctx.stroke();
+            } else if (petState.mood === 7) {
+                // 打呼噜闭眼
+                ctx.fillStyle = "#718096";
+                ctx.fillRect(eye_lx - 12, eye_y - 2, 24, 4);
+                ctx.fillRect(eye_rx - 12, eye_y - 2, 24, 4);
+                const z_y = 52 - ((now / 50) % 20);
+                ctx.fillStyle = "#00f2fe";
+                ctx.font = "bold 14px sans-serif";
+                ctx.fillText("Z", 74, z_y);
+                ctx.font = "bold 10px sans-serif";
+                ctx.fillText("z", 84, z_y + 6);
+            } else if (petState.mood === 3 || petState.mood === 4) {
+                // 笑眼弯弯
+                ctx.fillStyle = eyeColor;
+                [eye_lx, eye_rx].forEach(x => {
+                    ctx.beginPath();
+                    ctx.arc(x, eye_y - 2, 13, 0, Math.PI, true);
+                    ctx.fill();
+                });
+                // 腮红
+                ctx.fillStyle = "rgba(255, 117, 140, 0.8)";
+                ctx.beginPath(); ctx.arc(18, 92, 6, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(117, 92, 6, 0, Math.PI * 2); ctx.fill();
+                // 嘴巴
+                ctx.fillStyle = "#f98080";
+                ctx.fillRect(mouth_x - 10, mouth_y - petState.mouth_h / 2, 20, petState.mouth_h + 4);
+            } else if (petState.mood === 8) {
+                // 好奇
+                ctx.fillStyle = eyeColor;
+                ctx.beginPath(); ctx.roundRect(eye_lx - 14, eye_y - 18, 28, 36, 12); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(eye_rx - 11, eye_y - 12, 22, 26, 9); ctx.fill();
+                ctx.fillStyle = "#000";
+                ctx.beginPath(); ctx.arc(eye_lx, eye_y - 2, 6, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(eye_rx, eye_y - 2, 4, 0, Math.PI * 2); ctx.fill();
+            } else {
+                // 标准 / 倾听 / 思考
+                const cur_eh = Math.max(4, eye_h * (1.0 - petState.blink_progress * 0.88));
+                ctx.fillStyle = eyeColor;
+                [eye_lx, eye_rx].forEach(x => {
+                    ctx.beginPath();
+                    ctx.roundRect(x - eye_w / 2, eye_y - cur_eh / 2, eye_w, cur_eh, 10);
+                    ctx.fill();
+                });
+                if (cur_eh > 12) {
+                    ctx.fillStyle = "#000000";
+                    const pupil_r = petState.pupil_r;
+                    const offset_x = (petState.mood === 2) ? 4 : 0;
+                    const offset_y = (petState.mood === 2) ? -4 : 0;
+                    [eye_lx, eye_rx].forEach(x => {
+                        ctx.beginPath();
+                        ctx.arc(x + offset_x, eye_y + offset_y, pupil_r, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = "#ffffff";
+                        ctx.beginPath();
+                        ctx.arc(x + offset_x + 3, eye_y + offset_y - 3, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.fillStyle = "#000000";
+                    });
+                }
+                ctx.fillStyle = "#718096";
+                ctx.fillRect(mouth_x - 4, mouth_y, 8, 2);
+            }
+
+            // 下方对白框
+            ctx.fillStyle = "#1e293b";
+            ctx.fillRect(6, 158, 123, 72);
+            ctx.fillStyle = "#f8fafc";
+            ctx.font = "10px sans-serif";
+            ctx.fillText("按正面[A]键说话", 12, 178);
+            ctx.fillStyle = "#94a3b8";
+            ctx.fillText("摇摇我有惊喜~", 12, 196);
+
+            requestAnimationFrame(drawAvatar);
+        }
+        drawAvatar();
+
+        // 动作指令注入 (0xFFB4)
+        async function sendAction(action) {
+            console.log("Send action:", action);
+            if (isSimMode) {
+                handleSimAction(action);
+                return;
+            }
+            if (!charInject) {
+                alert("请先通过 Web Bluetooth 连接 StickS3 设备！");
+                return;
+            }
+            const payload = JSON.stringify({ action: action });
+            const encoder = new TextEncoder();
+            try {
+                await charInject.writeValue(encoder.encode(payload));
+            } catch (e) {
+                console.error("Write inject failed:", e);
+            }
+        }
+
+        function handleSimAction(action) {
+            if (action === "pet") {
+                petState.mood = 4;
+                petState.xp += 15;
+                petState.pets++;
+                if (petState.xp >= 100 && petState.level < 10) {
+                    petState.level++;
+                    petState.xp = 0;
+                }
+                updateUi();
+                addDiary("主人隔空摸了摸我的小脑瓜，好幸福~");
+            } else if (action === "shake") {
+                petState.mood = 5;
+                petState.shakes++;
+                updateUi();
+                addDiary("哎呀呀！被疯狂摇晃，眼睛里全是小星星！");
+                setTimeout(() => { petState.mood = 0; }, 3000);
+            } else if (action === "wake") {
+                petState.mood = 1;
+                petState.pupil_r = 12.0;
+                updateUi();
+                setTimeout(() => { petState.pupil_r = 7.0; petState.mood = 0; }, 4000);
+            } else if (action === "sleep") {
+                petState.mood = 7;
+                updateUi();
+            }
+        }
+
+        function updateUi() {
+            document.getElementById("petName").innerText = petState.name;
+            document.getElementById("levelLabel").innerText = `Lv.${petState.level} (${petState.xp}/100 XP)`;
+            document.getElementById("xpBar").style.width = `${petState.xp}%`;
+        }
+
+        function addDiary(text) {
+            petState.diary = text;
+            const container = document.getElementById("diaryContainer");
+            const bubble = document.createElement("div");
+            bubble.className = "diary-bubble";
+            bubble.innerHTML = `<div>${text}</div><div class="diary-time">刚刚 · 羁绊 Lv.${petState.level}</div>`;
+            container.insertBefore(bubble, container.firstChild);
+        }
+
+        function toggleSimMode() {
+            isSimMode = !isSimMode;
+            const dot = document.getElementById("statusDot");
+            const txt = document.getElementById("statusText");
+            if (isSimMode) {
+                dot.className = "status-dot online";
+                txt.innerText = "演示仿真中";
+                alert("已进入本地交互仿真模式！您可以直接点击摸摸头、摇一摇、呼唤聆听体验视听动画与日记更新。");
+            } else {
+                dot.className = "status-dot";
+                txt.innerText = "未连接 BLE";
+            }
+        }
+
+        // Web Bluetooth 连接逻辑
+        async function connectBle() {
+            if (!navigator.bluetooth) {
+                alert("当前浏览器不支持 Web Bluetooth API，请使用 Chrome / Edge 浏览器，或点击 [演示仿真] 体验！");
+                return;
+            }
+            try {
+                document.getElementById("statusText").innerText = "搜索设备...";
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: "LingBuddy" }, { namePrefix: "StickS3" }],
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                document.getElementById("statusText").innerText = "建立 GATT 连接...";
+                const server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+
+                charStatus = await service.getCharacteristic(CHAR_STATUS_UUID);
+                charDiary = await service.getCharacteristic(CHAR_DIARY_UUID);
+                charMemory = await service.getCharacteristic(CHAR_MEMORY_UUID);
+                charInject = await service.getCharacteristic(CHAR_INJECT_UUID);
+
+                document.getElementById("statusDot").className = "status-dot online";
+                document.getElementById("statusText").innerText = "在线同步中";
+                document.getElementById("btnConnect").innerText = "✅ 已连接伴侣";
+
+                // 监听日记推送
+                await charDiary.startNotifications();
+                charDiary.addEventListener("characteristicvaluechanged", (e) => {
+                    const decoder = new TextDecoder();
+                    const jsonStr = decoder.decode(e.target.value);
+                    try {
+                        const d = JSON.parse(jsonStr);
+                        if (d.diary) addDiary(d.diary);
+                    } catch (err) {}
+                });
+
+                // 读取初始状态
+                const sVal = await charStatus.readValue();
+                const sJson = new TextDecoder().decode(sVal);
+                try {
+                    const st = JSON.parse(sJson);
+                    if (st.name) petState.name = st.name;
+                    if (st.level) petState.level = st.level;
+                    if (st.xp) petState.xp = st.xp;
+                    if (st.mood !== undefined) petState.mood = st.mood;
+                    updateUi();
+                } catch (err) {}
+
+            } catch (e) {
+                console.error("BLE Connect failed:", e);
+                document.getElementById("statusText").innerText = "连接取消";
+            }
+        }
+
+        // 导出长程记忆文件
+        function exportMemoryFile() {
+            const history = document.getElementById("memoryDisplay").innerText;
+            const mdContent = `# LingBuddy 灵宠长程记忆备份报告\n\n- 灵宠名称: ${petState.name}\n- 羁绊等级: Lv.${petState.level}\n- 备份时间: ${new Date().toLocaleString()}\n- 最新日记: ${petState.diary}\n\n## 对话记录与用户画像\n\`\`\`json\n${history}\n\`\`\`\n`;
+            const blob = new Blob([mdContent], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `LingBuddy_Memory_${Date.now()}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
