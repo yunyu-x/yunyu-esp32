@@ -32,6 +32,7 @@
 #include "sticks3_i2c_mutex.h"
 #include "sticks3_system_metrics.h"
 #include "sticks3_wakeword.h"
+#include "sticks3_avatar.h"
 
 namespace sticks3 {
 
@@ -79,6 +80,19 @@ select { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px;
 .badge { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #334155; color: #93c5fd; }
 audio { width: 100%; height: 38px; border-radius: 8px; margin-top: 8px; outline: none; }
 .section-title { font-weight: 600; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+.pet-card { background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 4px 14px rgba(236,72,153,0.22); border: 1px solid #db2777; }
+.pet-hud-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.pet-bar-bg { background: #020617; border-radius: 999px; height: 8px; overflow: hidden; margin-top: 4px; border: 1px solid #1e293b; }
+.pet-bar-fill { background: linear-gradient(90deg, #ec4899, #f43f5e); height: 100%; border-radius: 999px; transition: width 0.3s; }
+.pet-energy-fill { background: linear-gradient(90deg, #06b6d4, #3b82f6); height: 100%; border-radius: 999px; transition: width 0.3s; }
+.pet-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.btn-pet { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 8px; border: none; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.15s; color: white; text-decoration: none; }
+.btn-pet:active { transform: scale(0.97); }
+.btn-feed { background: linear-gradient(135deg, #ec4899, #d946ef); }
+.btn-groom { background: linear-gradient(135deg, #06b6d4, #0ea5e9); }
+.btn-play { background: linear-gradient(135deg, #f59e0b, #eab308); }
+.btn-caress { background: linear-gradient(135deg, #10b981, #059669); }
+.pet-diary-box { background: #020617; border: 1px solid #334155; border-radius: 8px; padding: 9px 11px; margin-bottom: 10px; font-size: 12px; line-height: 1.5; color: #cbd5e1; }
 </style>
 </head>
 <body>
@@ -89,6 +103,97 @@ audio { width: 100%; height: 38px; border-radius: 8px; margin-top: 8px; outline:
   <div class="grid">
     <div class="stat"><div>姿态俯仰 / 横滚</div><div class="stat-val" id="imu">0° / 0°</div></div>
     <div class="stat"><div>百炼大模型状态</div><div class="stat-val" id="blStateHeader">未连接</div></div>
+  </div>
+</div>
+
+<!-- 板块 P: 灵宠伴侣拓麻歌子互动与隔空投喂中心 -->
+<div class="pet-card">
+  <div class="section-title">
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:18px;">🍰</span>
+      <b style="color:#f472b6;">灵宠伴侣拓麻歌子与「隔空投喂」互动中心</b>
+    </span>
+    <span class="badge" id="petMoodBadge" style="background:#be185d;color:#fbcfe8;">常态待命</span>
+  </div>
+
+  <div style="font-size:12px;color:#cbd5e1;margin-bottom:8px;">
+    基于迪士尼灵动艺术表情与物理具身动力学。支持隔空远程投喂、舒适梳毛、默契击掌与温柔抚摸。
+  </div>
+
+  <!-- 亲密度与能量状态条 -->
+  <div class="pet-hud-grid">
+    <div class="stat" style="background:#0f172a;">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+        <span style="color:#f472b6;">⭐ 亲密羁绊</span>
+        <b id="petLevelText" style="color:#fb7185;">Lv.1 (15/100 XP)</b>
+      </div>
+      <div class="pet-bar-bg">
+        <div class="pet-bar-fill" id="petXpBar" style="width:15%;"></div>
+      </div>
+    </div>
+    <div class="stat" style="background:#0f172a;">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
+        <span style="color:#38bdf8;">⚡ 活力充沛</span>
+        <b id="petEnergyText" style="color:#38bdf8;">100%</b>
+      </div>
+      <div class="pet-bar-bg">
+        <div class="pet-energy-fill" id="petEnergyBar" style="width:100%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 灵宠第一人称心声日记 -->
+  <div class="pet-diary-box">
+    <div style="color:#94a3b8;font-size:11px;margin-bottom:3px;display:flex;justify-content:space-between;">
+      <span>📖 <b id="petNameLabel">小木</b> 的即时心声日记:</span>
+      <span id="petStatCounts" style="color:#64748b;">喂:0 梳:0 摸:0 晃:0</span>
+    </div>
+    <div id="petDiaryText" style="color:#e2e8f0;font-size:12px;">
+      "今天刚刚苏醒，期待和主人一起探索世界！"
+    </div>
+  </div>
+
+  <!-- 隔空投喂小点心菜单与动作快捷键 -->
+  <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">🍰 选取精选点心进行「隔空投喂」:</div>
+  <div style="display:flex;gap:6px;margin-bottom:8px;">
+    <select id="feedItemSelect" style="flex:1;margin-bottom:0;">
+      <option value="草莓奶油大福">🍓 草莓奶油大福 (+20活力, +10羁绊)</option>
+      <option value="鲜奶舒芙蕾蛋糕">🍰 鲜奶舒芙蕾蛋糕 (+20活力, +10羁绊)</option>
+      <option value="比利时巧脆曲奇">🍪 比利时巧脆曲奇 (+20活力, +10羁绊)</option>
+      <option value="彩虹熔岩甜甜圈">🍩 彩虹熔岩甜甜圈 (+20活力, +10羁绊)</option>
+      <option value="香甜爆米花">🍿 香甜爆米花 (+20活力, +10羁绊)</option>
+    </select>
+    <button class="btn-pet btn-feed" style="white-space:nowrap;padding:8px 14px;" onclick="triggerPetFeed()">
+      🍰 立即投喂
+    </button>
+  </div>
+
+  <div class="pet-action-grid">
+    <button class="btn-pet btn-groom" onclick="triggerPetAction('groom')">
+      <span>✨</span> <span>隔空舒适梳毛</span>
+    </button>
+    <button class="btn-pet btn-play" onclick="triggerPetAction('play')">
+      <span>✋</span> <span>隔空默契击掌</span>
+    </button>
+    <button class="btn-pet btn-caress" onclick="triggerPetAction('pet')">
+      <span>🌸</span> <span>隔空温柔抚摸</span>
+    </button>
+    <button class="btn-pet" style="background:#475569;" onclick="triggerPetAction('shake')">
+      <span>🌀</span> <span>调皮转圈圈</span>
+    </button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+    <button class="btn btn-sec" style="margin-bottom:0;font-size:12px;" onclick="triggerPetAction('toggle_mode')">
+      🎨 <span id="avatarModeBtnText">屏显: 灵宠表情 (ON)</span>
+    </button>
+    <button class="btn btn-sec" style="background:#312e81;border:1px solid #6366f1;color:#a5b4fc;margin-bottom:0;font-size:12px;" onclick="triggerPetAction('sleep')">
+      🌙 <span>灵宠晚安入睡</span>
+    </button>
+  </div>
+
+  <div class="status-bar" id="petFeedback" style="margin-top:6px;color:#f472b6;">
+    💡 投喂后屏幕实时呈现迪士尼咀嚼飞屑动效与好感度上扬！
   </div>
 </div>
 
@@ -685,6 +790,77 @@ function resetChat() {
 }
 
 // ==========================================
+// 核心 P: 拓麻歌子「隔空投喂」与动作交互
+// ==========================================
+function triggerPetFeed() {
+  var item = document.getElementById('feedItemSelect').value;
+  triggerPetAction('feed', item);
+}
+
+function triggerPetAction(action, item) {
+  var fb = document.getElementById('petFeedback');
+  var body = 'action=' + encodeURIComponent(action);
+  if (item) body += '&item=' + encodeURIComponent(item);
+
+  if (action === 'feed') {
+    fb.innerHTML = '<span style="color:#f472b6">🍰 正在隔空投喂【' + item + '】...</span>';
+  } else if (action === 'groom') {
+    fb.innerHTML = '<span style="color:#38bdf8">✨ 正在为灵宠梳理毛发 (Pixie Dust)...</span>';
+  } else if (action === 'play') {
+    fb.innerHTML = '<span style="color:#fbbf24">✋ 默契击掌！耶~</span>';
+  } else if (action === 'pet') {
+    fb.innerHTML = '<span style="color:#34d399">🌸 温柔抚摸中，心底暖洋洋~</span>';
+  } else if (action === 'shake') {
+    fb.innerHTML = '<span style="color:#f59e0b">🌀 调皮晃动！眼睛冒金星~</span>';
+  } else if (action === 'sleep') {
+    fb.innerHTML = '<span style="color:#a5b4fc">🌙 呼噜呼噜，晚安好梦~</span>';
+  } else if (action === 'toggle_mode') {
+    fb.innerHTML = '<span style="color:#38bdf8">🎨 正在切换屏幕显像模式...</span>';
+  }
+
+  fetch('/pet/action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body
+  }).then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.status === 'ok') {
+        fb.innerHTML = '<span style="color:#4ade80">✔ 互动成功！' + (d.diary || '') + '</span>';
+        updatePetHud(d);
+      }
+    }).catch(function(e) {
+      fb.innerHTML = '<span style="color:#f87171">❌ 互动失败: ' + e + '</span>';
+    });
+}
+
+function updatePetHud(d) {
+  if (d.level !== undefined) {
+    document.getElementById('petLevelText').innerText = 'Lv.' + d.level + ' (' + d.xp + '/100 XP)';
+    document.getElementById('petXpBar').style.width = Math.min(100, Math.max(0, d.xp)) + '%';
+  }
+  if (d.energy !== undefined) {
+    document.getElementById('petEnergyText').innerText = d.energy + '%';
+    document.getElementById('petEnergyBar').style.width = Math.min(100, Math.max(0, d.energy)) + '%';
+  }
+  if (d.name) {
+    document.getElementById('petNameLabel').innerText = d.name;
+  }
+  if (d.diary) {
+    document.getElementById('petDiaryText').innerText = '"' + d.diary + '"';
+  }
+  if (d.mood_name) {
+    var b = document.getElementById('petMoodBadge');
+    b.innerText = d.mood_name;
+  }
+  if (d.feeds !== undefined) {
+    document.getElementById('petStatCounts').innerText = '喂:' + d.feeds + ' 梳:' + d.grooms + ' 摸:' + d.pets + ' 晃:' + d.shakes;
+  }
+  if (d.avatar_mode !== undefined) {
+    document.getElementById('avatarModeBtnText').innerText = '屏显: ' + (d.avatar_mode ? '灵宠表情 (ON)' : '系统遥测 (OFF)');
+  }
+}
+
+// ==========================================
 // 周期性轮询与动态状态看板刷新
 // ==========================================
 function fetchStatus() {
@@ -816,6 +992,11 @@ function fetchStatus() {
     if (fb && fb.innerText.indexOf('正在保存') === -1) {
       fb.innerHTML = '累计唤醒: <b>' + d.total_wakes + '</b> 次 | 灵敏度: ' + d.sensitivity + '% | 目标词: 「' + d.name + '」' + (d.wake_window_open ? ' <b style="color:#f59e0b">● 唤醒窗口剩余 ' + (d.remaining_ms / 1000).toFixed(1) + 's</b>' : '');
     }
+  }).catch(function(){});
+
+  // 5. 拓麻歌子灵宠状态轮询
+  fetch('/pet/status').then(function(r) { return r.json(); }).then(function(d) {
+    updatePetHud(d);
   }).catch(function(){});
 }
 
@@ -1380,6 +1561,89 @@ private:
             char json[128];
             snprintf(json, sizeof(json), "{\"roll\":%.1f,\"pitch\":%.1f,\"aps\":%d,\"clients\":%d}",
                      _last_roll, _last_pitch, _networks_found, WiFi.softAPgetStationNum());
+            _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
+        // ==========================================
+        // 核心板块 P: 灵宠伴侣拓麻歌子互动与隔空投喂端点
+        // ==========================================
+        _web_server.on("/pet/status", HTTP_GET, [this]() {
+            auto& avatar = StickS3Avatar::getInstance();
+            const auto& st = avatar.getStats();
+            AvatarMood m = avatar.getMood();
+            String mood_name = "常态待命";
+            if (m == MOOD_LISTEN) mood_name = "聆听中";
+            else if (m == MOOD_THINK) mood_name = "思考中";
+            else if (m == MOOD_SPEAK) mood_name = "解答中";
+            else if (m == MOOD_HAPPY) mood_name = "开心";
+            else if (m == MOOD_DIZZY) mood_name = "晕眩";
+            else if (m == MOOD_SHOCK) mood_name = "惊吓";
+            else if (m == MOOD_SLEEP) mood_name = "呼噜入睡";
+            else if (m == MOOD_CURIOUS) mood_name = "好奇";
+            else if (m == MOOD_PROUD) mood_name = "傲娇";
+            else if (m == MOOD_EAT) mood_name = "进食中";
+            else if (m == MOOD_GROOM) mood_name = "梳毛中";
+            else if (m == MOOD_WINK) mood_name = "击掌中";
+
+            String json = "{";
+            json += "\"name\":\"" + st.pet_name + "\",";
+            json += "\"mood_id\":" + String((int)m) + ",";
+            json += "\"mood_name\":\"" + mood_name + "\",";
+            json += "\"level\":" + String(st.intimacy_level) + ",";
+            json += "\"xp\":" + String(st.intimacy_xp) + ",";
+            json += "\"energy\":" + String(st.energy) + ",";
+            json += "\"feeds\":" + String(st.total_feeds) + ",";
+            json += "\"grooms\":" + String(st.total_grooms) + ",";
+            json += "\"pets\":" + String(st.total_pets) + ",";
+            json += "\"shakes\":" + String(st.total_shakes) + ",";
+            json += "\"convos\":" + String(st.total_convos) + ",";
+            json += "\"diary\":\"" + st.current_diary + "\",";
+            json += "\"avatar_mode\":" + String(avatar.isAvatarMode() ? "true" : "false");
+            json += "}";
+            _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
+        _web_server.on("/pet/action", HTTP_POST, [this]() {
+            String act = _web_server.hasArg("action") ? _web_server.arg("action") : "";
+            String item = _web_server.hasArg("item") ? _web_server.arg("item") : "";
+            act.toLowerCase();
+            act.trim();
+
+            auto& avatar = StickS3Avatar::getInstance();
+            auto& audio = StickS3Audio::getInstance();
+
+            if (act == "feed") {
+                if (item.length() == 0) item = "草莓奶油大福";
+                avatar.feed(item);
+                audio.playChime(CHIME_SUCCESS);
+            } else if (act == "groom") {
+                avatar.groom();
+                audio.playChime(CHIME_SUCCESS);
+            } else if (act == "play") {
+                avatar.play();
+                audio.playTone(1800, 40, 0.45f);
+            } else if (act == "pet") {
+                avatar.pet();
+                audio.playChime(CHIME_SUCCESS);
+            } else if (act == "shake") {
+                avatar.shake();
+                audio.playTone(800, 60, 0.35f);
+            } else if (act == "sleep") {
+                avatar.sleep();
+            } else if (act == "toggle_mode") {
+                avatar.toggleAvatarMode();
+                audio.playTone(1500, 25, 0.40f);
+            } else if (act == "mood") {
+                String m_str = _web_server.hasArg("mood") ? _web_server.arg("mood") : "";
+                String clean;
+                AvatarMood m = avatar.parseEmotionTag("[E:" + m_str + "]", clean);
+                avatar.setMood(m);
+            }
+
+            const auto& st = avatar.getStats();
+            String json = "{\"status\":\"ok\",\"action\":\"" + act + "\",\"level\":" + String(st.intimacy_level) +
+                          ",\"xp\":" + String(st.intimacy_xp) + ",\"energy\":" + String(st.energy) +
+                          ",\"diary\":\"" + st.current_diary + "\",\"avatar_mode\":" + String(avatar.isAvatarMode() ? "true" : "false") + "}";
             _web_server.send(200, "application/json; charset=utf-8", json);
         });
     }

@@ -178,15 +178,37 @@
    - 手机端承接无限容量的长期向量记忆图谱，彻底突破 ESP32 本地存储极限。
 ```
 
-### 方向 11：LingBuddy 跨平台 Web Bluetooth 伴侣中枢与长程知识库沉淀
+### 方向 11：LingBuddy 跨平台 Web Bluetooth 伴侣中枢与长程知识库沉淀 (已落地就绪 Baseline)
 
 ```markdown
-【本次开发目标】：LingBuddy 跨平台 Web Bluetooth 伴侣中枢与长程知识库沉淀
-基于已就绪的 Web Bluetooth 仪表盘 (`web/lingbuddy_companion.html`) 与 Python 伴侣中枢 (`scripts/lingbuddy_companion.py`)：
-1. 移动端与 Web Bluetooth 离线同步适配：优化移动端 Chrome / Safari (WebBLE) 与微信环境连接握手，实现靠近 StickS3 自动静默配对；
-2. 长期记忆向量化归档 (Local Vector DB)：在手机端或电脑端引入轻量向量数据库 (如 SQLite-vss 或 ChromaDB)，自动将 0xFFB1 下发的分块对话转为向量切片，形成个人生活知识库；
-3. 双向日程与备忘注入：打通手机日历与待办事项，通过 0xFFB4 向设备下发定时提醒与日程卡片，设备在指定时间切换为 `MOOD_LISTEN` 并在屏幕弹出提醒和弦；
-4. 拓麻歌子投喂与彩蛋交互：手机端增加“投喂数字小点心”、“洗澡梳毛”虚拟互动，直接向 0xFFB4 发送指令增加亲密度 XP 并解锁专属彩蛋表情。
+【已就绪伴侣中枢与知识库能力】：
+- 移动端响应式布局与 Web Bluetooth 自动重连：
+  - `web/lingbuddy_companion.html` 全面适配 iOS/Android 刘海屏、折叠屏与 Safe Area (`viewport-fit=cover`)，双栏自适应网格。
+  - 实现基于指数退避 (1s~16s) 的断线自动监听与静默重连机制，重连后自动恢复 GATT 通知与状态快照。
+  - 内置 Web Audio API 拟真 8-Bit/FM 和弦合成器，本地仿真与蓝牙联调均可享受清脆水滴音、咀嚼音与击掌音效。
+- 双轨长程对话向量知识库沉淀：
+  - 前端基于 IndexedDB 实现轻量语义向量化与余弦相似度 Top-K 检索 (`BrowserVectorKnowledgeBase`)，支持一键备份导出；
+  - Python 端落地产能级 SQLite 持久化向量知识库 (`scripts/lingbuddy_vector_store.py`)，支持 N-gram TF-IDF 嵌入与 RAG 上下文拼装。
+- 拓麻歌子具身互动与彩蛋全链路闭环：
+  - 设备固件新增投喂小点心 (`feed` -> `MOOD_EAT`)、梳理毛发 (`groom` -> `MOOD_GROOM`) 与默契击掌 (`play` -> `MOOD_WINK`)；
+  - 屏幕动态呈现节奏咀嚼开合、周身星芒浮动与眨眼放电虎牙笑，第一人称日记自动生成并推流至手机。
+```
+
+---
+
+### 方向 12：灵宠主动搭话、端侧轻量意图路由与 PWA 桌面小组件 (Proactive Embodiment & Offline Intelligence)
+
+```markdown
+【本次开发目标】：灵宠主动搭话、端侧轻量意图路由与 PWA 桌面小组件
+基于已就绪的 12 种程序化微表情、全双工百炼语音交互、长程向量知识库与拓麻歌子互动体系：
+1. 晨起唤醒与主动搭话 (Proactive Wake & Greeting)：
+   - 利用 RTC 时钟与 BMI270 拿起事件，在早晨 7:00~9:00 第一次被主人拿起时，小木主动打哈欠 (`MOOD_SLEEP` -> `MOOD_LISTEN`) 并播放清晨问候和弦：“早安主人！今天也要元气满满哦！”；
+2. 离线意图离散匹配与本地生活管家：
+   - 在未联网或离线状态下，利用轻量级状态机匹配常用指令（如“倒计时 5 分钟”、“当前电量”、“现在几点”），无需连接百炼大模型即可离线应答与震动/和弦提醒；
+3. Web 伴侣 PWA 离线化与桌面安装：
+   - 为 `web/lingbuddy_companion.html` 添加 `manifest.json` 与 Service Worker 离线缓存，支持在 iOS Safari（添加到主屏幕）与 Android Chrome 上以全屏原生 App 形式运行；
+4. Grove 接口外设多模态扩展 (可选)：
+   - 通过 Grove (G1/G2) 接口接入 Unit-Cam 或 PIR 人体红外传感器，实现小木在感知到有人走近时好奇探头打量 (`MOOD_CURIOUS`)。
 ```
 
 ---
@@ -199,9 +221,9 @@
    - 稳定功能发布基线锁定在 `main`（打标 `v1.0.0-stable`，含 `dist/release_v1.0.0/` 独立免编译发布包）；
    - 灵宠伴侣与仿生微表情全部在 `feature/lingbuddy-companion` 分支进行研发，严禁未经全量测试将未经验证代码合并回 `main`。
 2. **自动化校验先行**：
-   - 运行灵宠表情与具身动力学测试：`pytest tests/test_avatar_and_empathy.py -v`（9 项全绿）。
-   - 运行核心全套测试：`pytest tests/test_avatar_and_empathy.py tests/test_wakeword_engine.py tests/test_wifi_and_bailian_pipeline.py tests/test_audio_stream_pipeline.py tests/test_firmware_driver_suite.py tests/test_sticks3_three_schemes.py -v`（47 项全绿）。
-   - 运行硬件在环与真机端到端验证：`python scripts/test_avatar_hardware.py` 与 `python scripts/lingbuddy_companion.py`。
+   - 运行灵宠表情、具身动力学与向量知识库测试：`pytest tests/test_avatar_and_empathy.py tests/test_vector_knowledge_base.py -v`（13 项全绿）。
+   - 运行核心全套回归测试：`pytest tests/test_avatar_and_empathy.py tests/test_vector_knowledge_base.py tests/test_wakeword_engine.py tests/test_wifi_and_bailian_pipeline.py tests/test_audio_stream_pipeline.py tests/test_firmware_driver_suite.py tests/test_sticks3_three_schemes.py -v`（51 项全绿）。
+   - 运行硬件在环与真机端到端验证：`python scripts/lingbuddy_companion.py` 与 PlatformIO 固件编译 (`python -m platformio run -d firmware/m5sticks3_buddy`)。
 3. **更新交接文档与续写提示词**：
    - 在对应模块的文档（如 `docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md` 与 `docs/27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md`）中记录最新演进、根因与方案。
    - 在本文件（`docs/AGENT_CONTINUATION_PROMPTS.md`）中登记新增功能方向的续写提示词。

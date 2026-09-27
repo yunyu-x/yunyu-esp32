@@ -168,7 +168,15 @@ def test_firmware_avatar_header_contract():
     assert "MOOD_HAPPY" in src
     assert "MOOD_DIZZY" in src
     assert "MOOD_SLEEP" in src
+    assert "MOOD_EAT" in src
+    assert "MOOD_GROOM" in src
+    assert "MOOD_WINK" in src
+    assert "total_feeds" in src
+    assert "total_grooms" in src
     assert "class StickS3Avatar" in src
+    assert "void feed" in src
+    assert "void groom" in src
+    assert "void play" in src
     assert "updatePhysics" in src
     assert "render" in src
 
@@ -184,6 +192,12 @@ def test_firmware_ble_sync_header_contract():
     assert "0000FFB2" in src
     assert "0000FFB3" in src
     assert "0000FFB4" in src
+    assert "feeds" in src
+    assert "grooms" in src
+    assert "energy" in src
+    assert 'action == "feed"' in src
+    assert 'action == "groom"' in src
+    assert 'action == "play"' in src
     assert "class StickS3BLESync" in src
     assert "registerService" in src
     assert "updateSnapshots" in src
@@ -222,6 +236,10 @@ def test_avatar_emotion_tag_extraction():
             "dizzy": "MOOD_DIZZY",
             "shock": "MOOD_SHOCK",
             "listen": "MOOD_LISTEN",
+            "eat": "MOOD_EAT",
+            "groom": "MOOD_GROOM",
+            "wink": "MOOD_WINK",
+            "play": "MOOD_WINK",
         }
         return tag_map.get(tag, "MOOD_IDLE"), clean
 
@@ -232,6 +250,12 @@ def test_avatar_emotion_tag_extraction():
     mood, clean = parse_emotion_tag("[E:curious] 为什么天是蓝色的呢？")
     assert mood == "MOOD_CURIOUS"
     assert clean == "为什么天是蓝色的呢？"
+
+    mood, clean = parse_emotion_tag("[E:eat] 这块小蛋糕太好吃啦！")
+    assert mood == "MOOD_EAT"
+
+    mood, clean = parse_emotion_tag("[E:groom] 梳毛毛好舒服呀~")
+    assert mood == "MOOD_GROOM"
 
     mood, clean = parse_emotion_tag("普通日常回答，无标签")
     assert mood == "MOOD_IDLE"
@@ -254,6 +278,32 @@ def test_avatar_ble_inject_command_processing():
     assert any("备忘测试" in turn["content"] for turn in client.memory_turns)
 
 
+def test_tamagotchi_virtual_interactions():
+    """验证拓麻歌子新增互动 (feed, groom, play) 的状态变更与羁绊成长"""
+    from scripts.lingbuddy_companion import LingBuddySimulatorClient
+    client = LingBuddySimulatorClient()
+
+    # 1. 投喂测试
+    res_feed = client.inject_action("feed", "抹茶大福")
+    assert res_feed["status"] == "ok"
+    assert client.mood == 10  # MOOD_EAT
+    assert client.feeds == 1
+    assert "抹茶大福" in res_feed["diary"]
+
+    # 2. 梳毛测试
+    res_groom = client.inject_action("groom")
+    assert res_groom["status"] == "ok"
+    assert client.mood == 11  # MOOD_GROOM
+    assert client.grooms == 1
+    assert "梳理毛发" in res_groom["diary"]
+
+    # 3. 击掌测试
+    res_play = client.inject_action("play")
+    assert res_play["status"] == "ok"
+    assert client.mood == 12  # MOOD_WINK
+    assert "默契击掌" in res_play["diary"]
+
+
 def test_avatar_chunked_memory_stream():
     """验证 0xFFB1 记忆分块传输与手机端切片重组还原算法"""
     import json
@@ -270,4 +320,36 @@ def test_avatar_chunked_memory_stream():
     data = json.loads(assembled)
     assert len(data) >= 2
     assert data[0]["role"] == "user"
+
+
+def test_firmware_wifi_tamagotchi_portal_contract():
+    """验证 sticks3_wifi.h 中拓麻歌子「隔空投喂」与 REST 端点契约完整性"""
+    wifi_h = os.path.join(FW_ROOT, "include", "sticks3_wifi.h")
+    assert os.path.exists(wifi_h), f"{wifi_h} 必须存在"
+    with open(wifi_h, "r", encoding="utf-8") as f:
+        src = f.read()
+
+    assert "/pet/status" in src, "必须包含 /pet/status 查询路由"
+    assert "/pet/action" in src, "必须包含 /pet/action 控制路由"
+    assert "pet-card" in src, "必须包含拓麻歌子专用高保真卡片样式"
+    assert "隔空投喂" in src, "必须包含隔空投喂功能入口"
+    assert "triggerPetFeed" in src, "前端必须具备投喂触发逻辑"
+    assert "triggerPetAction" in src, "前端必须具备动作下发逻辑"
+    assert "sticks3_avatar.h" in src, "Wi-Fi 头文件必须引用 Avatar 引擎"
+
+
+def test_web_companion_disney_rendering_contract():
+    """验证 Web 伴侣页面中迪士尼艺术审美微表情与双模连接契约"""
+    companion_html = os.path.abspath(os.path.join(FW_ROOT, "..", "..", "web", "lingbuddy_companion.html"))
+    assert os.path.exists(companion_html), f"{companion_html} 必须存在"
+    with open(companion_html, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    assert "drawDisneyEye" in html, "Canvas 必须使用迪士尼双高光水灵大眼解算"
+    assert "drawDisneyDMouth" in html, "必须支持迪士尼 D 型皓齿粉舌微表情"
+    assert "drawDisneyCheeks" in html, "必须支持弹弹粉嫩腮红"
+    assert "drawStar" in html, "必须支持晕眩轨道金星与 Pixie Dust 闪烁"
+    assert "toggleConnectWifi" in html, "必须支持 Wi-Fi 局域网即时直连"
+    assert "/pet/action" in html, "必须支持向硬件下发 /pet/action"
+
 

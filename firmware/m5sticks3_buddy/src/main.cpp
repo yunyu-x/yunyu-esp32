@@ -873,6 +873,7 @@ void loop() {
         } else if (btnB_clicked) {
             // 侧面按键 B: 切换灵宠微表情模式与工程诊断看板
             g_pet_avatar_mode = !g_pet_avatar_mode;
+            sticks3::StickS3Avatar::getInstance().setAvatarMode(g_pet_avatar_mode);
             audio.playTone(1500, 25, 0.40f);
             Serial.printf("[EVENT] Btn B clicked -> Avatar Mode: %s\n", g_pet_avatar_mode ? "ON" : "OFF");
         }
@@ -914,13 +915,21 @@ void loop() {
         if (millis() - last_display_draw >= 66) {
             last_display_draw = millis();
 
+            g_pet_avatar_mode = sticks3::StickS3Avatar::getInstance().isAvatarMode();
             if (g_pet_avatar_mode) {
                 display.startWrite();
                 String subtitle = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? bl.getAiReply() : (bl.getUserQuery().length() > 0 ? bl.getUserQuery() : latest_ble_msg);
                 if (subtitle.length() == 0) subtitle = "按正面[A]键说话，摇摇我有惊喜~";
+                auto cur_m = sticks3::StickS3Avatar::getInstance().getMood();
                 String tag = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? "说话中" :
                              (bl.getState() == sticks3::BL_STATE_LISTENING) ? "聆听中" :
-                             (bl.getState() == sticks3::BL_STATE_THINKING) ? "思考中" : "就绪";
+                             (bl.getState() == sticks3::BL_STATE_THINKING) ? "思考中" :
+                             (cur_m == sticks3::MOOD_EAT) ? "进食中" :
+                             (cur_m == sticks3::MOOD_GROOM) ? "梳毛中" :
+                             (cur_m == sticks3::MOOD_WINK) ? "击掌中" :
+                             (cur_m == sticks3::MOOD_HAPPY) ? "开心" :
+                             (cur_m == sticks3::MOOD_DIZZY) ? "晕眩" :
+                             (cur_m == sticks3::MOOD_SLEEP) ? "睡眠中" : "就绪";
                 sticks3::StickS3Avatar::getInstance().render(display, subtitle, tag);
                 drawChineseText(display, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
                 display.endWrite();

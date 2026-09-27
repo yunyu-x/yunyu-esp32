@@ -91,6 +91,9 @@ public:
         doc_status["pets"] = stats.total_pets;
         doc_status["shakes"] = stats.total_shakes;
         doc_status["convos"] = stats.total_convos;
+        doc_status["feeds"] = stats.total_feeds;
+        doc_status["grooms"] = stats.total_grooms;
+        doc_status["energy"] = stats.energy;
         doc_status["mood"] = (int)StickS3Avatar::getInstance().getMood();
 
         String json_status;
@@ -165,9 +168,21 @@ public:
             StickS3Avatar::getInstance().setMood(MOOD_HAPPY);
             StickS3Avatar::getInstance().addIntimacy(3);
             StickS3Avatar::getInstance().generateDiaryEntry("手机端主人刚刚隔空摸了摸我的小脑瓜，好幸福！");
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+        } else if (action == "feed") {
+            String snack = doc["snack"] | (doc["value"] | "香甜小蛋糕");
+            StickS3Avatar::getInstance().feed(snack);
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+        } else if (action == "groom") {
+            StickS3Avatar::getInstance().groom();
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+        } else if (action == "play") {
+            StickS3Avatar::getInstance().play();
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
         } else if (action == "shake") {
             StickS3Avatar::getInstance().setMood(MOOD_DIZZY);
             StickS3Avatar::getInstance().generateDiaryEntry("手机端发来摇晃指令，眼睛里全都是小星星！");
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
         } else if (action == "sleep") {
             StickS3Avatar::getInstance().setMood(MOOD_SLEEP);
         } else if (action == "wake") {
@@ -186,6 +201,9 @@ public:
             else if (m == "sleep") StickS3Avatar::getInstance().setMood(MOOD_SLEEP);
             else if (m == "curious") StickS3Avatar::getInstance().setMood(MOOD_CURIOUS);
             else if (m == "proud") StickS3Avatar::getInstance().setMood(MOOD_PROUD);
+            else if (m == "eat") StickS3Avatar::getInstance().setMood(MOOD_EAT);
+            else if (m == "groom") StickS3Avatar::getInstance().setMood(MOOD_GROOM);
+            else if (m == "wink") StickS3Avatar::getInstance().setMood(MOOD_WINK);
         } else if (action == "sync_memory") {
             streamMemoryChunked();
         } else if (action == "inject_memory") {
@@ -193,6 +211,7 @@ public:
             if (note.length() > 0) {
                 StickS3MemoryStore::getInstance().addTurn("[手机备忘] " + note, "好哒，小木已把这条生活备忘记在心里啦！", "Tina");
                 StickS3Avatar::getInstance().generateDiaryEntry("主人从手机同步了一条新的生活备忘给我。");
+                notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
             }
         }
         Serial.printf("[BLE-INJECT] Processed action: %s\n", action.c_str());
