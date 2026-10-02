@@ -213,6 +213,26 @@
 
 ---
 
+### 方向 13：微信小程序与移动端灵宠伴侣产品化演进 (WeChat Mini-Program & Mobile Companion)
+
+```markdown
+【本次开发目标】：微信小程序与移动端灵宠伴侣产品化演进
+参考交接指南：`docs/29_微信小程序与移动端研发交接指南_HANDOVER_MOBILE.md` 与协议指南 `docs/28_M5StickS3微信小程序对接架构与通信协议工程指南.md`：
+1. 微信小程序组件化与多端适配：
+   - 将 `wechat_miniprogram/utils/avatar_renderer.js` 封装为 `<avatar-canvas>` 自定义组件，完美适配 iPhone 与 Android 各异的 DPR 像素比；
+   - 增加投喂、抚摸、击掌动作的手机微震动物理触觉反馈 (`wx.vibrateShort({type: 'medium'})`)；
+2. 多页面导航与拓麻歌子功能深度开发：
+   - 完善「伴侣主页」、「隔空投喂屋」、「心声日记本」与「设备设置/BLE配网」四大页面与 TabBar 架构；
+   - 实现精致甜点道具图鉴（草莓大福、舒芙蕾、曲奇、甜甜圈、爆米花）解锁与即时消耗下发；
+3. BLE 智能一键配网 (Smart Provisioning)：
+   - 通过 `0xFFB4` 蓝牙特征值安全分包注入 Wi-Fi 凭据，并在设备连网后自动无缝切换到局域网 Wi-Fi 通信；
+4. 本地存储与离线日记持久化：
+   - 利用 `wx.setStorageSync` 离线沉淀日记流，支持按情绪标签筛选、生成精美日记长图并分享；
+5. 严格遵守 20 字节安全 MTU 分片与时间戳/Nonce 防重放安全契约，零丢包、零死锁。
+```
+
+---
+
 ## 三、 代码提交与交接执行准则 (Commit SOP for Agents)
 
 所有后续 Agent 在完成任何阶段性功能开发并准备提交代码时，必须执行以下标准化闭环：

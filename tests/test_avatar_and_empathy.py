@@ -385,5 +385,19 @@ def test_wechat_miniprogram_suite_contract():
     assert "writeInChunks" in ble_src, "BLE 驱动必须包含 20 字节切片写入器"
     assert "handleMemoryChunk" in ble_src, "BLE 驱动必须包含长程记忆还原器"
 
+    # 移动端研发交接指南与续写提示词契约
+    doc_29 = os.path.join(repo_root, "docs", "29_微信小程序与移动端研发交接指南_HANDOVER_MOBILE.md")
+    assert os.path.exists(doc_29), "必须包含 29 号移动端研发交接指南"
+    with open(doc_29, "r", encoding="utf-8") as f:
+        doc_29_src = f.read()
+    assert "HANDOVER_MOBILE" in doc_29_src
+    assert "0xFFB0" in doc_29_src
+
+    agent_prompts = os.path.join(repo_root, "docs", "AGENT_CONTINUATION_PROMPTS.md")
+    with open(agent_prompts, "r", encoding="utf-8") as f:
+        prompts_src = f.read()
+    assert "方向 13" in prompts_src, "提示词标准库必须收录移动端续写方向 13"
+
+
 
 
