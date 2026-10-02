@@ -57,7 +57,7 @@ public:
         // 2. 灵宠状态与好感度
         _pCharStatus = pService->createCharacteristic(
             BLE_CHAR_PET_STATUS_UUID,
-            BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE
+            BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY
         );
         _pCharStatus->addDescriptor(new BLE2902());
 
@@ -97,17 +97,24 @@ public:
         doc_status["energy"] = stats.energy;
         doc_status["mood"] = (int)StickS3Avatar::getInstance().getMood();
 
-        // 手机共享热点状态与流量配额遥测
+        // 手机共享热点状态与网络状态遥测
         const auto& cfg = StickS3ConfigManager::getInstance();
         doc_status["is_hotspot"] = cfg.isHotspot();
         doc_status["hs_used_mb"] = cfg.getHotspotUsedMB();
         doc_status["hs_limit_mb"] = cfg.getHotspotLimitMB();
         doc_status["hs_cutoff"] = cfg.isHotspotCutoffActive();
+        doc_status["sta_connected"] = cfg.isStaConnected();
+        doc_status["sta_state"] = cfg.isStaConnected() ? "connected" : 
+            (cfg.getStaState() == STA_STATE_CONNECTING ? "connecting" : 
+            (cfg.getStaState() == STA_STATE_FAILED ? "failed" : "idle"));
         doc_status["sta_ip"] = cfg.getStaIP();
+        doc_status["sta_ssid"] = cfg.getConfig().wifi_ssid;
+        doc_status["sta_rssi"] = cfg.getStaRSSI();
 
         String json_status;
         serializeJson(doc_status, json_status);
         _pCharStatus->setValue((uint8_t*)json_status.c_str(), json_status.length());
+        _pCharStatus->notify();
 
         // 2. 刷新日记特征
         if (_pCharDiary && stats.current_diary.length() > 0) {
@@ -274,6 +281,9 @@ public:
             StickS3ConfigManager::getInstance().resetHotspotTraffic();
             StickS3Avatar::getInstance().generateDiaryEntry("手机热点流量统计已重置为 0 MB。");
             notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+        } else if (action == "query_wifi_status" || action == "get_status") {
+            // 立即刷新并推送特征值
+            updateSnapshots();
         }
         Serial.printf("[BLE-INJECT] Processed action: %s\n", action.c_str());
         updateSnapshots();

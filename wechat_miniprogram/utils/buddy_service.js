@@ -37,6 +37,15 @@ class BuddyService {
       warningIssued: false
     };
 
+    // 设备端 Wi-Fi STA 联网状态
+    this.deviceWifi = {
+      sta_connected: false,
+      sta_state: "idle",
+      sta_ip: "0.0.0.0",
+      sta_ssid: "",
+      sta_rssi: 0
+    };
+
     this.isConnected = false;
     this.isBleMode = false;
     this.isWifiMode = false;
@@ -160,11 +169,38 @@ class BuddyService {
       this.hotspot.remainingMb = Math.max(0, parseFloat((this.hotspot.limitMb - this.hotspot.usedMb).toFixed(2)));
     }
 
+    // 同步 Wi-Fi / 网络遥测指标
+    let wifiChanged = false;
+    if (st.sta_connected !== undefined || st.sta_conn !== undefined) {
+      this.deviceWifi.sta_connected = Boolean(st.sta_connected !== undefined ? st.sta_connected : st.sta_conn);
+      wifiChanged = true;
+    }
+    if (st.sta_state || st.sta_st) {
+      this.deviceWifi.sta_state = st.sta_state || st.sta_st;
+      wifiChanged = true;
+    }
+    if (st.sta_ip && st.sta_ip !== "0.0.0.0") {
+      this.deviceWifi.sta_ip = st.sta_ip;
+      this.httpClient.setHost(st.sta_ip);
+      wifiChanged = true;
+    }
+    if (st.sta_ssid) {
+      this.deviceWifi.sta_ssid = st.sta_ssid;
+      wifiChanged = true;
+    }
+    if (st.sta_rssi !== undefined) {
+      this.deviceWifi.sta_rssi = Number(st.sta_rssi);
+      wifiChanged = true;
+    }
+
     this.petState = cur;
     StorageManager.savePetState(cur);
     this.notifyListeners("state", this.petState);
     if (hotspotChanged) {
       this.notifyListeners("hotspot", this.hotspot);
+    }
+    if (wifiChanged) {
+      this.notifyListeners("wifi_status", this.deviceWifi);
     }
   }
 
@@ -569,6 +605,81 @@ class BuddyService {
     this.memoryTurns = [];
     StorageManager.saveMemories([]);
     this.notifyListeners("memory", []);
+  }
+
+  // --- 主动查询设备端 Wi-Fi STA 联网状态 (BLE 或 HTTP 双通道) ---
+  async checkDeviceNetworkStatus() {
+    // 1. 优先通过 Wi-Fi HTTP 直接查询（仅当手机与设备在同一局域网时可用）
+    try {
+      const data = await this.httpClient.getWifiStatus();
+      if (data && data.sta_state) {
+        // 同步更新本地 Wi-Fi 连接状态
+        const isDeviceOnline = (data.sta_state === 'connected');
+        if (isDeviceOnline && data.sta_ip && data.sta_ip !== '0.0.0.0') {
+          this.httpClient.setHost(data.sta_ip);
+          StorageManager.saveSettings({ wifiHost: data.sta_ip });
+        }
+        // 同步热点遥测
+        if (data.is_hotspot !== undefined) {
+          this.hotspot.isHotspot = Boolean(data.is_hotspot);
+          if (data.hs_used_mb !== undefined) this.hotspot.usedMb = Number(data.hs_used_mb);
+          if (data.hs_limit_mb !== undefined) this.hotspot.limitMb = Number(data.hs_limit_mb);
+          this.hotspot.remainingMb = Math.max(0, parseFloat((this.hotspot.limitMb - this.hotspot.usedMb).toFixed(2)));
+          this.notifyListeners('hotspot', this.hotspot);
+        }
+        return data;
+      }
+    } catch (e) {
+      console.warn('[BuddyService] HTTP getWifiStatus failed, trying BLE...', e);
+    }
+
+    // 2. 通过 BLE 查询设备 Wi-Fi 状态
+    if (this.isBleMode && this.bleClient.isConnected) {
+      try {
+        await this.bleClient.injectAction('query_wifi_status', '');
+        await this.bleClient.readStatus();
+        await new Promise(r => setTimeout(r, 250));
+        return {
+          sta_state: this.deviceWifi.sta_state,
+          sta_ip: this.deviceWifi.sta_ip,
+          sta_ssid: this.deviceWifi.sta_ssid,
+          sta_rssi: this.deviceWifi.sta_rssi,
+          sta_connected: this.deviceWifi.sta_connected,
+          is_hotspot: this.hotspot.isHotspot,
+          hs_used_mb: this.hotspot.usedMb,
+          hs_limit_mb: this.hotspot.limitMb
+        };
+      } catch (e) {
+        console.warn('[BuddyService] BLE query_wifi_status failed:', e);
+      }
+    }
+
+    return this.deviceWifi ? {
+      sta_state: this.deviceWifi.sta_state,
+      sta_ip: this.deviceWifi.sta_ip,
+      sta_ssid: this.deviceWifi.sta_ssid,
+      sta_rssi: this.deviceWifi.sta_rssi,
+      sta_connected: this.deviceWifi.sta_connected,
+      is_hotspot: this.hotspot.isHotspot,
+      hs_used_mb: this.hotspot.usedMb,
+      hs_limit_mb: this.hotspot.limitMb
+    } : null;
+  }
+
+  // --- 配网后轮询验证设备网络连接状态 (最多轮询 maxAttempts 次，每次间隔 intervalMs) ---
+  async pollDeviceNetworkUntilConnected({ maxAttempts = 15, intervalMs = 2000 } = {}) {
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(r => setTimeout(r, intervalMs));
+      try {
+        const status = await this.checkDeviceNetworkStatus();
+        if (status && status.sta_state === 'connected' && status.sta_ip && status.sta_ip !== '0.0.0.0') {
+          return { success: true, attempt: i + 1, ...status };
+        }
+      } catch (e) {
+        // 继续轮询
+      }
+    }
+    return { success: false, attempt: maxAttempts };
   }
 }
 

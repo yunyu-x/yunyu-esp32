@@ -198,6 +198,28 @@ class StickS3HttpClient {
     });
   }
 
+  // 8. 查询设备端 Wi-Fi STA 连接状态 (GET /wifi/status)
+  getWifiStatus() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/wifi/status`,
+        method: "GET",
+        timeout: 3000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Get wifi status failed with status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.warn("[HTTP] getWifiStatus failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
   // 3. 启动微信小程序 mDNS 本地局域网服务发现 (ZeroConf)
   startLocalDiscovery(onServiceFound, onError) {
     if (this.isDiscoveryRunning) return;

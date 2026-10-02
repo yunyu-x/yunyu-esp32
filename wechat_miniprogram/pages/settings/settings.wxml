@@ -31,7 +31,7 @@
       </view>
       <view class="detail-col">
         <text class="detail-label">设备 IP</text>
-        <text class="detail-val {{isWifiConnected ? 'highlight-cyan' : 'text-offline'}}">{{isWifiConnected ? wifiHost : '离线断网'}}</text>
+        <text class="detail-val {{isWifiConnected ? 'highlight-cyan' : 'text-offline'}}">{{isWifiConnected ? (deviceStaIp || wifiHost) : '离线断网'}}</text>
       </view>
       <view class="detail-col">
         <text class="detail-label">灵宠等级</text>
@@ -146,23 +146,23 @@
 
       <view class="step-divider {{(isBleConnected && wifiSsid) ? 'divider-active' : ''}}"></view>
 
-      <!-- 步骤 3: 隔空配网 -->
-      <view class="wizard-step {{(isBleConnected && isWifiConnected) ? 'step-done' : ((isBleConnected && wifiSsid) ? 'step-current' : 'step-pending')}}">
-        <view class="step-num">{{(isBleConnected && isWifiConnected) ? '✓' : '3'}}</view>
+      <!-- 步骤 3: 隔空配网与验证 -->
+      <view class="wizard-step {{(deviceStaState === 'connected' || (isBleConnected && isWifiConnected)) ? 'step-done' : (isVerifyingNetwork ? 'step-current' : ((isBleConnected && wifiSsid) ? 'step-current' : 'step-pending'))}}">
+        <view class="step-num">{{(deviceStaState === 'connected' || (isBleConnected && isWifiConnected)) ? '✓' : (isVerifyingNetwork ? '⏳' : '3')}}</view>
         <view class="step-content">
-          <text class="step-title">隔空配网</text>
-          <text class="step-desc">{{isWifiConnected ? '已注入' : '安全下发'}}</text>
+          <text class="step-title">配网验证</text>
+          <text class="step-desc">{{deviceStaState === 'connected' ? '已联网' : (isVerifyingNetwork ? '验证中' : (isWifiConnected ? '已注入' : '安全下发'))}}</text>
         </view>
       </view>
 
-      <view class="step-divider {{(isBleConnected && isWifiConnected) ? 'divider-active' : ''}}"></view>
+      <view class="step-divider {{(deviceStaState === 'connected' || (isBleConnected && isWifiConnected)) ? 'divider-active' : ''}}"></view>
 
-      <!-- 步骤 4: 局域网直连 -->
-      <view class="wizard-step {{isWifiConnected ? 'step-done' : ((isBleConnected && wifiSsid) ? 'step-current' : 'step-pending')}}">
-        <view class="step-num">{{isWifiConnected ? '✓' : '4'}}</view>
+      <!-- 步骤 4: 通道就绪 (根据模式自适应) -->
+      <view class="wizard-step {{(isWifiConnected || deviceStaState === 'connected') ? 'step-done' : (deviceStaState === 'connecting' ? 'step-current' : 'step-pending')}}">
+        <view class="step-num">{{(isWifiConnected || deviceStaState === 'connected') ? '✓' : '4'}}</view>
         <view class="step-content">
-          <text class="step-title">局域网直连</text>
-          <text class="step-desc">{{isWifiConnected ? '高速通道' : '极速HTTP'}}</text>
+          <text class="step-title">{{networkMode === 'hotspot' ? '热点直通' : '局域网直连'}}</text>
+          <text class="step-desc">{{(isWifiConnected || deviceStaState === 'connected') ? (networkMode === 'hotspot' ? '云端就绪' : '高速通道') : (networkMode === 'hotspot' ? 'BLE全控' : '极速HTTP')}}</text>
         </view>
       </view>
     </view>
@@ -333,28 +333,99 @@
         class="btn-provision {{networkMode === 'hotspot' ? 'btn-provision-hotspot' : ''}} {{!isBleConnected ? 'btn-provision-disabled' : ''}}" 
         bindtap="handleSmartProvision" 
         loading="{{isProvisioning}}"
+        disabled="{{isVerifyingNetwork}}"
       >
-        {{!isBleConnected ? '⚠️ 请先连接上方 BLE 蓝牙再配网' : (networkMode === 'hotspot' ? '🚀 写入热点配置并连接共享网络' : '🚀 注入凭证并一键配网')}}
+        {{!isBleConnected ? '⚠️ 请先连接上方 BLE 蓝牙再配网' : (isVerifyingNetwork ? '⏳ 正在验证设备联网...' : (networkMode === 'hotspot' ? '🚀 写入热点配置并连接共享网络' : '🚀 注入凭证并一键配网'))}}
       </button>
 
-      <!-- 连续性动作 第 4 步：局域网高速通道直连 (配网与直连一体化) -->
-      <view class="lan-direct-flow-box">
+      <!-- 配网后设备联网验证进度卡片 -->
+      <view class="verify-network-box" wx:if="{{isVerifyingNetwork}}">
+        <view class="verify-progress-row">
+          <view class="verify-spinner"></view>
+          <text class="verify-progress-text">{{verifyProgress || '正在验证设备联网状态...'}}</text>
+        </view>
+        <text class="verify-hint">凭证已安全写入设备 Flash，正在等待设备连接到 {{networkMode === 'hotspot' ? '手机热点' : 'Wi-Fi 网络'}}...</text>
+      </view>
+
+      <!-- 设备联网状态结果卡片 -->
+      <view class="device-network-status-card" wx:if="{{deviceStaState}}">
+        <view class="net-status-header">
+          <text class="net-status-icon">{{deviceStaState === 'connected' ? '✅' : (deviceStaState === 'failed' ? '❌' : (deviceStaState === 'timeout' ? '⏳' : '🔄'))}}</text>
+          <view class="net-status-info">
+            <text class="net-status-title">{{deviceStaState === 'connected' ? '设备已成功联网' : (deviceStaState === 'failed' ? '设备联网失败' : (deviceStaState === 'timeout' ? '验证超时' : '正在连接...'))}}</text>
+            <text class="net-status-ssid" wx:if="{{deviceStaSsid}}">网络: {{deviceStaSsid}}</text>
+          </view>
+          <button class="btn-refresh-net-status" bindtap="handleCheckDeviceNetwork" loading="{{isVerifyingNetwork}}">
+            🔄 刷新
+          </button>
+        </view>
+
+        <!-- 联网成功详情 -->
+        <view class="net-status-details" wx:if="{{deviceStaState === 'connected' && deviceStaIp}}">
+          <view class="net-detail-row">
+            <text class="net-detail-label">设备 IP</text>
+            <text class="net-detail-value highlight-cyan">{{deviceStaIp}}</text>
+          </view>
+          <view class="net-detail-row">
+            <text class="net-detail-label">信号强度</text>
+            <text class="net-detail-value {{deviceStaRssi > -60 ? 'highlight-green' : (deviceStaRssi > -75 ? 'highlight-cyan' : 'text-red')}}">{{deviceStaRssi}} dBm</text>
+          </view>
+        </view>
+
+        <!-- 联网失败提示 -->
+        <view class="net-fail-tips" wx:if="{{deviceStaState === 'failed' || deviceStaState === 'timeout'}}">
+          <text class="net-fail-tip">💡 请检查: Wi-Fi 名称密码是否正确、是否 2.4GHz 频段、热点是否已开启</text>
+        </view>
+      </view>
+
+      <!-- 连续性动作 第 4 步：连接通道建立 (根据模式自适应展示) -->
+
+      <!-- 4A. 手机热点专属通道就绪卡片 (热点模式下自动生效，免去局域网直连门槛) -->
+      <view class="hotspot-ready-flow-box" wx:if="{{networkMode === 'hotspot'}}">
+        <view class="lan-flow-header">
+          <view class="lan-flow-title-group">
+            <text class="lan-step-pill">第 4 步</text>
+            <text class="lan-flow-title">📱 手机热点云端直通就绪</text>
+          </view>
+          <text class="lan-flow-status {{deviceStaState === 'connected' ? 'status-connected' : (isWifiConnected ? 'status-connected' : 'status-waiting')}}">
+            {{deviceStaState === 'connected' ? '● 云端大模型就绪' : (isWifiConnected ? '● 设备已在网' : '○ 待热点连接成功')}}
+          </text>
+        </view>
+
+        <view class="hotspot-ready-body">
+          <view class="ready-badge-row">
+            <text class="ready-chip">⚡ BLE 蓝牙实时控制</text>
+            <text class="ready-chip">🌐 共享网络直通百炼</text>
+            <text class="ready-chip">🛡️ 智能防爆流量熔断</text>
+          </view>
+          <text class="ready-explain-text">
+            💡 <text class="highlight-cyan">无需建立局域网直连：</text>在手机热点模式下，StickS3 硬件直接通过手机共享的网络与阿里云百炼大模型服务器握手推流。小程序全程通过低功耗蓝牙 (BLE) 实施毫秒级控制与流量计量。
+          </text>
+          <view class="ready-device-info-bar" wx:if="{{deviceStaState === 'connected' || isWifiConnected}}">
+            <text class="ready-info-item">设备热点内网 IP: <text class="highlight-cyan">{{deviceStaIp || wifiHost}}</text></text>
+            <text class="ready-info-item">信号: <text class="highlight-green">{{deviceStaRssi || -50}} dBm</text></text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 4B. 常规 Wi-Fi 宽带模式：局域网高速通道直连 (配网与直连一体化) -->
+      <view class="lan-direct-flow-box" wx:if="{{networkMode === 'wifi'}}">
         <view class="lan-flow-header">
           <view class="lan-flow-title-group">
             <text class="lan-step-pill">第 4 步</text>
             <text class="lan-flow-title">🌐 局域网高速通道直连</text>
           </view>
-          <text class="lan-flow-status {{isWifiConnected ? 'status-connected' : 'status-waiting'}}">
-            {{isWifiConnected ? '● 设备已在网' : '○ 待设备入网分配IP'}}
+          <text class="lan-flow-status {{deviceStaState === 'connected' ? 'status-connected' : (isWifiConnected ? 'status-connected' : 'status-waiting')}}">
+            {{deviceStaState === 'connected' ? '● 设备已联网就绪' : (isWifiConnected ? '● 设备已在网' : '○ 待设备入网分配IP')}}
           </text>
         </view>
-        <text class="lan-flow-desc">配网注入后设备将自动联网并获取局域网 IP，输入 IP 即可建立全双工极速通道</text>
+        <text class="lan-flow-desc">{{deviceStaState === 'connected' ? '设备已在局域网内分配到 IP，已自动填入，点击下方按钮即可建立全双工高速通道' : '配网注入后设备将自动联网并获取局域网 IP，输入 IP 即可建立全双工极速通道'}}</text>
 
         <view class="input-row" style="margin-top: 10rpx;">
           <text class="input-label">硬件局域网 IP</text>
           <input 
             class="form-input" 
-            placeholder="如 192.168.110.67" 
+            placeholder="如 192.168.1.100" 
             placeholder-class="input-placeholder"
             value="{{wifiHostInput}}" 
             bindinput="onInputHost"

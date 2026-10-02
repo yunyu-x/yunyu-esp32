@@ -904,10 +904,13 @@ void loop() {
             sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_SPEAK);
         }
 
-        // 定期向 BLE 特征值刷新快照 (每 3 秒)
+        // 定期向 BLE 特征值刷新快照 (每 3 秒或 WiFi 连网状态发生突变时立即推送)
         static uint32_t last_ble_sync_tick = 0;
-        if (millis() - last_ble_sync_tick > 3000) {
+        static bool last_sta_conn_flag = false;
+        bool cur_sta_conn = sticks3::StickS3ConfigManager::getInstance().isStaConnected();
+        if ((millis() - last_ble_sync_tick > 3000) || (cur_sta_conn != last_sta_conn_flag)) {
             last_ble_sync_tick = millis();
+            last_sta_conn_flag = cur_sta_conn;
             sticks3::StickS3BLESync::getInstance().updateSnapshots();
         }
 

@@ -49,6 +49,15 @@ Page({
     isProvisioning: false,
     isTestingWifi: false,
 
+    // 配网后验证设备联网状态
+    isVerifyingNetwork: false,
+    verifyProgress: '',
+    deviceStaState: '',
+    deviceStaIp: '',
+    deviceStaSsid: '',
+    deviceStaRssi: 0,
+    showLanDirectConnect: false,
+
     vibrationEnabled: true
   },
 
@@ -130,6 +139,21 @@ Page({
 
     if (hs && hs.isHotspot && this.data.networkMode !== "hotspot") {
       this.setData({ networkMode: "hotspot" });
+    }
+
+    const dw = evt.type === "wifi_status" ? evt.data : buddyService.deviceWifi;
+    if (dw) {
+      const isOnline = Boolean(dw.sta_connected || dw.sta_state === "connected");
+      const ip = dw.sta_ip && dw.sta_ip !== "0.0.0.0" ? dw.sta_ip : this.data.deviceStaIp;
+      this.setData({
+        deviceStaState: dw.sta_state || (isOnline ? "connected" : this.data.deviceStaState),
+        deviceStaIp: ip,
+        deviceStaSsid: dw.sta_ssid || this.data.deviceStaSsid,
+        deviceStaRssi: dw.sta_rssi || this.data.deviceStaRssi,
+        wifiHost: ip || this.data.wifiHost,
+        wifiHostInput: ip || this.data.wifiHostInput,
+        isWifiConnected: isOnline || isWifi
+      });
     }
   },
 
@@ -310,7 +334,10 @@ Page({
       }
     }
 
-    this.setData({ isProvisioning: true });
+    this.setData({
+      isProvisioning: true,
+      verifyProgress: "正在通过蓝牙分片写入网络凭证..."
+    });
     haptics.vibrate("medium");
     wx.showLoading({ title: "20字节安全分片注入中..." });
 
@@ -325,7 +352,6 @@ Page({
       });
 
       wx.hideLoading();
-      this.setData({ isProvisioning: false });
       StorageManager.saveSettings({
         savedSsid: wifiSsid.trim(),
         isHotspot: isHs,
@@ -333,16 +359,139 @@ Page({
         hotspotCutoffEnabled: hotspotCutoffEnabled
       });
 
-      haptics.levelUp();
-      wx.showModal({
-        title: isHs ? "📱 移动热点凭证已下发" : "🏠 Wi-Fi 凭据已下发",
-        content: `网络 [${wifiSsid}] 已通过 20 字节安全切片写入设备。${isHs ? `已启用流量上限: ${hotspotLimitMb}MB，超额自动熔断保护: ${hotspotCutoffEnabled ? "开启" : "关闭"}。` : "设备将自动连网，连网后可通过局域网 IP 高速直连。"}`,
-        showCancel: false
+      // 凭证写入成功，自动切入设备连网状态轮询阶段
+      this.setData({
+        isProvisioning: false,
+        isVerifyingNetwork: true,
+        verifyProgress: "凭证已注入Flash，设备正在连接网络...",
+        deviceStaState: "connecting",
+        deviceStaIp: "",
+        deviceStaSsid: wifiSsid.trim()
       });
+
+      haptics.vibrate("light");
+
+      // 启动异步轮询校验设备是否连网成功
+      this._pollNetworkStatus(wifiSsid.trim(), isHs);
+
     } catch (e) {
       wx.hideLoading();
-      this.setData({ isProvisioning: false });
+      this.setData({ isProvisioning: false, isVerifyingNetwork: false, verifyProgress: "" });
       wx.showToast({ title: "配网下发异常，请重试", icon: "none" });
+    }
+  },
+
+  // 轮询验证设备连网状态
+  async _pollNetworkStatus(ssid, isHotspot) {
+    const maxAttempts = 15;
+    const intervalMs = 2000;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      this.setData({
+        verifyProgress: `正在验证设备联网状态... (${i + 1}/${maxAttempts} 轮)`
+      });
+
+      await new Promise(r => setTimeout(r, intervalMs));
+
+      try {
+        const status = await buddyService.checkDeviceNetworkStatus();
+        if (status && (status.sta_connected || (status.sta_state === "connected" && status.sta_ip && status.sta_ip !== "0.0.0.0"))) {
+          // 设备联网成功！
+          const ip = status.sta_ip && status.sta_ip !== "0.0.0.0" ? status.sta_ip : "已获取内网IP";
+          this.setData({
+            isVerifyingNetwork: false,
+            verifyProgress: "",
+            deviceStaState: "connected",
+            deviceStaIp: ip,
+            deviceStaSsid: status.sta_ssid || ssid,
+            deviceStaRssi: status.sta_rssi || -50,
+            wifiHostInput: ip,
+            wifiHost: ip,
+            showLanDirectConnect: !isHotspot,
+            isWifiConnected: true
+          });
+
+          if (ip !== "已获取内网IP") {
+            buddyService.httpClient.setHost(ip);
+            StorageManager.saveSettings({ wifiHost: ip });
+          }
+
+          haptics.levelUp();
+          wx.showModal({
+            title: isHotspot ? "📱 手机热点连接成功！" : "🎉 Wi-Fi 联网成功！",
+            content: `StickS3 硬件已成功连入 [${status.sta_ssid || ssid}]！\n• 设备 IP: ${ip}\n• 信号强度: ${status.sta_rssi || -50} dBm\n• 硬件屏幕: 已点亮绿色 Wi-Fi 标志\n\n${isHotspot ? "设备现已就绪，可直接对硬件说「悄悄」开启大模型语音对话！" : "可直接点击下方「直连局域网通道」建立高速全双工连接。"}`,
+            showCancel: false
+          });
+          return;
+        } else if (status && status.sta_state === "failed") {
+          this.setData({
+            isVerifyingNetwork: false,
+            verifyProgress: "",
+            deviceStaState: "failed",
+            showLanDirectConnect: false
+          });
+          wx.showModal({
+            title: "❌ 设备联网失败",
+            content: `StickS3 无法连接到 [${ssid}]。\n\n请排查：\n1. 手机热点是否开启，且名称/密码输入正确\n2. 苹果 iPhone 需开启「最大化兼容性」\n3. 安卓手机需确保热点频段为「2.4GHz」\n4. 确认设备与手机距离在 3 米以内`,
+            showCancel: false
+          });
+          return;
+        }
+      } catch (e) {
+        // 继续轮询
+      }
+    }
+
+    // 轮询超时
+    this.setData({
+      isVerifyingNetwork: false,
+      verifyProgress: "",
+      deviceStaState: "timeout"
+    });
+    wx.showModal({
+      title: "⏳ 联网确认超时",
+      content: `已等待 30 秒尚未收到设备联网回执。\n\n• 如果设备屏幕右上角已亮起绿色 Wi-Fi 标志，说明已经联网成功，可点击下方「刷新」按钮同步状态。\n• 如果设备屏幕 Wi-Fi 标志依然为红色，请检查热点或 Wi-Fi 密码。`,
+      showCancel: false
+    });
+  },
+
+  // 手动检测刷新设备网络状态
+  async handleCheckDeviceNetwork() {
+    haptics.vibrate("light");
+    this.setData({ isVerifyingNetwork: true, verifyProgress: "正在向设备查询最新网络状态..." });
+
+    try {
+      const status = await buddyService.checkDeviceNetworkStatus();
+      if (status && (status.sta_connected || (status.sta_state === "connected" && status.sta_ip && status.sta_ip !== "0.0.0.0"))) {
+        const ip = status.sta_ip && status.sta_ip !== "0.0.0.0" ? status.sta_ip : "已获取内网IP";
+        this.setData({
+          isVerifyingNetwork: false,
+          verifyProgress: "",
+          deviceStaState: "connected",
+          deviceStaIp: ip,
+          deviceStaSsid: status.sta_ssid || this.data.wifiSsid,
+          deviceStaRssi: status.sta_rssi || -50,
+          wifiHostInput: ip,
+          wifiHost: ip,
+          isWifiConnected: true
+        });
+        if (ip !== "已获取内网IP") {
+          buddyService.httpClient.setHost(ip);
+          StorageManager.saveSettings({ wifiHost: ip });
+        }
+        haptics.vibrate("medium");
+        wx.showToast({ title: `设备已在线! IP: ${ip}`, icon: "success" });
+      } else {
+        this.setData({
+          isVerifyingNetwork: false,
+          verifyProgress: "",
+          deviceStaState: (status && status.sta_state) || "failed"
+        });
+        wx.showToast({ title: "设备当前未联网", icon: "none" });
+      }
+    } catch (e) {
+      this.setData({ isVerifyingNetwork: false, verifyProgress: "" });
+      wx.showToast({ title: "查询失败，请检查BLE", icon: "none" });
     }
   },
 

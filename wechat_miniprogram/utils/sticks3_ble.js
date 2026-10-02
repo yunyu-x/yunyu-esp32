@@ -220,6 +220,7 @@ class StickS3BLEClient {
     const charMemory = findChar("FFB1") || CHAR_UUID_MEMORY;
     const charStatus = findChar("FFB2") || CHAR_UUID_STATUS;
     const charDiary  = findChar("FFB3") || CHAR_UUID_DIARY;
+    this.charStatusUuid = charStatus;
     this.charInjectUuid = findChar("FFB4") || CHAR_UUID_INJECT;
 
     const notifyUUIDs = [charMemory, charStatus, charDiary];
@@ -307,6 +308,28 @@ class StickS3BLEClient {
 
     const targetChar = this.charInjectUuid || CHAR_UUID_INJECT;
     return this.writeInChunks(this.deviceId, this.serviceId, targetChar, ab, 20);
+  }
+
+  // 主动读取 0xFFB2 状态特征值
+  readStatus() {
+    return new Promise((resolve, reject) => {
+      if (!this.isConnected || !this.deviceId || !this.serviceId) {
+        return reject(new Error("BLE not connected"));
+      }
+      const targetChar = this.charStatusUuid || CHAR_UUID_STATUS;
+      wx.readBLECharacteristicValue({
+        deviceId: this.deviceId,
+        serviceId: this.serviceId,
+        characteristicId: targetChar,
+        success: () => {
+          resolve(true);
+        },
+        fail: (err) => {
+          console.warn("[BLE] readStatus failed:", err);
+          reject(err);
+        }
+      });
+    });
   }
 
   // 20 字节切片安全写入器
