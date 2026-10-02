@@ -469,7 +469,7 @@ class BuddyService {
     this.hotspot.cutoffEnabled = cutoffEnabled;
     this.hotspot.remainingMb = Math.max(0, parseFloat((this.hotspot.limitMb - this.hotspot.usedMb).toFixed(2)));
 
-    // 1. 若 BLE 已连接，采用 20 字节安全 MTU 分片写入到 0xFFB4
+    // 1. 若 BLE 已连接，采用安全 MTU 分片写入到 0xFFB4
     if (this.isBleMode && this.bleClient.isConnected) {
       const payload = {
         action: "wifi_cfg",
@@ -480,7 +480,7 @@ class BuddyService {
         data_limit_mb: dataLimitMb,
         cutoff_enabled: cutoffEnabled
       };
-      await this.bleClient.injectAction("wifi_cfg", JSON.stringify(payload));
+      await this.bleClient.injectAction("wifi_cfg", payload);
       this.notifyListeners("hotspot", this.hotspot);
       return { status: "provisioned", mode: "ble", ssid, isHotspot, dataLimitMb };
     }
@@ -522,12 +522,12 @@ class BuddyService {
     StorageManager.saveSettings(currentSettings);
 
     if (this.isBleMode && this.bleClient.isConnected) {
-      await this.bleClient.injectAction("hotspot_cfg", JSON.stringify({
+      await this.bleClient.injectAction("hotspot_cfg", {
         action: "hotspot_cfg",
         is_hotspot: this.hotspot.isHotspot,
         data_limit_mb: this.hotspot.limitMb,
         cutoff_enabled: this.hotspot.cutoffEnabled
-      }));
+      });
     } else if (this.isWifiMode) {
       await this.httpClient.setHotspotConfig({
         isHotspot: this.hotspot.isHotspot,
@@ -548,7 +548,7 @@ class BuddyService {
     this.hotspot.warningIssued = false;
 
     if (this.isBleMode && this.bleClient.isConnected) {
-      await this.bleClient.injectAction("reset_traffic", JSON.stringify({ action: "reset_traffic" }));
+      await this.bleClient.injectAction("reset_traffic", { action: "reset_traffic" });
     } else if (this.isWifiMode) {
       await this.httpClient.resetHotspotTraffic();
     }

@@ -223,6 +223,21 @@ class StickS3BLEClient {
     this.charStatusUuid = charStatus;
     this.charInjectUuid = findChar("FFB4") || CHAR_UUID_INJECT;
 
+    // 尝试协商大 MTU (提升到 256 字节，加速长 JSON 分发)
+    if (wx.setBLEMTU) {
+      wx.setBLEMTU({
+        deviceId: this.deviceId,
+        mtu: 256,
+        success: (res) => {
+          console.log("[BLE] MTU negotiated:", res.mtu);
+          this.negotiatedMtu = res.mtu || 256;
+        },
+        fail: () => {
+          this.negotiatedMtu = 23;
+        }
+      });
+    }
+
     const notifyUUIDs = [charMemory, charStatus, charDiary];
     notifyUUIDs.forEach(uuid => {
       wx.notifyBLECharacteristicValueChange({
@@ -304,18 +319,27 @@ class StickS3BLEClient {
     }
   }
 
-  // 向 0xFFB4 写入控制指令 (采用 20 字节安全 MTU 分包写入)
+  // 向 0xFFB4 写入控制指令 (自适应 MTU 安全切片 + \n 帧定界)
   async injectAction(action, value = null) {
     if (!this.isConnected || !this.deviceId || !this.serviceId) {
       throw new Error("Device not connected");
     }
 
-    const payloadObj = { action, value };
-    const payloadStr = JSON.stringify(payloadObj);
+    let payloadObj;
+    if (typeof action === "object" && action !== null) {
+      payloadObj = action;
+    } else if (typeof value === "object" && value !== null) {
+      payloadObj = { action, ...value };
+    } else {
+      payloadObj = { action, value };
+    }
+
+    const payloadStr = JSON.stringify(payloadObj) + "\n";
     const ab = this.str2ab(payloadStr);
 
     const targetChar = this.charInjectUuid || CHAR_UUID_INJECT;
-    return this.writeInChunks(this.deviceId, this.serviceId, targetChar, ab, 20);
+    const chunkSize = Math.max(20, Math.min(240, (this.negotiatedMtu || 23) - 3));
+    return this.writeInChunks(this.deviceId, this.serviceId, targetChar, ab, chunkSize);
   }
 
   // 主动读取 0xFFB2 状态特征值

@@ -778,6 +778,23 @@ void loop() {
                     } else if (cmd_or_msg == "mode" || cmd_or_msg == "MODE") {
                         g_pet_avatar_mode = !g_pet_avatar_mode;
                         Serial.printf("{\"type\":\"mode_toggle\",\"avatar_mode\":%s}\n", g_pet_avatar_mode ? "true" : "false");
+                    } else if (cmd_or_msg == "hs" || cmd_or_msg == "HS" || cmd_or_msg == "hotspot" || cmd_or_msg == "HOTSPOT") {
+                        auto& cfg_mgr = sticks3::StickS3ConfigManager::getInstance();
+                        bool new_hs = !cfg_mgr.isHotspot();
+                        cfg_mgr.saveHotspotConfig(new_hs, cfg_mgr.getHotspotLimitMB(), cfg_mgr.isHotspotCutoffEnabled());
+                        sticks3::StickS3BLESync::getInstance().updateSnapshots();
+                        Serial.printf("{\"type\":\"hotspot_toggle\",\"is_hotspot\":%s,\"limit_mb\":%u}\n",
+                                      new_hs ? "true" : "false", (unsigned)cfg_mgr.getHotspotLimitMB());
+                    } else if (cmd_or_msg == "status" || cmd_or_msg == "STATUS") {
+                        auto& cfg_mgr = sticks3::StickS3ConfigManager::getInstance();
+                        Serial.printf("{\"type\":\"device_status\",\"sta_connected\":%s,\"is_hotspot\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"rssi\":%d,\"ble\":%s,\"avatar_mode\":%s}\n",
+                                      cfg_mgr.isStaConnected() ? "true" : "false",
+                                      cfg_mgr.isHotspot() ? "true" : "false",
+                                      cfg_mgr.getConfig().wifi_ssid.c_str(),
+                                      cfg_mgr.getStaIP().c_str(),
+                                      cfg_mgr.getStaRSSI(),
+                                      device_connected ? "true" : "false",
+                                      g_pet_avatar_mode ? "true" : "false");
                     } else if (cmd_or_msg.startsWith("q:") || cmd_or_msg.startsWith("Q:") ||
                                cmd_or_msg.startsWith("chat:") || cmd_or_msg.startsWith("CHAT:")) {
                         int colon_idx = cmd_or_msg.indexOf(':');

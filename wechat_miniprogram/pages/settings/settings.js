@@ -270,6 +270,18 @@ Page({
     const mode = e.currentTarget.dataset.mode;
     this.setData({ networkMode: mode });
     haptics.vibrate("light");
+
+    // 立即向设备同步热点模式状态 (无论设备当前是Wi-Fi还是BLE在线)
+    const isHs = (mode === "hotspot");
+    buddyService.updateHotspotConfig({
+      isHotspot: isHs,
+      dataLimitMb: this.data.hotspotLimitMb,
+      cutoffEnabled: this.data.hotspotCutoffEnabled
+    }).then(() => {
+      console.log(`[NETWORK-MODE] Synced mode '${mode}' (isHotspot=${isHs}) to device`);
+    }).catch(err => {
+      console.warn("[NETWORK-MODE] Sync mode failed:", err);
+    });
   },
 
   onSelectPreset(e) {
@@ -440,7 +452,7 @@ Page({
           haptics.levelUp();
           wx.showModal({
             title: isHotspot ? "📱 手机热点连接成功！" : "🎉 Wi-Fi 联网成功！",
-            content: `StickS3 硬件已成功连入 [${status.sta_ssid || ssid}]！\n• 设备 IP: ${ip}\n• 信号强度: ${status.sta_rssi || -50} dBm\n• 硬件屏幕: 已点亮绿色 Wi-Fi 标志\n\n${isHotspot ? "设备现已就绪，可直接对硬件说「悄悄」开启大模型语音对话！" : "可直接点击下方「直连局域网通道」建立高速全双工连接。"}`,
+            content: `StickS3 硬件已成功连入 [${status.sta_ssid || ssid}]！\n• 设备 IP: ${ip}\n• 信号强度: ${status.sta_rssi || -50} dBm\n• 硬件屏幕: ${isHotspot ? "已点亮暖橙色 HOT 热点标志" : "已点亮亮绿色 WiFi 宽带标志"}\n\n${isHotspot ? "设备现已就绪，可直接对硬件说「悄悄」开启大模型语音对话！" : "可直接点击下方「直连局域网通道」建立高速全双工连接。"}`,
             showCancel: false
           });
           return;

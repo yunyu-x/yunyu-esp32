@@ -166,14 +166,60 @@ public:
         }
     }
 
+    // 解析任意 JSON 变体的布尔值 (支持 bool, int, string)
+    static bool parseJsonBool(JsonVariantConst v, bool def_val = false) {
+        if (v.isNull()) return def_val;
+        if (v.is<bool>()) return v.as<bool>();
+        if (v.is<int>()) return v.as<int>() != 0;
+        if (v.is<const char*>()) {
+            const char* s = v.as<const char*>();
+            if (!s) return def_val;
+            return (strcmp(s, "true") == 0 || strcmp(s, "1") == 0 || strcmp(s, "yes") == 0 || strcmp(s, "hotspot") == 0);
+        }
+        return def_val;
+    }
+
+    // 分片安全写入流累积接收器 (支持 20 字节切片半包重组与 \n 帧定界)
+    void feedInjectBytes(const uint8_t* data, size_t len) {
+        if (!data || len == 0) return;
+
+        // 若前次分片超过 800ms 未成帧，自动清空残留碎片防止死锁
+        if (_inject_accum_buf.length() > 0 && millis() - _last_inject_rx_time > 800) {
+            Serial.printf("[BLE-INJECT] Buffer timeout, dropped %u bytes dangling data\n", (unsigned)_inject_accum_buf.length());
+            _inject_accum_buf = "";
+        }
+        _last_inject_rx_time = millis();
+
+        for (size_t i = 0; i < len; i++) {
+            _inject_accum_buf += (char)data[i];
+        }
+
+        // 尝试解析：若含有完整 JSON 对象
+        String candidate = _inject_accum_buf;
+        candidate.trim();
+        if (candidate.length() >= 2 && candidate.startsWith("{") && candidate.endsWith("}")) {
+            JsonDocument doc;
+            DeserializationError err = deserializeJson(doc, candidate);
+            if (!err) {
+                _inject_accum_buf = ""; // 成功成帧，清空累积缓冲区
+                handleInjectDocument(doc);
+                return;
+            }
+        }
+
+        // 防止异常恶意超长分片爆内存
+        if (_inject_accum_buf.length() > 2048) {
+            Serial.println("[BLE-INJECT] Buffer overflow (>2048 bytes), resetting");
+            _inject_accum_buf = "";
+        }
+    }
+
     // 内部处理手机回写控制指令
     void handleInjectCommand(const String& json_cmd) {
-        JsonDocument doc;
-        DeserializationError err = deserializeJson(doc, json_cmd);
-        if (err) {
-            Serial.printf("[BLE-INJECT] Parse error: %s\n", err.c_str());
-            return;
-        }
+        feedInjectBytes((const uint8_t*)json_cmd.c_str(), json_cmd.length());
+    }
+
+    void handleInjectDocument(JsonDocument& doc) {
         String action = doc["action"] | "";
         if (action == "pet") {
             StickS3Avatar::getInstance().setMood(MOOD_HAPPY);
@@ -231,25 +277,43 @@ public:
             uint32_t limit_mb = 100;
             bool cutoff = true;
 
-            // 支持嵌套在 value 字段中的 JSON 字符串
-            String val_str = doc["value"] | "";
-            if (val_str.startsWith("{")) {
-                JsonDocument sub;
-                if (!deserializeJson(sub, val_str)) {
-                    ssid = sub["ssid"] | "";
-                    pwd = sub["pwd"] | (sub["pass"] | "");
-                    is_hs = sub["is_hotspot"] | false;
-                    limit_mb = sub["data_limit_mb"] | 100;
-                    cutoff = sub["cutoff_enabled"] | true;
+            // 1. 优先直接从根节点取值
+            if (!doc["ssid"].isNull()) ssid = doc["ssid"].as<String>();
+            if (!doc["pwd"].isNull()) pwd = doc["pwd"].as<String>();
+            if (!doc["pass"].isNull()) pwd = doc["pass"].as<String>();
+            if (!doc["is_hotspot"].isNull()) is_hs = parseJsonBool(doc["is_hotspot"], false);
+            if (!doc["data_limit_mb"].isNull()) limit_mb = doc["data_limit_mb"].as<uint32_t>();
+            if (!doc["limit_mb"].isNull()) limit_mb = doc["limit_mb"].as<uint32_t>();
+            if (!doc["cutoff_enabled"].isNull()) cutoff = parseJsonBool(doc["cutoff_enabled"], true);
+
+            // 2. 兼容嵌套在 value 字段中的 JSON 字符串或嵌套对象
+            if (doc["value"].is<String>()) {
+                String val_str = doc["value"].as<String>();
+                if (val_str.startsWith("{")) {
+                    JsonDocument sub;
+                    if (!deserializeJson(sub, val_str)) {
+                        if (!sub["ssid"].isNull()) ssid = sub["ssid"].as<String>();
+                        if (!sub["pwd"].isNull()) pwd = sub["pwd"].as<String>();
+                        if (!sub["pass"].isNull()) pwd = sub["pass"].as<String>();
+                        if (!sub["is_hotspot"].isNull()) is_hs = parseJsonBool(sub["is_hotspot"], is_hs);
+                        if (!sub["data_limit_mb"].isNull()) limit_mb = sub["data_limit_mb"].as<uint32_t>();
+                        if (!sub["limit_mb"].isNull()) limit_mb = sub["limit_mb"].as<uint32_t>();
+                        if (!sub["cutoff_enabled"].isNull()) cutoff = parseJsonBool(sub["cutoff_enabled"], cutoff);
+                    }
                 }
+            } else if (doc["value"].is<JsonObjectConst>()) {
+                JsonObjectConst sub = doc["value"].as<JsonObjectConst>();
+                if (!sub["ssid"].isNull()) ssid = sub["ssid"].as<String>();
+                if (!sub["pwd"].isNull()) pwd = sub["pwd"].as<String>();
+                if (!sub["pass"].isNull()) pwd = sub["pass"].as<String>();
+                if (!sub["is_hotspot"].isNull()) is_hs = parseJsonBool(sub["is_hotspot"], is_hs);
+                if (!sub["data_limit_mb"].isNull()) limit_mb = sub["data_limit_mb"].as<uint32_t>();
+                if (!sub["limit_mb"].isNull()) limit_mb = sub["limit_mb"].as<uint32_t>();
+                if (!sub["cutoff_enabled"].isNull()) cutoff = parseJsonBool(sub["cutoff_enabled"], cutoff);
             }
-            if (ssid.length() == 0) {
-                ssid = doc["ssid"] | "";
-                pwd = doc["pwd"] | (doc["pass"] | "");
-                is_hs = doc["is_hotspot"] | false;
-                limit_mb = doc["data_limit_mb"] | 100;
-                cutoff = doc["cutoff_enabled"] | true;
-            }
+
+            Serial.printf("[BLE-INJECT] wifi_cfg received: SSID='%s', is_hotspot=%s, limit=%uMB, cutoff=%s\n",
+                          ssid.c_str(), is_hs ? "YES (HOT)" : "NO (WIFI)", (unsigned)limit_mb, cutoff ? "YES" : "NO");
 
             if (ssid.length() > 0) {
                 auto& cfg_mgr = StickS3ConfigManager::getInstance();
@@ -265,11 +329,43 @@ public:
                 notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
             }
         } else if (action == "hotspot_cfg" || action == "set_traffic_limit") {
-            bool is_hs = doc["is_hotspot"] | true;
-            uint32_t limit_mb = doc["data_limit_mb"] | (doc["value"] | 100);
-            bool cutoff = doc["cutoff_enabled"] | true;
+            bool is_hs = true;
+            uint32_t limit_mb = 100;
+            bool cutoff = true;
+
+            if (!doc["is_hotspot"].isNull()) is_hs = parseJsonBool(doc["is_hotspot"], true);
+            if (!doc["data_limit_mb"].isNull()) limit_mb = doc["data_limit_mb"].as<uint32_t>();
+            else if (!doc["limit_mb"].isNull()) limit_mb = doc["limit_mb"].as<uint32_t>();
+            else if (doc["value"].is<int>()) limit_mb = doc["value"].as<uint32_t>();
+            if (!doc["cutoff_enabled"].isNull()) cutoff = parseJsonBool(doc["cutoff_enabled"], true);
+
+            // 兼容嵌套 value
+            if (doc["value"].is<String>()) {
+                String val_str = doc["value"].as<String>();
+                if (val_str.startsWith("{")) {
+                    JsonDocument sub;
+                    if (!deserializeJson(sub, val_str)) {
+                        if (!sub["is_hotspot"].isNull()) is_hs = parseJsonBool(sub["is_hotspot"], is_hs);
+                        if (!sub["data_limit_mb"].isNull()) limit_mb = sub["data_limit_mb"].as<uint32_t>();
+                        if (!sub["limit_mb"].isNull()) limit_mb = sub["limit_mb"].as<uint32_t>();
+                        if (!sub["cutoff_enabled"].isNull()) cutoff = parseJsonBool(sub["cutoff_enabled"], cutoff);
+                    }
+                }
+            } else if (doc["value"].is<JsonObjectConst>()) {
+                JsonObjectConst sub = doc["value"].as<JsonObjectConst>();
+                if (!sub["is_hotspot"].isNull()) is_hs = parseJsonBool(sub["is_hotspot"], is_hs);
+                if (!sub["data_limit_mb"].isNull()) limit_mb = sub["data_limit_mb"].as<uint32_t>();
+                if (!sub["limit_mb"].isNull()) limit_mb = sub["limit_mb"].as<uint32_t>();
+                if (!sub["cutoff_enabled"].isNull()) cutoff = parseJsonBool(sub["cutoff_enabled"], cutoff);
+            }
+
             StickS3ConfigManager::getInstance().saveHotspotConfig(is_hs, limit_mb, cutoff);
-            String msg = "已更新手机热点流量策略：上限 " + String(limit_mb) + "MB，自动熔断保护 " + (cutoff ? "开启" : "关闭");
+            Serial.printf("[BLE-INJECT] hotspot_cfg applied: is_hotspot=%s, limit=%uMB, cutoff=%s\n",
+                          is_hs ? "YES (HOT)" : "NO (WIFI)", (unsigned)limit_mb, cutoff ? "YES" : "NO");
+
+            String msg = is_hs 
+                ? ("已切换为手机热点模式：上限 " + String(limit_mb) + "MB，自动熔断 " + (cutoff ? "开启" : "关闭"))
+                : "已切换为常规Wi-Fi宽带模式。";
             StickS3Avatar::getInstance().generateDiaryEntry(msg);
             notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
         } else if (action == "reset_traffic") {
@@ -287,19 +383,22 @@ public:
 private:
     StickS3BLESync()
         : _pCharMemory(nullptr), _pCharStatus(nullptr),
-          _pCharDiary(nullptr), _pCharInject(nullptr) {}
+          _pCharDiary(nullptr), _pCharInject(nullptr),
+          _inject_accum_buf(""), _last_inject_rx_time(0) {}
 
     BLECharacteristic* _pCharMemory;
     BLECharacteristic* _pCharStatus;
     BLECharacteristic* _pCharDiary;
     BLECharacteristic* _pCharInject;
+    String _inject_accum_buf;
+    uint32_t _last_inject_rx_time;
 };
 
 inline void StickS3BLEInjectCallbacks::onWrite(BLECharacteristic* pChar) {
     if (!pChar) return;
     std::string val = pChar->getValue();
     if (!val.empty()) {
-        StickS3BLESync::getInstance().handleInjectCommand(String(val.c_str()));
+        StickS3BLESync::getInstance().feedInjectBytes((const uint8_t*)val.data(), val.length());
     }
 }
 
