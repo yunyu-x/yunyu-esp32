@@ -58,6 +58,12 @@
   color: #00e676;
 }
 
+.badge-hotspot-connected {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+}
+
 .status-offline {
   background: rgba(148, 163, 184, 0.15);
   border: 1px solid #64748b;

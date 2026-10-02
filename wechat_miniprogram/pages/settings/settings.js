@@ -107,12 +107,13 @@ Page({
     setTimeout(() => wx.stopPullDownRefresh(), 400);
   },
 
-  syncState(evt) {
+  syncState(evt = {}) {
     const isConn = evt.isConnected !== undefined ? evt.isConnected : buddyService.isConnected;
     const isBle = evt.isBleMode !== undefined ? evt.isBleMode : buddyService.isBleMode;
     const isWifi = evt.isWifiMode !== undefined ? evt.isWifiMode : buddyService.isWifiMode;
     const isSim = evt.isSimMode !== undefined ? evt.isSimMode : buddyService.isSimMode;
     const hs = evt.hotspot || buddyService.hotspot;
+    const dw = evt.type === "wifi_status" ? evt.data : buddyService.deviceWifi;
 
     let modeName = "未连接";
     if (isBle) modeName = "BLE 专属通道";
@@ -123,37 +124,57 @@ Page({
     const limit = hs && hs.limitMb > 0 ? Number(hs.limitMb) : this.data.hotspotLimitMb;
     const percent = Math.min(100, Math.round((used / (limit || 1)) * 100));
 
-    this.setData({
-      isConnected: isConn,
-      isBleConnected: isBle,
-      isWifiConnected: isWifi,
-      isSimMode: isSim,
-      connectionStatusText: evt.connectionStatusText || buddyService.connectionStatusText,
-      currentModeName: modeName,
-      connectedDeviceName: buddyService.connectedDeviceName || this.data.connectedDeviceName || "StickS3-Buddy",
-      petState: evt.petState || buddyService.petState,
-      wifiHost: buddyService.httpClient.host,
-      hotspot: hs || this.data.hotspot,
-      trafficPercent: percent
-    });
+    // 合并批量 Patch，杜绝单帧多次调用 setData 引发全屏重绘频闪
+    const patch = {};
 
-    if (hs && hs.isHotspot && this.data.networkMode !== "hotspot") {
-      this.setData({ networkMode: "hotspot" });
+    if (this.data.isConnected !== isConn) patch.isConnected = isConn;
+    if (this.data.isBleConnected !== isBle) patch.isBleConnected = isBle;
+    if (this.data.isSimMode !== isSim) patch.isSimMode = isSim;
+
+    const connText = evt.connectionStatusText || buddyService.connectionStatusText;
+    if (this.data.connectionStatusText !== connText) patch.connectionStatusText = connText;
+    if (this.data.currentModeName !== modeName) patch.currentModeName = modeName;
+
+    const devName = buddyService.connectedDeviceName || this.data.connectedDeviceName || "StickS3-Buddy";
+    if (this.data.connectedDeviceName !== devName) patch.connectedDeviceName = devName;
+
+    const host = buddyService.httpClient.host;
+    if (this.data.wifiHost !== host && host && host !== "192.168.110.67") patch.wifiHost = host;
+
+    // 热点数据
+    if (hs) {
+      if (!this.data.hotspot || this.data.hotspot.usedMb !== hs.usedMb || this.data.hotspot.isHotspot !== hs.isHotspot || this.data.hotspot.cutoffActive !== hs.cutoffActive || this.data.hotspot.limitMb !== hs.limitMb) {
+        patch.hotspot = { ...hs };
+      }
+      if (this.data.trafficPercent !== percent) patch.trafficPercent = percent;
+      if (hs.isHotspot && this.data.networkMode !== "hotspot") {
+        patch.networkMode = "hotspot";
+      }
     }
 
-    const dw = evt.type === "wifi_status" ? evt.data : buddyService.deviceWifi;
+    // 硬件 Wi-Fi STA 联网状态
     if (dw) {
       const isOnline = Boolean(dw.sta_connected || dw.sta_state === "connected");
       const ip = dw.sta_ip && dw.sta_ip !== "0.0.0.0" ? dw.sta_ip : this.data.deviceStaIp;
-      this.setData({
-        deviceStaState: dw.sta_state || (isOnline ? "connected" : this.data.deviceStaState),
-        deviceStaIp: ip,
-        deviceStaSsid: dw.sta_ssid || this.data.deviceStaSsid,
-        deviceStaRssi: dw.sta_rssi || this.data.deviceStaRssi,
-        wifiHost: ip || this.data.wifiHost,
-        wifiHostInput: ip || this.data.wifiHostInput,
-        isWifiConnected: isOnline || isWifi
-      });
+      const targetState = dw.sta_state || (isOnline ? "connected" : this.data.deviceStaState);
+
+      if (this.data.deviceStaState !== targetState) patch.deviceStaState = targetState;
+      if (ip && this.data.deviceStaIp !== ip) {
+        patch.deviceStaIp = ip;
+        patch.wifiHost = ip;
+        if (!this.data.wifiHostInput) patch.wifiHostInput = ip;
+      }
+      if (dw.sta_ssid && this.data.deviceStaSsid !== dw.sta_ssid) patch.deviceStaSsid = dw.sta_ssid;
+      if (dw.sta_rssi && this.data.deviceStaRssi !== dw.sta_rssi) patch.deviceStaRssi = dw.sta_rssi;
+
+      const combinedWifi = isOnline || isWifi;
+      if (this.data.isWifiConnected !== combinedWifi) patch.isWifiConnected = combinedWifi;
+    } else {
+      if (this.data.isWifiConnected !== isWifi) patch.isWifiConnected = isWifi;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      this.setData(patch);
     }
   },
 

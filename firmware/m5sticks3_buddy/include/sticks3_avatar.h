@@ -318,7 +318,7 @@ public:
 
     // 核心矢量绘制函数 (参数化绘制在 135x240 显示屏上 - 迪士尼灵动艺术审美升级)
     template <typename DisplayType>
-    void render(DisplayType& d, const String& subtitle_text, const String& status_tag, bool ble_connected = false, bool wifi_connected = false) {
+    void render(DisplayType& d, const String& subtitle_text, const String& status_tag, bool ble_connected = false, bool wifi_connected = false, bool is_hotspot = false) {
         const int W = 135;
         const int H = 240;
 
@@ -338,17 +338,24 @@ public:
             d.drawString("BLE", 78, 9);
         }
 
-        // Wi-Fi 状态标志: 已连亮绿 "WiFi", 未联网亮红标 "!WiFi" (断网醒目标识)
+        // 网络状态标志: 手机热点显示橙色 "HOT", Wi-Fi宽带显示亮绿 "WiFi", 未联网亮红标 "!NET"
         if (wifi_connected) {
-            d.fillRect(94, 2, 38, 14, 0x07E0); // 亮绿底
-            d.setTextColor(0x0000, 0x07E0);
-            d.setTextDatum(MC_DATUM);
-            d.drawString("WiFi", 113, 9);
+            if (is_hotspot) {
+                d.fillRect(94, 2, 38, 14, 0xFD20); // 暖橙底 (手机热点)
+                d.setTextColor(0x0000, 0xFD20);
+                d.setTextDatum(MC_DATUM);
+                d.drawString("HOT", 113, 9);
+            } else {
+                d.fillRect(94, 2, 38, 14, 0x07E0); // 亮绿底 (Wi-Fi 宽带)
+                d.setTextColor(0x0000, 0x07E0);
+                d.setTextDatum(MC_DATUM);
+                d.drawString("WiFi", 113, 9);
+            }
         } else {
-            d.fillRect(94, 2, 38, 14, 0xF800); // 鲜红警示底
+            d.fillRect(94, 2, 38, 14, 0xF800); // 鲜红警示底 (断网)
             d.setTextColor(0xFFFF, 0xF800);
             d.setTextDatum(MC_DATUM);
-            d.drawString("!WiFi", 113, 9);
+            d.drawString("!NET", 113, 9);
         }
 
         // 2. 灵宠面部主画板 (Y: 18 ~ 152, 纯黑深邃背景)

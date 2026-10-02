@@ -264,34 +264,42 @@ class StickS3BLEClient {
     }
   }
 
-  // 处理 0xFFB1 分片记忆还原算法
+  // 处理 0xFFB1 分片记忆还原算法 (兼容 "/" 与 ":" 分隔符及 1-based 序号)
   handleMemoryChunk(chunk) {
-    if (!chunk.startsWith("[C:")) return;
+    if (!chunk || !chunk.startsWith("[C:")) return;
     const endHeader = chunk.indexOf("]");
     if (endHeader < 0) return;
 
     const header = chunk.substring(3, endHeader);
-    const parts = header.split(":");
-    const idx = parseInt(parts[0], 10);
+    const parts = header.includes("/") ? header.split("/") : header.split(":");
+    if (parts.length < 2) return;
+
+    const cur = parseInt(parts[0], 10);
     const total = parseInt(parts[1], 10);
     const payload = chunk.substring(endHeader + 1);
 
-    if (idx === 0) {
+    if (isNaN(cur) || isNaN(total) || total <= 0) return;
+
+    if (!this.memoryChunks || this.expectedTotalChunks !== total || cur === 1) {
       this.memoryChunks = new Array(total);
       this.expectedTotalChunks = total;
     }
-    this.memoryChunks[idx] = payload;
+
+    // 0-based 槽位存储 (固件 i+1 发送 1..total)
+    const slotIdx = cur >= 1 ? (cur - 1) : cur;
+    this.memoryChunks[slotIdx] = payload;
 
     const receivedCount = this.memoryChunks.filter(c => c !== undefined).length;
-    if (receivedCount === this.expectedTotalChunks && this.expectedTotalChunks > 0) {
+    if (receivedCount === this.expectedTotalChunks) {
       const fullJson = this.memoryChunks.join("");
       this.memoryChunks = [];
       this.expectedTotalChunks = 0;
       try {
         const memData = JSON.parse(fullJson);
-        if (this.onMemoryReceived) this.onMemoryReceived(memData);
+        const list = Array.isArray(memData) ? memData : (memData.turns || memData.memories || []);
+        if (this.onMemoryReceived) this.onMemoryReceived(list);
       } catch (e) {
-        console.error("[BLE] Reassemble memory JSON error:", e);
+        console.error("[BLE] Reassemble memory JSON error:", e, "raw:", fullJson);
       }
     }
   }

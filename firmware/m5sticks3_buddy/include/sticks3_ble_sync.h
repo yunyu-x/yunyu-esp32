@@ -89,18 +89,13 @@ public:
         doc_status["name"] = stats.pet_name;
         doc_status["level"] = stats.intimacy_level;
         doc_status["xp"] = stats.intimacy_xp;
-        doc_status["pets"] = stats.total_pets;
-        doc_status["shakes"] = stats.total_shakes;
-        doc_status["convos"] = stats.total_convos;
-        doc_status["feeds"] = stats.total_feeds;
-        doc_status["grooms"] = stats.total_grooms;
         doc_status["energy"] = stats.energy;
         doc_status["mood"] = (int)StickS3Avatar::getInstance().getMood();
 
-        // 手机共享热点状态与网络状态遥测
+        // 手机共享热点状态与网络状态遥测 (精简适配 BLE MTU)
         const auto& cfg = StickS3ConfigManager::getInstance();
         doc_status["is_hotspot"] = cfg.isHotspot();
-        doc_status["hs_used_mb"] = cfg.getHotspotUsedMB();
+        doc_status["hs_used_mb"] = (float)((int)(cfg.getHotspotUsedMB() * 100)) / 100.0f;
         doc_status["hs_limit_mb"] = cfg.getHotspotLimitMB();
         doc_status["hs_cutoff"] = cfg.isHotspotCutoffActive();
         doc_status["sta_connected"] = cfg.isStaConnected();

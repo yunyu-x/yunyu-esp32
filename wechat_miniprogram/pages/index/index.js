@@ -16,6 +16,9 @@ Page({
     isBleMode: false,
     isWifiMode: false,
     isSimMode: false,
+    isDeviceWifiOnline: false,
+    networkBadgeText: "网络离线",
+    networkBadgeClass: "status-offline-red",
 
     bleBtnText: "蓝牙连接",
     wifiBtnText: "Wi-Fi 直连",
@@ -113,22 +116,68 @@ Page({
 
   syncFromService(evt) {
     const st = evt.petState || this.buddyService.petState;
-    const moodIdx = st.mood || 0;
+    const moodIdx = (st && st.mood) || 0;
     const moodTag = MOOD_TAGS[moodIdx] || "就绪";
+    const hs = evt.hotspot || this.buddyService.hotspot || this.data.hotspot;
+    const dw = this.buddyService.deviceWifi;
 
-    this.setData({
-      petState: st,
-      currentMoodTag: moodTag,
-      hotspot: evt.hotspot || this.buddyService.hotspot || this.data.hotspot,
-      isConnected: evt.isConnected !== undefined ? evt.isConnected : this.buddyService.isConnected,
-      isBleMode: evt.isBleMode !== undefined ? evt.isBleMode : this.buddyService.isBleMode,
-      isWifiMode: evt.isWifiMode !== undefined ? evt.isWifiMode : this.buddyService.isWifiMode,
-      isSimMode: evt.isSimMode !== undefined ? evt.isSimMode : this.buddyService.isSimMode,
-      connectionStatusText: evt.connectionStatusText || this.buddyService.connectionStatusText,
-      bleBtnText: this.buddyService.isBleMode ? "断开蓝牙" : "蓝牙连接",
-      wifiBtnText: this.buddyService.isWifiMode ? "断开 Wi-Fi" : "Wi-Fi 直连",
-      simBtnText: this.buddyService.isSimMode ? "退出仿真" : "演示仿真"
-    });
+    const isDevOnline = Boolean(
+      (dw && (dw.sta_connected || dw.sta_state === "connected")) ||
+      this.buddyService.isWifiMode ||
+      (this.buddyService.petState && this.buddyService.petState.sta_connected)
+    );
+
+    let badgeText = "网络离线";
+    let badgeClass = "status-offline-red";
+    if (isDevOnline) {
+      if (hs && hs.isHotspot) {
+        badgeText = "热点在线";
+        badgeClass = "badge-hotspot-connected";
+      } else {
+        badgeText = "Wi-Fi 在线";
+        badgeClass = "status-online";
+      }
+    }
+
+    const patch = {};
+    if (this.data.isDeviceWifiOnline !== isDevOnline) patch.isDeviceWifiOnline = isDevOnline;
+    if (this.data.networkBadgeText !== badgeText) patch.networkBadgeText = badgeText;
+    if (this.data.networkBadgeClass !== badgeClass) patch.networkBadgeClass = badgeClass;
+    if (this.data.currentMoodTag !== moodTag) patch.currentMoodTag = moodTag;
+
+    const isConn = evt.isConnected !== undefined ? evt.isConnected : this.buddyService.isConnected;
+    const isBle = evt.isBleMode !== undefined ? evt.isBleMode : this.buddyService.isBleMode;
+    const isWifi = evt.isWifiMode !== undefined ? evt.isWifiMode : this.buddyService.isWifiMode;
+    const isSim = evt.isSimMode !== undefined ? evt.isSimMode : this.buddyService.isSimMode;
+
+    if (this.data.isConnected !== isConn) patch.isConnected = isConn;
+    if (this.data.isBleMode !== isBle) {
+      patch.isBleMode = isBle;
+      patch.bleBtnText = isBle ? "断开蓝牙" : "蓝牙连接";
+    }
+    if (this.data.isWifiMode !== isWifi) {
+      patch.isWifiMode = isWifi;
+      patch.wifiBtnText = isWifi ? "断开 Wi-Fi" : "Wi-Fi 直连";
+    }
+    if (this.data.isSimMode !== isSim) {
+      patch.isSimMode = isSim;
+      patch.simBtnText = isSim ? "退出仿真" : "演示仿真";
+    }
+
+    const connText = evt.connectionStatusText || this.buddyService.connectionStatusText;
+    if (this.data.connectionStatusText !== connText) patch.connectionStatusText = connText;
+
+    if (!this.data.petState || this.data.petState.mood !== st.mood || this.data.petState.level !== st.level || this.data.petState.xp !== st.xp || this.data.petState.energy !== st.energy) {
+      patch.petState = st;
+    }
+
+    if (!this.data.hotspot || this.data.hotspot.usedMb !== hs.usedMb || this.data.hotspot.isHotspot !== hs.isHotspot || this.data.hotspot.cutoffActive !== hs.cutoffActive) {
+      patch.hotspot = { ...hs };
+    }
+
+    if (Object.keys(patch).length > 0) {
+      this.setData(patch);
+    }
   },
 
   refreshDiaryStats() {

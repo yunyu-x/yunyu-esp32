@@ -195,13 +195,14 @@ class BuddyService {
 
     this.petState = cur;
     StorageManager.savePetState(cur);
-    this.notifyListeners("state", this.petState);
-    if (hotspotChanged) {
-      this.notifyListeners("hotspot", this.hotspot);
-    }
-    if (wifiChanged) {
-      this.notifyListeners("wifi_status", this.deviceWifi);
-    }
+
+    // 派发单一聚合 sync 事件，杜绝单包三次触发引起界面频繁重绘与频闪
+    this.notifyListeners("sync", {
+      petState: this.petState,
+      hotspot: this.hotspot,
+      deviceWifi: this.deviceWifi,
+      data: this.deviceWifi // 兼容 wifi_status
+    });
   }
 
   // 接收并沉淀新日记
@@ -556,8 +557,9 @@ class BuddyService {
     return { success: true, hotspot: this.hotspot };
   }
 
-  // --- 查询热点流量实时数据 (针对 Wi-Fi 在线模式主动轮询) ---
+  // --- 查询热点流量实时数据 (Wi-Fi HTTP 或 BLE 双通道) ---
   async fetchHotspotTraffic() {
+    // 1. Wi-Fi 在线模式下通过 HTTP 端点获取
     if (this.isWifiMode) {
       try {
         const data = await this.httpClient.getHotspotTraffic();
@@ -570,16 +572,32 @@ class BuddyService {
           if (data.cutoff_enabled !== undefined) this.hotspot.cutoffEnabled = Boolean(data.cutoff_enabled);
           if (data.warning_issued !== undefined) this.hotspot.warningIssued = Boolean(data.warning_issued);
           this.notifyListeners("hotspot", this.hotspot);
+          return this.hotspot;
         }
       } catch (e) {
-        console.warn("[BuddyService] fetchHotspotTraffic error:", e);
+        console.warn("[BuddyService] fetchHotspotTraffic HTTP error:", e);
       }
     }
+
+    // 2. BLE 模式下通过主动拉取特征值 0xFFB2
+    if (this.isBleMode && this.bleClient.isConnected) {
+      try {
+        await this.bleClient.injectAction("get_status", "");
+        await this.bleClient.readStatus();
+        await new Promise(r => setTimeout(r, 200));
+        this.notifyListeners("hotspot", this.hotspot);
+        return this.hotspot;
+      } catch (e) {
+        console.warn("[BuddyService] fetchHotspotTraffic BLE error:", e);
+      }
+    }
+
     return this.hotspot;
   }
 
-  // --- 历史人机对话多轮记忆同步与管理 ---
+  // --- 历史人机对话多轮记忆同步与管理 (支持 BLE 分片流式拉取) ---
   async syncMemories() {
+    // 1. 优先通过 Wi-Fi HTTP 端点获取
     if (this.isWifiMode) {
       try {
         const mems = await this.httpClient.getMemories();
@@ -593,9 +611,40 @@ class BuddyService {
         console.warn("[BuddyService] syncMemories HTTP error:", e);
       }
     }
+
+    // 2. BLE 模式：注入 sync_memory 指令并异步等待分片接收完成
     if (this.isBleMode && this.bleClient.isConnected) {
-      await this.bleClient.injectAction("sync_memory", "");
+      return new Promise(async (resolve) => {
+        let timer = null;
+        const originalOnMemory = this.bleClient.onMemoryReceived;
+
+        const cleanup = (result) => {
+          if (timer) clearTimeout(timer);
+          this.bleClient.onMemoryReceived = originalOnMemory;
+          resolve(result);
+        };
+
+        this.bleClient.onMemoryReceived = (mems) => {
+          if (originalOnMemory) originalOnMemory(mems);
+          cleanup(mems);
+        };
+
+        // 最多等待 2.5 秒超时兜底
+        timer = setTimeout(() => {
+          const local = StorageManager.getMemories();
+          cleanup(local);
+        }, 2500);
+
+        try {
+          await this.bleClient.injectAction("sync_memory", "");
+        } catch (e) {
+          console.warn("[BuddyService] BLE inject sync_memory error:", e);
+          const local = StorageManager.getMemories();
+          cleanup(local);
+        }
+      });
     }
+
     const local = StorageManager.getMemories();
     this.memoryTurns = local;
     return local;

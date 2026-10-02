@@ -934,7 +934,7 @@ void loop() {
                              (cur_m == sticks3::MOOD_HAPPY) ? "开心" :
                              (cur_m == sticks3::MOOD_DIZZY) ? "晕眩" :
                              (cur_m == sticks3::MOOD_SLEEP) ? "睡眠中" : "就绪";
-                sticks3::StickS3Avatar::getInstance().render(display, subtitle, tag, device_connected, cfg_mgr.isStaConnected());
+                sticks3::StickS3Avatar::getInstance().render(display, subtitle, tag, device_connected, cfg_mgr.isStaConnected(), cfg_mgr.isHotspot());
                 drawChineseText(display, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
                 display.endWrite();
             } else {
@@ -960,17 +960,24 @@ void loop() {
             display.drawString("BLE", 70, 10);
         }
 
-        // Wi-Fi 联网标志 (已连亮绿，未联网鲜红警示)
+        // 网络联网标志: 手机热点显示橙色 "HOT", Wi-Fi 宽带显示亮绿 "WiFi", 未联网亮红标 "!NET"
         if (cfg_mgr.isStaConnected()) {
-            display.fillRect(90, 2, 42, 16, 0x07E0); // 亮绿底
-            display.setTextColor(0x0000, 0x07E0);
-            display.setTextDatum(MC_DATUM);
-            display.drawString("WiFi", 111, 10);
+            if (cfg_mgr.isHotspot()) {
+                display.fillRect(90, 2, 42, 16, 0xFD20); // 暖橙底 (手机热点)
+                display.setTextColor(0x0000, 0xFD20);
+                display.setTextDatum(MC_DATUM);
+                display.drawString("HOT", 111, 10);
+            } else {
+                display.fillRect(90, 2, 42, 16, 0x07E0); // 亮绿底 (Wi-Fi 宽带)
+                display.setTextColor(0x0000, 0x07E0);
+                display.setTextDatum(MC_DATUM);
+                display.drawString("WiFi", 111, 10);
+            }
         } else {
-            display.fillRect(90, 2, 42, 16, 0xF800); // 鲜红警示底
+            display.fillRect(90, 2, 42, 16, 0xF800); // 鲜红警示底 (断网)
             display.setTextColor(0xFFFF, 0xF800);
             display.setTextDatum(MC_DATUM);
-            display.drawString("!WiFi", 111, 10);
+            display.drawString("!NET", 111, 10);
         }
 
         // 2. 信息卡片区 (26 ~ 68)
@@ -995,8 +1002,8 @@ void loop() {
 
         // 显示 Wi-Fi 状态
         if (cfg_mgr.isStaConnected()) {
-            snprintf(buf, sizeof(buf), "STA: %ddBm", cfg_mgr.getStaRSSI());
-            display.setTextColor(TFT_GREENYELLOW, TFT_DARKGREY);
+            snprintf(buf, sizeof(buf), "%s: %ddBm", cfg_mgr.isHotspot() ? "HOT" : "STA", cfg_mgr.getStaRSSI());
+            display.setTextColor(cfg_mgr.isHotspot() ? 0xFD20 : TFT_GREENYELLOW, TFT_DARKGREY);
         } else if (cfg_mgr.getStaState() == sticks3::STA_STATE_CONNECTING) {
             snprintf(buf, sizeof(buf), "STA: Conn...");
             display.setTextColor(TFT_YELLOW, TFT_DARKGREY);
