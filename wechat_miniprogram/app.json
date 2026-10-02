@@ -47,12 +47,6 @@
   "usingComponents": {
     "avatar-canvas": "/components/avatar-canvas/avatar-canvas"
   },
-  "permission": {
-    "scope.bluetooth": {
-      "desc": "用于连接 StickS3 灵宠伴侣硬件进行状态同步与拓麻歌子互动"
-    }
-  },
   "requiredBackgroundModes": [],
-  "sitemapLocation": "sitemap.json",
-  "style": "v2"
+  "sitemapLocation": "sitemap.json"
 }

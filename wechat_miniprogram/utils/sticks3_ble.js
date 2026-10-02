@@ -3,10 +3,11 @@
  * ---------------------------------------
  * M5StickS3 灵宠伴侣 (LingBuddy) 微信小程序原生 BLE 驱动 SDK
  * 特性：
- * 1. 跨平台兼容 (iOS / Android 统一识别服务 0xFFB0 与名称过滤)
- * 2. 严格遵循 20 字节安全 MTU 分片传输 (解决低版本蓝牙与微信单包截断)
- * 3. 0xFFB1 记忆分块重组、0xFFB2 状态快照与 0xFFB3 第一人称日记监听
- * 4. 断线监听与指数退避自动重连自愈机制
+ * 1. 跨平台兼容 (iOS / Android 统一广播识别，自适应 16位短UUID 与 128位完整UUID)
+ * 2. 开放式无锁搜索机制 (杜绝因 31 字节广播限制导致的微信底层静默过滤)
+ * 3. 严格遵循 20 字节安全 MTU 分片传输 (解决单包截断与硬件缓冲区溢出)
+ * 4. 0xFFB1 记忆分块重组、0xFFB2 状态快照与 0xFFB3 第一人称日记监听
+ * 5. 断线监听与指数退避自动重连自愈机制
  */
 
 const SERVICE_UUID_FULL = "0000FFB0-0000-1000-8000-00805F9B34FB";
@@ -19,11 +20,14 @@ class StickS3BLEClient {
   constructor() {
     this.deviceId = null;
     this.serviceId = null;
+    this.characteristics = [];
+    this.charInjectUuid = CHAR_UUID_INJECT;
     this.isConnected = false;
     this.reconnectTimer = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.autoReconnect = true;
+    this._deviceFoundHandler = null;
 
     // 回调事件
     this.onStatusUpdate = null;
@@ -36,32 +40,53 @@ class StickS3BLEClient {
     this.expectedTotalChunks = 0;
   }
 
-  // 初始化蓝牙适配器并启动搜索
+  // 初始化蓝牙适配器并启动搜索 (全频段高敏扫描 + 系统缓存直读)
   startScan(onDeviceFound, onError) {
     wx.openBluetoothAdapter({
       success: () => {
-        wx.onBluetoothDeviceFound((res) => {
-          res.devices.forEach((dev) => {
-            const name = dev.name || dev.localName || "";
-            if (name.includes("StickS3") || name.includes("LingBuddy")) {
-              if (onDeviceFound) onDeviceFound(dev);
+        // 1. 读取系统蓝牙堆栈已发现或已配对的设备
+        wx.getBluetoothDevices({
+          success: (res) => {
+            if (res.devices && res.devices.length > 0) {
+              res.devices.forEach(dev => this._checkAndReportDevice(dev, onDeviceFound));
             }
-          });
+          }
         });
 
+        // 2. 绑定新设备发现监听器 (先注销旧监听，防止重复绑定)
+        if (this._deviceFoundHandler) {
+          try { wx.offBluetoothDeviceFound(this._deviceFoundHandler); } catch (e) {}
+        }
+        this._deviceFoundHandler = (res) => {
+          if (res.devices && res.devices.length > 0) {
+            res.devices.forEach(dev => this._checkAndReportDevice(dev, onDeviceFound));
+          }
+        };
+        wx.onBluetoothDeviceFound(this._deviceFoundHandler);
+
+        // 3. 启动设备扫描：
+        // 关键点：千万不可传 services: [SERVICE_UUID_FULL, "FFB0"]！
+        // 固件主广播包在 31 字节物理限制下只携带 Nordic UART (6E400001) 与 "StickS3" 名称，
+        // 传入 FFB0 会导致微信底层原生过滤规则将 M5StickS3 静默丢弃！
         wx.startBluetoothDevicesDiscovery({
-          services: [SERVICE_UUID_FULL, "FFB0"],
           allowDuplicatesKey: false,
+          powerLevel: "high",
           success: () => {
-            console.log("[BLE] Started discovery for StickS3 devices...");
+            console.log("[BLE] Started discovery for StickS3 devices (open scan mode)...");
+            // 延时 800ms 再查一次已发现列表，兼容部分安卓机型初次发现慢的问题
+            setTimeout(() => {
+              wx.getBluetoothDevices({
+                success: (res) => {
+                  if (res.devices) {
+                    res.devices.forEach(dev => this._checkAndReportDevice(dev, onDeviceFound));
+                  }
+                }
+              });
+            }, 800);
           },
           fail: (err) => {
-            // 某些安卓设备传入 services 无法过滤广播，退回无参数全量发现
-            wx.startBluetoothDevicesDiscovery({
-              allowDuplicatesKey: false,
-              success: () => console.log("[BLE] Fallback scan without service filter started."),
-              fail: onError
-            });
+            console.error("[BLE] startBluetoothDevicesDiscovery failed:", err);
+            if (onError) onError(err);
           }
         });
       },
@@ -72,8 +97,42 @@ class StickS3BLEClient {
     });
   }
 
+  // 设备指纹检测与智能过滤上报
+  _checkAndReportDevice(dev, onDeviceFound) {
+    if (!dev || !dev.deviceId) return;
+    const name = (dev.name || dev.localName || "").trim();
+    const uuids = (dev.advertisServiceUUIDs || []).map(u => u.toUpperCase());
+
+    // 1. 匹配设备名称 (StickS3, StickS3-Buddy, LingBuddy, M5, ESP32 等)
+    const isNameMatch = /StickS3|Buddy|LingBuddy|M5|ESP/i.test(name);
+
+    // 2. 匹配广播服务 UUID (无论是 6E400001 还是 FFB0)
+    const isUuidMatch = uuids.some(u => u.includes("6E400001") || u.includes("FFB0"));
+
+    if (isNameMatch || isUuidMatch) {
+      const cleanDev = {
+        ...dev,
+        name: name || "StickS3-Buddy",
+        isTarget: true
+      };
+      if (onDeviceFound) onDeviceFound(cleanDev);
+    } else if (name && name.length > 0) {
+      // 允许展示有广播名的周边设备（方便用户在特殊固件名下也能连接）
+      const candidateDev = {
+        ...dev,
+        name: name,
+        isTarget: false
+      };
+      if (onDeviceFound) onDeviceFound(candidateDev);
+    }
+  }
+
   // 停止搜索
   stopScan() {
+    if (this._deviceFoundHandler) {
+      try { wx.offBluetoothDeviceFound(this._deviceFoundHandler); } catch (e) {}
+      this._deviceFoundHandler = null;
+    }
     wx.stopBluetoothDevicesDiscovery({
       complete: () => console.log("[BLE] Stopped discovery.")
     });
@@ -93,7 +152,7 @@ class StickS3BLEClient {
         this.reconnectAttempts = 0;
         this.listenConnectionState();
 
-        // 协商 MTU (Android 支持 512，iOS 默认自动管理)
+        // 协商 MTU (Android 支持协商更大 MTU，iOS 系统自动管理)
         const sys = wx.getSystemInfoSync();
         if (sys.platform === "android") {
           wx.setBLEMTU({
@@ -113,16 +172,18 @@ class StickS3BLEClient {
     });
   }
 
-  // 发现服务与特征值
+  // 发现服务与特征值 (优先寻找 FFB0，兼容 16位/128位 UUID)
   discoverServices(onSuccess, onFail) {
     wx.getBLEDeviceServices({
       deviceId: this.deviceId,
       success: (res) => {
+        console.log("[BLE] Services found on device:", res.services.map(s => s.uuid));
         let targetService = res.services.find(s => 
           s.uuid.toUpperCase().includes("FFB0") || s.uuid.toUpperCase() === SERVICE_UUID_FULL
         );
         if (!targetService && res.services.length > 0) {
-          targetService = res.services[0];
+          // 备选尝试 Nordic UART 服务
+          targetService = res.services.find(s => s.uuid.toUpperCase().includes("6E400001")) || res.services[0];
         }
 
         if (!targetService) {
@@ -135,7 +196,8 @@ class StickS3BLEClient {
           deviceId: this.deviceId,
           serviceId: this.serviceId,
           success: (cRes) => {
-            console.log("[BLE] Characteristics discovered:", cRes.characteristics);
+            console.log("[BLE] Characteristics discovered:", cRes.characteristics.map(c => c.uuid));
+            this.characteristics = cRes.characteristics || [];
             this.setupSubscriptions();
             if (onSuccess) onSuccess();
           },
@@ -146,9 +208,21 @@ class StickS3BLEClient {
     });
   }
 
-  // 订阅特征值通知 (0xFFB1, 0xFFB2, 0xFFB3)
+  // 订阅特征值通知 (0xFFB1, 0xFFB2, 0xFFB3 动态匹配)
   setupSubscriptions() {
-    const notifyUUIDs = [CHAR_UUID_MEMORY, CHAR_UUID_STATUS, CHAR_UUID_DIARY];
+    if (!this.characteristics || this.characteristics.length === 0) return;
+
+    const findChar = (suffix) => {
+      const match = this.characteristics.find(c => c.uuid.toUpperCase().includes(suffix));
+      return match ? match.uuid : null;
+    };
+
+    const charMemory = findChar("FFB1") || CHAR_UUID_MEMORY;
+    const charStatus = findChar("FFB2") || CHAR_UUID_STATUS;
+    const charDiary  = findChar("FFB3") || CHAR_UUID_DIARY;
+    this.charInjectUuid = findChar("FFB4") || CHAR_UUID_INJECT;
+
+    const notifyUUIDs = [charMemory, charStatus, charDiary];
     notifyUUIDs.forEach(uuid => {
       wx.notifyBLECharacteristicValueChange({
         deviceId: this.deviceId,
@@ -191,7 +265,6 @@ class StickS3BLEClient {
 
   // 处理 0xFFB1 分片记忆还原算法
   handleMemoryChunk(chunk) {
-    // 格式: [C:idx:total]payload
     if (!chunk.startsWith("[C:")) return;
     const endHeader = chunk.indexOf("]");
     if (endHeader < 0) return;
@@ -208,7 +281,6 @@ class StickS3BLEClient {
     }
     this.memoryChunks[idx] = payload;
 
-    // 检查是否所有分片接收完毕
     const receivedCount = this.memoryChunks.filter(c => c !== undefined).length;
     if (receivedCount === this.expectedTotalChunks && this.expectedTotalChunks > 0) {
       const fullJson = this.memoryChunks.join("");
@@ -233,7 +305,8 @@ class StickS3BLEClient {
     const payloadStr = JSON.stringify(payloadObj);
     const ab = this.str2ab(payloadStr);
 
-    return this.writeInChunks(this.deviceId, this.serviceId, CHAR_UUID_INJECT, ab, 20);
+    const targetChar = this.charInjectUuid || CHAR_UUID_INJECT;
+    return this.writeInChunks(this.deviceId, this.serviceId, targetChar, ab, 20);
   }
 
   // 20 字节切片安全写入器
@@ -258,7 +331,6 @@ class StickS3BLEClient {
           value: chunk,
           success: () => {
             offset += currentChunkSize;
-            // 延时 20ms 避免 BLE 缓冲区溢出
             setTimeout(sendNext, 20);
           },
           fail: (err) => {

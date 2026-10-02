@@ -304,7 +304,8 @@ class BuddyService {
 
   // --- 连接管理 ---
 
-  async connectBLE(deviceId) {
+  async connectBLE(deviceId, name = "") {
+    this.connectedDeviceName = name || "StickS3-Buddy";
     return new Promise((resolve, reject) => {
       this.bleClient.connect(deviceId, () => {
         this.isConnected = true;
@@ -315,7 +316,8 @@ class BuddyService {
         this.notifyListeners("connection", {
           isConnected: true,
           isBleMode: true,
-          statusText: "BLE 在线"
+          statusText: "BLE 在线",
+          deviceName: this.connectedDeviceName
         });
         resolve();
       }, reject);

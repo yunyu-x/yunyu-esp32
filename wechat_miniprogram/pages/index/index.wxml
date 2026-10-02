@@ -13,12 +13,24 @@
       <view class="hotspot-badge" wx:if="{{hotspot && hotspot.isHotspot}}" bindtap="navigateToSettings">
         <text>📱 {{hotspot.usedMb}}/{{hotspot.limitMb}}M</text>
       </view>
-      <view class="status-badge {{isConnected ? 'status-online' : 'status-offline'}}" bindtap="navigateToSettings">
+      <!-- BLE 蓝牙状态标志 -->
+      <view class="status-badge {{isBleMode ? 'badge-ble-connected' : 'badge-ble-disconnected'}}" bindtap="navigateToSettings">
         <view class="status-dot"></view>
-        <text>{{connectionStatusText}}</text>
+        <text>{{isBleMode ? 'BLE 已连' : 'BLE 未连'}}</text>
+      </view>
+      <!-- Wi-Fi 联网状态标志 (未联网醒目红色) -->
+      <view class="status-badge {{isWifiMode ? 'status-online' : 'status-offline-red'}}" bindtap="navigateToSettings">
+        <view class="status-dot"></view>
+        <text>{{isWifiMode ? 'Wi-Fi 在线' : 'Wi-Fi 离线'}}</text>
         <text class="status-arrow">⚙️</text>
       </view>
     </view>
+  </view>
+
+  <!-- 设备断网离线醒目警示条 (Wi-Fi 未连且非仿真模式) -->
+  <view class="wifi-offline-banner" wx:if="{{!isWifiMode && !isSimMode}}" bindtap="navigateToSettings">
+    <text class="banner-icon">🛑</text>
+    <text class="banner-text">M5StickS3 当前处于断网离线状态，大模型语音对话需网络支持。点击前往一键配网 ›</text>
   </view>
 
   <!-- 手机共享热点超额熔断与预警提示栏 -->

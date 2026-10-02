@@ -226,11 +226,16 @@
   color: #ffffff;
   font-size: 22rpx;
   font-weight: 700;
-  padding: 12rpx 28rpx;
+  padding: 0 28rpx;
+  height: 60rpx;
+  min-height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 30rpx;
   border: none;
-  line-height: normal;
   margin: 0;
+  width: auto !important;
   flex-shrink: 0;
 }
 

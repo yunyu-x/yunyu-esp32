@@ -42,6 +42,9 @@ Page({
 
     isScanning: false,
     devices: [],
+    isDeviceListExpanded: false,
+    connectedDeviceName: "StickS3-Buddy",
+    showWifiFaq: false,
     connectingId: "",
     isProvisioning: false,
     isTestingWifi: false,
@@ -118,6 +121,7 @@ Page({
       isSimMode: isSim,
       connectionStatusText: evt.connectionStatusText || buddyService.connectionStatusText,
       currentModeName: modeName,
+      connectedDeviceName: buddyService.connectedDeviceName || this.data.connectedDeviceName || "StickS3-Buddy",
       petState: evt.petState || buddyService.petState,
       wifiHost: buddyService.httpClient.host,
       hotspot: hs || this.data.hotspot,
@@ -136,26 +140,47 @@ Page({
     haptics.vibrate("light");
 
     buddyService.bleClient.startScan((device) => {
-      const list = this.data.devices;
-      if (!list.some(d => d.deviceId === device.deviceId)) {
+      let list = [...this.data.devices];
+      const idx = list.findIndex(d => d.deviceId === device.deviceId);
+      if (idx >= 0) {
+        list[idx] = device;
+      } else {
         list.push(device);
-        this.setData({ devices: list });
       }
+      // 优先将 StickS3 伴侣排在最前面
+      list.sort((a, b) => (b.isTarget ? 1 : 0) - (a.isTarget ? 1 : 0));
+      this.setData({ devices: list });
     }, (err) => {
       this.setData({ isScanning: false });
-      wx.showToast({ title: "请确保手机蓝牙已开启", icon: "none" });
+      let errMsg = "请确保手机蓝牙及定位已开启";
+      if (err && err.errCode === 10001) {
+        errMsg = "请在手机系统设置中开启蓝牙";
+      }
+      wx.showToast({ title: errMsg, icon: "none" });
     });
 
-    // 扫描 8 秒后自动结束
+    // 扫描 12 秒后自动结束
     setTimeout(() => {
       if (this.data.isScanning) {
         buddyService.bleClient.stopScan();
         this.setData({ isScanning: false });
         if (this.data.devices.length === 0) {
-          wx.showToast({ title: "未发现 StickS3，请将设备靠近手机", icon: "none" });
+          wx.showToast({ title: "未发现 StickS3，请将设备靠近手机并确保通电", icon: "none" });
         }
       }
-    }, 8000);
+    }, 12000);
+  },
+
+  // 切换扫描设备列表展开/折叠
+  onToggleDeviceListExpanded() {
+    this.setData({ isDeviceListExpanded: !this.data.isDeviceListExpanded });
+    haptics.vibrate("light");
+  },
+
+  // 切换 Wi-Fi 配网避坑常见指南展开/折叠
+  onToggleWifiFaq() {
+    this.setData({ showWifiFaq: !this.data.showWifiFaq });
+    haptics.vibrate("light");
   },
 
   // 连接选定 BLE 设备
@@ -163,11 +188,19 @@ Page({
     const devId = e.currentTarget.dataset.deviceId;
     if (!devId) return;
 
+    const selectedDev = this.data.devices.find(d => d.deviceId === devId);
+    const devName = (selectedDev && (selectedDev.name || selectedDev.localName)) || "StickS3-Buddy";
+
     this.setData({ connectingId: devId });
     haptics.vibrate("medium");
 
-    buddyService.connectBLE(devId).then(() => {
-      this.setData({ connectingId: "", isScanning: false });
+    buddyService.connectBLE(devId, devName).then(() => {
+      this.setData({ 
+        connectingId: "", 
+        isScanning: false,
+        isDeviceListExpanded: false, // 连接成功后自动收起设备列表，保持界面清爽
+        connectedDeviceName: devName
+      });
       haptics.levelUp();
       wx.showToast({ title: "BLE 连接成功！", icon: "success" });
     }).catch(err => {
@@ -179,6 +212,7 @@ Page({
   handleDisconnectBle() {
     buddyService.disconnectBLE();
     haptics.vibrate("light");
+    this.setData({ isDeviceListExpanded: true });
     wx.showToast({ title: "已断开 BLE 蓝牙", icon: "none" });
   },
 

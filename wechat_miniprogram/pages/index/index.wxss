@@ -64,6 +64,57 @@
   color: #94a3b8;
 }
 
+.badge-ble-connected {
+  background: rgba(0, 242, 254, 0.15);
+  border: 1px solid #00f2fe;
+  color: #00f2fe;
+  box-shadow: 0 0 10rpx rgba(0, 242, 254, 0.25);
+}
+
+.badge-ble-disconnected {
+  background: rgba(148, 163, 184, 0.15);
+  border: 1px solid #64748b;
+  color: #94a3b8;
+}
+
+.status-offline-red {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  color: #f87171;
+  animation: pulse-offline-border 2s infinite ease-in-out;
+}
+
+@keyframes pulse-offline-border {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 12rpx 2rpx rgba(239, 68, 68, 0.6);
+  }
+}
+
+.wifi-offline-banner {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 16rpx;
+  padding: 14rpx 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  animation: pulse-offline-banner 2.5s infinite;
+}
+
+@keyframes pulse-offline-banner {
+  0%, 100% {
+    opacity: 0.95;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 14rpx rgba(239, 68, 68, 0.5);
+  }
+}
+
 .status-dot {
   width: 14rpx;
   height: 14rpx;
@@ -361,12 +412,15 @@
   align-items: center;
   justify-content: center;
   gap: 10rpx;
-  padding: 20rpx;
+  height: 88rpx;
+  min-height: 88rpx;
   border-radius: 16rpx;
   font-size: 24rpx;
   font-weight: 600;
   color: white;
   border: none;
+  width: 100% !important;
+  margin: 0;
 }
 
 .btn-action:active {
@@ -390,10 +444,13 @@
   color: #cbd5e1;
   font-size: 20rpx;
   border-radius: 14rpx;
-  padding: 14rpx 0;
+  height: 68rpx;
+  min-height: 68rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100% !important;
+  margin: 0;
 }
 
 /* 连接快捷栏 */
@@ -408,13 +465,16 @@
   align-items: center;
   justify-content: center;
   gap: 8rpx;
-  padding: 16rpx 0;
+  height: 76rpx;
+  min-height: 76rpx;
   border-radius: 16rpx;
   font-size: 24rpx;
   font-weight: 600;
   border: none;
   color: #fff;
   background: #1e293b;
+  width: auto !important;
+  margin: 0;
 }
 
 .btn-active {

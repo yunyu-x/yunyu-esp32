@@ -930,20 +930,21 @@ void loop() {
                              (cur_m == sticks3::MOOD_HAPPY) ? "开心" :
                              (cur_m == sticks3::MOOD_DIZZY) ? "晕眩" :
                              (cur_m == sticks3::MOOD_SLEEP) ? "睡眠中" : "就绪";
-                sticks3::StickS3Avatar::getInstance().render(display, subtitle, tag);
+                sticks3::StickS3Avatar::getInstance().render(display, subtitle, tag, device_connected, cfg_mgr.isStaConnected());
                 drawChineseText(display, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
                 display.endWrite();
             } else {
                 display.startWrite();
 
-        // 1. 顶部标题栏 (0 ~ 24)
-        display.fillRect(0, 0, SCREEN_W, 24, theme_color);
-        display.setTextColor(TFT_WHITE, theme_color);
+        // 1. 顶部标题栏 (0 ~ 24, 未连 Wi-Fi 展现醒目警告底色)
+        uint16_t top_theme = cfg_mgr.isStaConnected() ? theme_color : 0xA800;
+        display.fillRect(0, 0, SCREEN_W, 24, top_theme);
+        display.setTextColor(TFT_WHITE, top_theme);
         display.setTextDatum(MC_DATUM);
         if (cfg_mgr.isStaConnected()) {
             display.drawString("StickS3 | " + cfg_mgr.getStaIP(), SCREEN_W / 2, 12);
         } else {
-            display.drawString("M5StickS3 Buddy", SCREEN_W / 2, 12);
+            display.drawString("StickS3 [断网离线]", SCREEN_W / 2, 12);
         }
 
         // 2. 信息卡片区 (26 ~ 68)
