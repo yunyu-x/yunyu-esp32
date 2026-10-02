@@ -1,0 +1,88 @@
+<!-- pages/feed/feed.wxml -->
+<view class="container">
+  <!-- 头部状态与饱腹度 -->
+  <view class="feed-header-card">
+    <view class="avatar-preview-box">
+      <avatar-canvas 
+        petState="{{petState}}" 
+        widthRpx="190" 
+        heightRpx="280"
+        interactive="{{false}}"
+      ></avatar-canvas>
+    </view>
+    <view class="feed-status-info">
+      <view class="status-top">
+        <text class="pet-title">{{petState.name}} 的甜品厨房</text>
+        <text class="feed-count-badge">累计投喂: {{petState.feeds}} 次</text>
+      </view>
+
+      <view class="metric-block">
+        <view class="metric-row">
+          <text class="metric-label">⚡ 活力饱腹度</text>
+          <text class="metric-val highlight-cyan">{{petState.energy}}%</text>
+        </view>
+        <view class="metric-bar-bg">
+          <view class="metric-bar-fill energy-fill" style="width: {{petState.energy}}%;"></view>
+        </view>
+      </view>
+
+      <view class="metric-block" style="margin-top: 14rpx;">
+        <view class="metric-row">
+          <text class="metric-label">⭐ 羁绊经验</text>
+          <text class="metric-val highlight-pink">Lv.{{petState.level}} ({{petState.xp}}/100 XP)</text>
+        </view>
+        <view class="metric-bar-bg">
+          <view class="metric-bar-fill xp-fill" style="width: {{petState.xp}}%;"></view>
+        </view>
+      </view>
+
+      <view class="tip-pill">
+        <text>💡 挑选精致甜点隔空投喂，硬件将同步欢快咀嚼并伴随和弦声效</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 甜点货架菜单 -->
+  <view class="shelf-card">
+    <view class="shelf-title-row">
+      <text class="shelf-title">🍰 灵宠专属精致甜点图鉴</text>
+      <text class="shelf-subtitle">即点即喂 · 隔空传输</text>
+    </view>
+
+    <view class="snack-grid">
+      <view 
+        class="snack-item {{isFeeding ? 'snack-disabled' : ''}}" 
+        wx:for="{{snackList}}" 
+        wx:key="id"
+        bindtap="handleFeedSnack"
+        data-snack="{{item}}"
+      >
+        <view class="snack-icon-wrap">
+          <text class="snack-icon">{{item.icon}}</text>
+        </view>
+        <view class="snack-content">
+          <text class="snack-name">{{item.name}}</text>
+          <text class="snack-desc">{{item.desc}}</text>
+          <view class="snack-buffs">
+            <text class="buff-tag buff-energy">+{{item.energy}} 活力</text>
+            <text class="buff-tag buff-xp">+{{item.xp}} 亲密</text>
+          </view>
+        </view>
+        <button class="btn-feed-snack" loading="{{isFeeding && currentSnack.id === item.id}}">
+          投喂
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 灵宠最新美食心得日记 -->
+  <view class="food-diary-card">
+    <view class="food-diary-header">
+      <text class="food-diary-title">🧁 {{petState.name}} 的第一人称赏味日记</text>
+      <text class="food-diary-tag">即时回执</text>
+    </view>
+    <view class="food-diary-bubble">
+      "{{latestFoodDiary}}"
+    </view>
+  </view>
+</view>

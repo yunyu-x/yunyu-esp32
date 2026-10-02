@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "LingBuddy 灵宠伴侣",
+  "navigationBarTitleText": "隔空投喂屋 · LingBuddy",
   "enablePullDownRefresh": true,
   "usingComponents": {
     "avatar-canvas": "/components/avatar-canvas/avatar-canvas"

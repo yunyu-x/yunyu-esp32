@@ -1,0 +1,44 @@
+/* wechat_miniprogram/components/avatar-canvas/avatar-canvas.wxss */
+.avatar-canvas-container {
+  position: relative;
+  border-radius: 24rpx;
+  overflow: hidden;
+  background: #000000;
+  box-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.6), 0 0 0 2rpx rgba(56, 189, 248, 0.35);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.avatar-canvas-element {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.touch-hint-pill {
+  position: absolute;
+  bottom: 24rpx;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  padding: 6rpx 18rpx;
+  border-radius: 30rpx;
+  pointer-events: none;
+  animation: hintPop 2.2s ease forwards;
+  z-index: 10;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.5);
+}
+
+.hint-text {
+  font-size: 20rpx;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+@keyframes hintPop {
+  0% { opacity: 0; transform: translateY(8rpx) scale(0.95); }
+  15% { opacity: 1; transform: translateY(0) scale(1); }
+  80% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-8rpx) scale(0.95); }
+}

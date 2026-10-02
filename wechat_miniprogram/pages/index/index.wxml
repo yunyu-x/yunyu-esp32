@@ -1,6 +1,6 @@
 <!-- pages/index/index.wxml -->
 <view class="container">
-  <!-- 顶部状态栏 -->
+  <!-- 顶部状态栏与硬件握手标识 -->
   <view class="header-card">
     <view class="header-left">
       <text class="app-icon">🤖</text>
@@ -9,18 +9,32 @@
         <text class="app-subtitle">M5StickS3 · 微信随身陪伴中枢</text>
       </view>
     </view>
-    <view class="status-badge {{isConnected ? 'status-online' : 'status-offline'}}">
+    <view class="status-badge {{isConnected ? 'status-online' : 'status-offline'}}" bindtap="navigateToSettings">
       <view class="status-dot"></view>
       <text>{{connectionStatusText}}</text>
+      <text class="status-arrow">⚙️</text>
     </view>
   </view>
 
-  <!-- 灵宠主画板区 (微信 Canvas 2D 迪士尼灵动微表情) -->
+  <!-- 灵宠主画板区 (采用高自适应 <avatar-canvas> 自定义组件) -->
   <view class="avatar-card">
     <view class="canvas-wrapper">
-      <canvas type="2d" id="avatarCanvas" class="pet-canvas"></canvas>
+      <avatar-canvas 
+        id="buddyAvatar"
+        petState="{{petState}}" 
+        widthRpx="270" 
+        heightRpx="480"
+        bind:avataction="handleAvatarTouchAction"
+      ></avatar-canvas>
     </view>
+
+    <!-- 侧边实时 HUD 遥测数值面板 -->
     <view class="hud-meta">
+      <view class="pet-title-row">
+        <text class="pet-name">{{petState.name}}</text>
+        <text class="mood-pill">{{currentMoodTag}}</text>
+      </view>
+
       <view class="meta-row">
         <text class="meta-label">⭐ 亲密羁绊</text>
         <text class="meta-val highlight-pink">Lv.{{petState.level}} ({{petState.xp}}/100 XP)</text>
@@ -29,7 +43,7 @@
         <view class="bar-fill xp-fill" style="width: {{petState.xp}}%;"></view>
       </view>
 
-      <view class="meta-row" style="margin-top: 16rpx;">
+      <view class="meta-row" style="margin-top: 14rpx;">
         <text class="meta-label">⚡ 活力与体力</text>
         <text class="meta-val highlight-cyan">{{petState.energy}}%</text>
       </view>
@@ -37,16 +51,79 @@
         <view class="bar-fill energy-fill" style="width: {{petState.energy}}%;"></view>
       </view>
 
+      <!-- 交互统计标签 -->
       <view class="stat-tags">
         <view class="stat-tag">🍰 投喂: {{petState.feeds}}</view>
         <view class="stat-tag">✨ 梳毛: {{petState.grooms}}</view>
         <view class="stat-tag">🌸 抚摸: {{petState.pets}}</view>
         <view class="stat-tag">🌀 摇晃: {{petState.shakes}}</view>
       </view>
+
+      <!-- 触碰操作提示 -->
+      <view class="touch-guide-tip">
+        <text>💡 轻触头部抚摸 / 嘴部投喂 / 长按击掌</text>
+      </view>
     </view>
   </view>
 
-  <!-- 连接与信道切换 -->
+  <!-- 极速快捷通道卡片 -->
+  <view class="quick-room-nav">
+    <view class="room-banner feed-banner" bindtap="navigateToFeed">
+      <view class="room-info">
+        <text class="room-title">🍰 隔空投喂屋</text>
+        <text class="room-desc">草莓大福、舒芙蕾、熔岩甜甜圈已上架</text>
+      </view>
+      <text class="room-btn">去投喂 ›</text>
+    </view>
+  </view>
+
+  <!-- 第一人称灵宠即时心声日记卡片 -->
+  <view class="diary-card">
+    <view class="diary-header">
+      <text class="diary-title">📖 {{petState.name}} 的即时心声日记</text>
+      <text class="diary-link" bindtap="navigateToDiary">全部日记 ({{diaryCount}}篇) ›</text>
+    </view>
+    <view class="diary-bubble" bindtap="navigateToDiary">
+      "{{petState.diary}}"
+    </view>
+  </view>
+
+  <!-- 拓麻歌子具身互动控制中心 (微震动触觉联觉) -->
+  <view class="tamagotchi-card">
+    <view class="section-title">
+      <text>🎮 拓麻歌子随身具身互动</text>
+      <text class="section-sub">支持真机触觉反馈与和弦同步</text>
+    </view>
+
+    <!-- 核心互动四网格 -->
+    <view class="action-grid">
+      <button class="btn-action btn-pet" bindtap="handlePetAction">
+        <text class="action-icon">🌸</text>
+        <text>隔空抚摸</text>
+      </button>
+      <button class="btn-action btn-groom" bindtap="handleGroomAction">
+        <text class="action-icon">✨</text>
+        <text>舒适梳毛</text>
+      </button>
+      <button class="btn-action btn-play" bindtap="handlePlayAction">
+        <text class="action-icon">✋</text>
+        <text>默契击掌</text>
+      </button>
+      <button class="btn-action btn-shake" bindtap="handleShakeAction">
+        <text class="action-icon">🌀</text>
+        <text>调皮转圈</text>
+      </button>
+    </view>
+
+    <!-- 辅助控制 -->
+    <view class="sub-action-grid">
+      <button class="btn-sub" bindtap="handleSleepAction">🌙 灵宠晚安入睡</button>
+      <button class="btn-sub" bindtap="handleWakeAction">☀️ 晨起伸懒腰</button>
+      <button class="btn-sub" bindtap="handleToggleAvatarMode">🎨 切换屏显模式</button>
+    </view>
+  </view>
+
+  <!-- 连接与信道快捷栏 -->
   <view class="connect-grid">
     <button class="btn-connect {{isBleMode ? 'btn-active' : ''}}" bindtap="handleToggleBle">
       <text>⚡</text> <text>{{bleBtnText}}</text>
@@ -54,82 +131,8 @@
     <button class="btn-connect {{isWifiMode ? 'btn-active' : ''}}" bindtap="handleToggleWifi">
       <text>📶</text> <text>{{wifiBtnText}}</text>
     </button>
-    <button class="btn-sim" bindtap="handleToggleSim">
+    <button class="btn-sim {{isSimMode ? 'btn-active-sim' : ''}}" bindtap="handleToggleSim">
       <text>🎮</text> <text>{{simBtnText}}</text>
     </button>
-  </view>
-
-  <!-- 第一人称灵宠观察日记 -->
-  <view class="diary-card">
-    <view class="diary-header">
-      <text class="diary-title">📖 {{petState.name}} 的即时心声日记</text>
-      <text class="diary-badge">动态生成</text>
-    </view>
-    <view class="diary-bubble">
-      "{{petState.diary}}"
-    </view>
-  </view>
-
-  <!-- 拓麻歌子「隔空投喂」与即时互动中心 -->
-  <view class="tamagotchi-card">
-    <view class="section-title">
-      <text>🍰 拓麻歌子「隔空投喂」与肢体互动</text>
-    </view>
-
-    <!-- 投喂选择器 -->
-    <view class="feed-selector-box">
-      <picker bindchange="onSnackChange" value="{{selectedSnackIndex}}" range="{{snackOptions}}">
-        <view class="picker-input">
-          <text>{{snackOptions[selectedSnackIndex]}}</text>
-          <text class="picker-arrow">▼</text>
-        </view>
-      </picker>
-      <button class="btn-feed" bindtap="handleFeedAction">🍰 立即隔空投喂</button>
-    </view>
-
-    <!-- 快捷动作网格 -->
-    <view class="action-grid">
-      <button class="btn-action btn-groom" bindtap="handleGroomAction">
-        <text class="action-icon">✨</text>
-        <text>隔空舒适梳毛</text>
-      </button>
-      <button class="btn-action btn-play" bindtap="handlePlayAction">
-        <text class="action-icon">✋</text>
-        <text>隔空默契击掌</text>
-      </button>
-      <button class="btn-action btn-pet" bindtap="handlePetAction">
-        <text class="action-icon">🌸</text>
-        <text>隔空温柔抚摸</text>
-      </button>
-      <button class="btn-action btn-shake" bindtap="handleShakeAction">
-        <text class="action-icon">🌀</text>
-        <text>调皮转圈圈</text>
-      </button>
-    </view>
-
-    <!-- 辅助控制 -->
-    <view class="sub-action-grid">
-      <button class="btn-sub" bindtap="handleSleepAction">🌙 灵宠晚安入睡</button>
-      <button class="btn-sub" bindtap="handleToggleAvatarMode">🎨 切换硬件屏显模式</button>
-    </view>
-  </view>
-
-  <!-- 历史对话与长程记忆 (0xFFB1 订阅同步) -->
-  <view class="memory-card">
-    <view class="diary-header">
-      <text class="diary-title">🧠 硬件端历史对话记忆流 (Flash NVS)</text>
-      <text class="diary-badge">{{memoryTurns.length}} 轮记忆</text>
-    </view>
-    <scroll-view scroll-y="true" class="memory-scroll">
-      <block wx:if="{{memoryTurns.length === 0}}">
-        <view class="empty-tip">暂无同步对话记录，对准 StickS3 麦克风说话即可自动存盘</view>
-      </block>
-      <block wx:else>
-        <view class="turn-item" wx:for="{{memoryTurns}}" wx:key="index">
-          <view class="turn-user">🗣️ {{item.user}}</view>
-          <view class="turn-ai">🤖 {{item.ai}}</view>
-        </view>
-      </block>
-    </scroll-view>
   </view>
 </view>

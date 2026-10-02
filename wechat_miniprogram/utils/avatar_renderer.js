@@ -23,13 +23,22 @@ class AvatarRenderer {
     const now = Date.now();
     ctx.clearRect(0, 0, width, height);
 
+    ctx.save();
+    // 自动自适应任意视口尺寸 (基于 M5StickS3 135x240 黄金基准微表情坐标系)
+    const scaleX = (width && width > 0) ? (width / 135.0) : 1.0;
+    const scaleY = (height && height > 0) ? (height / 240.0) : 1.0;
+    ctx.scale(scaleX, scaleY);
+
+    const baseW = 135;
+    const baseH = 240;
+
     // 0. 深邃夜空纯黑底色
     ctx.fillStyle = "#000000";
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, baseW, baseH);
 
     // 1. 顶部状态栏 (0 ~ 18)
     ctx.fillStyle = "#0f172a";
-    ctx.fillRect(0, 0, width, 18);
+    ctx.fillRect(0, 0, baseW, 18);
     ctx.fillStyle = "#f6d365";
     ctx.font = "bold 9px sans-serif";
     ctx.fillText(`${petState.name || "小木"} Lv.${petState.level || 1}`, 6, 12);
@@ -37,7 +46,7 @@ class AvatarRenderer {
     ctx.fillStyle = "#34d399";
     ctx.textAlign = "right";
     const tags = ["就绪", "专注聆听", "歪头思考", "快乐说话", "心动开心", "眩晕转圈", "失重惊吓", "香甜好梦", "好奇探头", "傲娇得意", "大口咀嚼", "舒适梳毛", "默契放电"];
-    ctx.fillText(tags[petState.mood] || "就绪", width - 6, 12);
+    ctx.fillText(tags[petState.mood] || "就绪", baseW - 6, 12);
     ctx.textAlign = "left";
 
     // 2. 双眼与面部基准参数
@@ -322,6 +331,8 @@ class AvatarRenderer {
     ctx.fillStyle = "#f472b6";
     ctx.font = "bold 9px sans-serif";
     ctx.fillText(`♥ 亲密:${petState.xp || 15}% 活力:${petState.energy || 100}%`, 6, 232);
+
+    ctx.restore();
   }
 
   drawRoundRect(ctx, x, y, w, h, r) {

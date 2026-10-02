@@ -1,0 +1,352 @@
+/* pages/diary/diary.wxss */
+.container {
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  padding-bottom: 50rpx;
+}
+
+/* 顶部概览 */
+.diary-stats-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #121929;
+  border: 1px solid rgba(246, 211, 101, 0.25);
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+}
+
+.stats-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.stats-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #f6d365;
+}
+
+.stats-subtitle {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.stats-right {
+  display: flex;
+  gap: 12rpx;
+}
+
+.stat-pill {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 16rpx;
+  padding: 8rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-num {
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+.stat-lbl {
+  font-size: 18rpx;
+  color: #64748b;
+}
+
+.fav-pill .stat-num {
+  color: #f472b6;
+}
+
+/* 筛选器滚动区 */
+.filter-scroll {
+  white-space: nowrap;
+  width: 100%;
+}
+
+.filter-chip {
+  display: inline-block;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  color: #94a3b8;
+  font-size: 22rpx;
+  padding: 10rpx 24rpx;
+  border-radius: 30rpx;
+  margin-right: 12rpx;
+  transition: all 0.2s ease;
+}
+
+.filter-active {
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  border-color: #38bdf8;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* 日记卡片列表 */
+.diary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.empty-diary-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 20rpx;
+  background: #121929;
+  border: 1px dashed #334155;
+  border-radius: 20rpx;
+}
+
+.empty-icon {
+  font-size: 64rpx;
+  margin-bottom: 12rpx;
+}
+
+.empty-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.empty-desc {
+  font-size: 22rpx;
+  color: #64748b;
+  margin-top: 8rpx;
+  text-align: center;
+}
+
+.diary-card-item {
+  background: #121929;
+  border: 1px solid #1e293b;
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.3);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-tag-group {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.mood-tag-badge {
+  font-size: 20rpx;
+  color: #f6d365;
+  background: rgba(246, 211, 101, 0.15);
+  padding: 4rpx 14rpx;
+  border-radius: 12rpx;
+  border: 1px solid rgba(246, 211, 101, 0.3);
+}
+
+.time-label {
+  font-size: 20rpx;
+  color: #64748b;
+}
+
+.fav-action-btn {
+  font-size: 32rpx;
+  padding: 6rpx;
+}
+
+.card-body {
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+  line-height: 1.6;
+}
+
+.quote-mark {
+  color: #38bdf8;
+  font-family: Georgia, serif;
+  font-size: 30rpx;
+  font-weight: bold;
+}
+
+.quote-content {
+  font-size: 24rpx;
+  color: #e2e8f0;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12rpx;
+}
+
+.footer-btn {
+  font-size: 20rpx;
+  color: #94a3b8;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 12rpx;
+  padding: 8rpx 20rpx;
+  line-height: normal;
+  margin: 0;
+}
+
+.btn-share {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.btn-del {
+  padding: 8rpx 14rpx;
+}
+
+/* 分享弹窗 Modal */
+.share-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 40rpx;
+}
+
+.share-card-container {
+  width: 100%;
+  max-width: 600rpx;
+  background: #121929;
+  border: 1px solid #38bdf8;
+  border-radius: 28rpx;
+  padding: 30rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.share-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.share-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.share-close {
+  font-size: 36rpx;
+  color: #64748b;
+  padding: 6rpx 14rpx;
+}
+
+.share-poster-box {
+  background: linear-gradient(135deg, #090e1a, #020617);
+  border: 2rpx solid rgba(56, 189, 248, 0.3);
+  border-radius: 20rpx;
+  padding: 30rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.poster-pet-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.poster-avatar {
+  font-size: 54rpx;
+}
+
+.poster-pet-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.poster-pet-name {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: #00f2fe;
+}
+
+.poster-pet-lvl {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.poster-quote-box {
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 14rpx;
+  padding: 20rpx;
+  border-left: 6rpx solid #f472b6;
+}
+
+.poster-quote {
+  font-size: 26rpx;
+  color: #f8fafc;
+  line-height: 1.6;
+  display: block;
+}
+
+.poster-time {
+  font-size: 18rpx;
+  color: #64748b;
+  display: block;
+  margin-top: 12rpx;
+  text-align: right;
+}
+
+.poster-footer {
+  text-align: center;
+  border-top: 1px solid #1e293b;
+  padding-top: 14rpx;
+}
+
+.poster-branding {
+  font-size: 18rpx;
+  color: #475569;
+}
+
+.modal-btn-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.btn-modal-action {
+  flex: 1;
+  background: #1e293b;
+  color: #cbd5e1;
+  font-size: 24rpx;
+  border-radius: 16rpx;
+  padding: 16rpx 0;
+  border: none;
+  line-height: normal;
+}
+
+.btn-modal-primary {
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  color: #ffffff;
+  font-weight: 700;
+}

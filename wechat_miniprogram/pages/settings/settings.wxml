@@ -1,0 +1,198 @@
+<!-- pages/settings/settings.wxml -->
+<view class="container">
+  <!-- 1. 当前连接状态概览 -->
+  <view class="status-card">
+    <view class="status-top">
+      <view class="status-badge {{isConnected ? 'badge-online' : 'badge-offline'}}">
+        <view class="dot"></view>
+        <text>{{connectionStatusText}}</text>
+      </view>
+      <text class="device-tag">M5Stack StickS3</text>
+    </view>
+    <view class="status-details">
+      <view class="detail-col">
+        <text class="detail-label">信道模式</text>
+        <text class="detail-val">{{currentModeName}}</text>
+      </view>
+      <view class="detail-col">
+        <text class="detail-label">当前 IP</text>
+        <text class="detail-val">{{wifiHost}}</text>
+      </view>
+      <view class="detail-col">
+        <text class="detail-label">灵宠等级</text>
+        <text class="detail-val highlight-pink">Lv.{{petState.level}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 2. BLE 蓝牙连接管理 -->
+  <view class="panel-card">
+    <view class="panel-header">
+      <text class="panel-title">⚡ BLE 蓝牙设备连接</text>
+      <text class="panel-subtitle">GATT 0xFFB0 专属低功耗信道</text>
+    </view>
+
+    <view class="ble-action-row">
+      <button 
+        class="btn-primary {{isScanning ? 'btn-scanning' : ''}}" 
+        bindtap="handleStartBleScan" 
+        loading="{{isScanning}}"
+      >
+        {{isScanning ? '正在扫描设备...' : '🔍 扫描 StickS3-Buddy'}}
+      </button>
+      <button 
+        class="btn-outline" 
+        wx:if="{{isBleConnected}}" 
+        bindtap="handleDisconnectBle"
+      >
+        断开
+      </button>
+    </view>
+
+    <!-- 发现的设备列表 -->
+    <view class="device-list" wx:if="{{devices.length > 0}}">
+      <view class="device-item" wx:for="{{devices}}" wx:key="deviceId">
+        <view class="device-info">
+          <text class="device-name">{{item.name || item.localName || '未知设备'}}</text>
+          <text class="device-id">{{item.deviceId}}</text>
+          <text class="device-rssi">信号 RSSI: {{item.RSSI}} dBm</text>
+        </view>
+        <button 
+          class="btn-connect-item" 
+          bindtap="handleConnectDevice" 
+          data-device-id="{{item.deviceId}}"
+          loading="{{connectingId === item.deviceId}}"
+        >
+          连接
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 3. BLE 一键智能配网 (Smart Wi-Fi Provisioning) -->
+  <view class="panel-card">
+    <view class="panel-header">
+      <text class="panel-title">📶 BLE 一键智能配网</text>
+      <text class="panel-subtitle">通过 0xFFB4 蓝牙安全注入 Wi-Fi 凭证</text>
+    </view>
+
+    <view class="form-group">
+      <view class="input-row">
+        <text class="input-label">Wi-Fi 名称 (SSID)</text>
+        <view class="input-with-action">
+          <input 
+            class="form-input" 
+            placeholder="输入 2.4GHz Wi-Fi SSID" 
+            value="{{wifiSsid}}" 
+            bindinput="onInputSsid"
+          />
+          <button class="btn-get-wifi" bindtap="handleGetConnectedWifi">获取当前</button>
+        </view>
+      </view>
+
+      <view class="input-row" style="margin-top: 14rpx;">
+        <text class="input-label">Wi-Fi 密码</text>
+        <input 
+          class="form-input" 
+          password="{{!showPwd}}" 
+          placeholder="输入 Wi-Fi 密码" 
+          value="{{wifiPwd}}" 
+          bindinput="onInputPwd"
+        />
+      </view>
+
+      <view class="form-tip">
+        <text>⚠️ StickS3 仅支持 2.4GHz 频段 Wi-Fi；配网采用严格 20 字节安全切片防溢出传输。</text>
+      </view>
+
+      <button 
+        class="btn-provision" 
+        bindtap="handleSmartProvision" 
+        loading="{{isProvisioning}}"
+      >
+        🚀 注入凭证并一键配网
+      </button>
+    </view>
+  </view>
+
+  <!-- 4. 局域网 Wi-Fi 直连配置 -->
+  <view class="panel-card">
+    <view class="panel-header">
+      <text class="panel-title">🌐 Wi-Fi 局域网高速通道</text>
+      <text class="panel-subtitle">用于长程记忆与高吞吐交互</text>
+    </view>
+
+    <view class="form-group">
+      <view class="input-row">
+        <text class="input-label">硬件局域网 IP</text>
+        <input 
+          class="form-input" 
+          placeholder="如 192.168.110.67" 
+          value="{{wifiHostInput}}" 
+          bindinput="onInputHost"
+        />
+      </view>
+
+      <view class="wifi-action-grid">
+        <button class="btn-wifi-test" bindtap="handleTestWifiConnection" loading="{{isTestingWifi}}">
+          ⚡ 测试连通性
+        </button>
+        <button class="btn-wifi-connect {{isWifiConnected ? 'btn-active-wifi' : ''}}" bindtap="handleToggleWifiConnection">
+          {{isWifiConnected ? '断开 Wi-Fi' : '切换 Wi-Fi 通道'}}
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 5. 偏好与系统设置 -->
+  <view class="panel-card">
+    <view class="panel-header">
+      <text class="panel-title">⚙️ 系统偏好与控制</text>
+    </view>
+
+    <view class="setting-row">
+      <view class="setting-info">
+        <text class="setting-title">真机触觉微震动反馈</text>
+        <text class="setting-desc">投喂、抚摸与击掌时的 Taptic / 线性马达震感</text>
+      </view>
+      <switch checked="{{vibrationEnabled}}" bindchange="onToggleVibration" color="#00f2fe" />
+    </view>
+
+    <view class="setting-row">
+      <view class="setting-info">
+        <text class="setting-title">切换硬件屏显模式</text>
+        <text class="setting-desc">在灵宠迪士尼表情与系统遥测仪表盘间切换</text>
+      </view>
+      <button class="btn-ctrl-sub" bindtap="handleToggleAvatarMode">切换模式</button>
+    </view>
+
+    <view class="setting-row">
+      <view class="setting-info">
+        <text class="setting-title">清除本地离线缓存</text>
+        <text class="setting-desc">重置本地心声日记与存储历史</text>
+      </view>
+      <button class="btn-danger-sub" bindtap="handleClearStorage">清空日记</button>
+    </view>
+  </view>
+
+  <!-- 6. 固件契约与版本诊断 -->
+  <view class="panel-card info-card">
+    <text class="info-title">🛠️ 固件与通信契约诊断</text>
+    <view class="info-item">
+      <text class="info-lbl">固件版本：</text>
+      <text class="info-val">v1.0.0-mobile (ESP32-S3-PICO-1)</text>
+    </view>
+    <view class="info-item">
+      <text class="info-lbl">专属服务：</text>
+      <text class="info-val">0000FFB0-0000-1000-8000-00805F9B34FB</text>
+    </view>
+    <view class="info-item">
+      <text class="info-lbl">特征值体系：</text>
+      <text class="info-val">0xFFB1 记忆 / 0xFFB2 状态 / 0xFFB3 日记 / 0xFFB4 注入</text>
+    </view>
+    <view class="info-item">
+      <text class="info-lbl">流控安全规则：</text>
+      <text class="info-val">严格 20 字节安全 MTU 分片与 20ms 节奏延时</text>
+    </view>
+  </view>
+</view>

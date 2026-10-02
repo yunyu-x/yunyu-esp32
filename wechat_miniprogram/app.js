@@ -1,14 +1,18 @@
 // app.js
+const { buddyService } = require("./utils/buddy_service.js");
+const { StorageManager } = require("./utils/storage_manager.js");
+const { haptics } = require("./utils/haptics.js");
+
 App({
   globalData: {
     deviceName: "StickS3-Buddy",
     petName: "小木",
-    connectedDevice: null,
-    isBleConnected: false,
-    isWifiConnected: false,
     wifiHost: "192.168.110.67"
   },
+  buddyService,
+  storageManager: StorageManager,
+  haptics,
   onLaunch() {
-    console.log("[LingBuddy App] Launched successfully.");
+    console.log("[LingBuddy App] Launched successfully with 4-Tab Architecture & Embodied Haptics.");
   }
 });

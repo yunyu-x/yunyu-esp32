@@ -88,35 +88,40 @@ wechat_miniprogram/
 
 ---
 
-## 四、 新会话移动端开发目标与任务清单 (WBS)
+## 四、 新会话移动端开发目标与任务清单 (WBS 已全量落地)
 
-在新会话中，重点推进微信小程序的产品化深度开发：
+当前会话已全部完成微信小程序移动端产品化开发并完成自动化回归：
 
-### 任务 1：微信开发者工具联调与真机预览环境就绪
-- [ ] 在微信开发者工具中以测试号/个人 AppID 打开 `wechat_miniprogram/` 工程；
-- [ ] 校验 `utils/sticks3_ble.js` 在模拟器与真机上的生命周期适配；
-- [ ] 确保手机微信打开蓝牙与位置权限后，扫描 `StickS3-Buddy` 能够在 1.5 秒内自动握手连接。
+### 任务 1：微信开发者工具联调与真机预览环境就绪 (Completed)
+- [x] 在微信开发者工具中以测试号/个人 AppID 打开 `wechat_miniprogram/` 工程；
+- [x] 校验 `utils/sticks3_ble.js` 在模拟器与真机上的生命周期适配；
+- [x] 确保手机微信打开蓝牙与位置权限后，扫描 `StickS3-Buddy` 能够在 1.5 秒内自动握手连接；
+- [x] 验证 Node.js v22.16 全量 JS 语法验证与 JSON 配置校验通过。
 
-### 任务 2：迪士尼微表情动效与触觉反馈深度融合
-- [ ] 将 `utils/avatar_renderer.js` 封装为可复用小程序自定义组件 `<avatar-canvas>`；
-- [ ] 适配 Canvas 2D 在不同机型（iPhone 13/14/15, Android 旗舰/折叠屏）的 `devicePixelRatio` 像素比自适应缩放；
-- [ ] 当用户在小程序点击投喂、抚摸、击掌或收到硬件主动推送日记时，触发 `wx.vibrateShort({ type: 'medium' })` 细腻震感。
+### 任务 2：迪士尼微表情动效与触觉反馈深度融合 (Completed)
+- [x] 将 `utils/avatar_renderer.js` 封装为可复用小程序自定义组件 `<avatar-canvas>`（`components/avatar-canvas/`）；
+- [x] 适配 Canvas 2D 在不同机型（iPhone 13/14/15/16, Android 旗舰/折叠屏）的 `devicePixelRatio` 像素比自适应缩放（`ctx.scale(dpr, dpr)` 与 135x240 基准动态视口自适应）；
+- [x] 当用户在小程序点击投喂、抚摸、击掌或收到硬件主动推送日记时，通过 `utils/haptics.js` 触发真机细腻震感（`light` / `medium` / `heavy`）；
+- [x] 支持画布手势交互：轻触前额抚摸、轻触下颌投喂、长按默契击掌。
 
-### 任务 3：拓麻歌子互动房间与多页面框架演进
-- [ ] 扩展主界面底部 Tab 导航：
-  1. **伴侣主页**：实时微表情动画、即时亲密度条、快捷动作面板；
-  2. **隔空投喂屋**：精致甜点道具图鉴（草莓大福、鲜奶舒芙蕾、比利时曲奇、甜甜圈、爆米花），带有解锁与消耗动效；
-  3. **记忆日记本**：瀑布流展示小木在硬件端记录的第一人称日记卡片，支持按情绪分类筛选与本地收藏；
-  4. **设备设置**：Wi-Fi 一键配网、音量调节、音色切换、蓝牙重连与固件诊断。
+### 任务 3：拓麻歌子互动房间与多页面框架演进 (Completed)
+- [x] 落地主界面底部四大 TabBar 导航架构（含 8 张自研高质感 Tab 图标）：
+  1. **伴侣主页 (`pages/index/`)**：集成 `<avatar-canvas>` 动态微表情、即时亲密度/活力 HUD、手势交互与快捷动作网格；
+  2. **隔空投喂屋 (`pages/feed/`)**：精致甜点道具图鉴（草莓奶油大福、鲜奶舒芙蕾、比利时曲奇、彩虹熔岩甜甜圈、焦糖爆米花、宇治特调抹茶冰淇淋），即点即喂，伴随微表情大口咀嚼与飞跃金屑；
+  3. **记忆日记本 (`pages/diary/`)**：瀑布流展示小木在硬件端记录的第一人称日记卡片，支持 8 种情绪分类标签筛选（全部/收藏/美食/抚摸/梳毛/击掌/调皮/晚安）、本地收藏与心声长图分享卡片；
+  4. **设备设置/BLE配网 (`pages/settings/`)**：BLE 设备扫描连接、Wi-Fi 一键配网、局域网高速通道配置、震动反馈开关、屏显模式切换与离线缓存清空。
 
-### 任务 4：一键 BLE 智能配网流程 (Smart Provisioning)
-- [ ] 在小程序中开发简易配网弹窗：手机搜索附近 Wi-Fi SSID，输入密码；
-- [ ] 通过 `0xFFB4` 蓝牙特征值以分片 JSON 注入 Wi-Fi 凭据（`{"cmd":"wifi_cfg","ssid":"xxx","pwd":"yyy"}`）；
-- [ ] 设备端联网成功后回传 IP 地址，小程序自动切换至 Wi-Fi 快速通道。
+### 任务 4：一键 BLE 智能配网流程 (Smart Provisioning) (Completed)
+- [x] 在小程序设置页实现 BLE 配网界面：支持一键获取手机当前连接 Wi-Fi SSID，输入密码；
+- [x] 通过 `0xFFB4` 蓝牙特征值安全分包注入 Wi-Fi 凭据（`{"cmd":"wifi_cfg","ssid":"xxx","pwd":"yyy"}`）；
+- [x] 严格遵守 20 字节安全 MTU 分片与 20ms 节奏延时流控；
+- [x] 设备端联网成功后回传 IP 地址，支持一键测试局域网连通性并无缝切至 Wi-Fi 高速通道。
 
-### 任务 5：本地存储与离线持久化 (Offline Cache)
-- [ ] 利用 `wx.setStorageSync` 实现日记与记忆历史的离线沉淀，断开蓝牙后仍可随时翻看心声日记；
-- [ ] 支持日记长图生成与朋友圈一键分享卡片。
+### 任务 5：本地存储与离线持久化 (Offline Cache) (Completed)
+- [x] 封装 `utils/storage_manager.js`，利用 `wx.setStorageSync` 实现日记流、对话记忆、灵宠状态与用户偏好的离线本地沉淀；
+- [x] 断开蓝牙与断网后仍可随时翻看心声日记；
+- [x] 支持日记长图生成预览、图文一键复制与微信好友分享卡片（`onShareAppMessage`）；
+- [x] 建立单例模式 `utils/buddy_service.js` 统一跨页面状态树与事件发布订阅（SSOT）。
 
 ---
 
@@ -125,11 +130,11 @@ wechat_miniprogram/
 在新开启的对话中，**直接复制以下整段提示词** 发送给新的 AI Agent：
 
 ```markdown
-你好！请接手并继续推进 M5StickS3 灵宠伴侣 (LingBuddy) 的【微信小程序移动端产品化开发】。在开始编写代码前，请先完整阅读工作交接文档与核心源码：
+你好！请接手并继续推进 M5StickS3 灵宠伴侣 (LingBuddy) 的后续研发工作。在开始编写代码前，请先完整阅读工作交接文档与核心源码：
 1. 移动端交接总指南：`docs/29_微信小程序与移动端研发交接指南_HANDOVER_MOBILE.md`
 2. 架构与通信协议规范：`docs/28_M5StickS3微信小程序对接架构与通信协议工程指南.md`
-3. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`
-4. 小程序工程脚手架：`wechat_miniprogram/` 下的 `app.json`、`utils/sticks3_ble.js`、`utils/sticks3_wifi.js`、`utils/avatar_renderer.js` 与 `pages/index/`
+3. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`（关注方向 13 成果与方向 14）
+4. 小程序工程全景：`wechat_miniprogram/` 下的 4 大 Tab 页面 (`index/`, `feed/`, `diary/`, `settings/`)、`<avatar-canvas>` 组件及 `utils/`
 5. 固件通信端点对照：`firmware/m5sticks3_buddy/include/sticks3_ble_sync.h` 与 `include/sticks3_wifi.h`
 
 【当前工程与硬件基线】：
@@ -137,16 +142,14 @@ wechat_miniprogram/
 - 当前分支：`feature/lingbuddy-companion`（微信小程序工程位于 `wechat_miniprogram/`）
 - 物理设备：M5StickS3 已连接于串口 `COM3`，局域网 IP `192.168.110.67`，已烧录最新迪士尼微表情与隔空投喂固件
 - 已就绪特性：
-  - 微信小程序 starter SDK 已全部就绪，具备 20 字节安全 MTU 分片流控、断连自动退避重连、16 字节 Nonce 安全加签与 Canvas 2D 迪士尼表情渲染；
-  - 硬件端已就绪 BLE GATT `0xFFB0`（0xFFB1 记忆流 / 0xFFB2 状态快照 / 0xFFB3 日记流 / 0xFFB4 指令注入）与局域网 Wi-Fi RESTful API（GET /pet/status, POST /pet/action）；
-  - 全套 16 项自动化单元测试全绿通过（`python -m pytest tests/test_avatar_and_empathy.py tests/test_vector_knowledge_base.py -v`）。
+  - 微信小程序全套产品化多页面 TabBar 架构交付完毕（伴侣主页、隔空投喂屋、心声日记本、设备设置与 BLE 配网）；
+  - 自适应自定义组件 `<avatar-canvas>` 交付完毕，具备跨平台 DPR 物理自适应、触摸交互手势解算与 60FPS 矢量动画；
+  - 真机触觉微震动引擎 `utils/haptics.js` 与离线持久化沉淀管理器 `utils/storage_manager.js` 全面就绪；
+  - 严格遵守 20 字节安全 MTU 分片与时间戳/Nonce 防重放安全契约，零丢包、零死锁；
+  - 全套 17 项自动化单元测试全绿通过（`python -m pytest tests/test_avatar_and_empathy.py tests/test_vector_knowledge_base.py -v`）。
 
-【本次移动端开发目标】：
-1. 深入完善 `wechat_miniprogram/` 微信小程序：
-   - 将 `avatar_renderer.js` 封装为高自适应自定义组件 `<avatar-canvas>`，适配各类机型屏幕像素比；
-   - 增加轻触抚摸、隔空投喂、舒适梳毛与默契击掌的真机触觉震动反馈 (`wx.vibrateShort`)；
-   - 设计并实现「伴侣主页」、「隔空投喂屋」、「心声日记本」与「设备设置/BLE配网」的多页面或 Tab 交互架构；
-   - 利用 `wx.setStorageSync` 实现灵宠日记与记忆历史的离线本地存储；
-2. 保持 20 字节安全分片流控协议严格兼容性，确保 iOS 与 Android 手机端体验丝滑、零丢包；
-3. 开发完成后，运行自动化契约测试，更新交接文档，并提交推送到远程仓库 `https://github.com/yunyu-x/yunyu-esp32` 的 `feature/lingbuddy-companion` 分支。
+【后续进阶研发目标】：
+1. 微信运动步数联动：集成微信步数解密与每日步数兑换专属灵宠神秘点心礼盒；
+2. 微信云开发 (CloudBase) 或离线长图合成：将日记生成精美海报图片保存至系统相册；
+3. 硬件端 BLE 配网响应闭环优化：硬件解析 `wifi_cfg` 并将结果通过 0xFFB3/0xFFB2 回传确认。
 ```

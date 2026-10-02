@@ -1,0 +1,284 @@
+/* pages/feed/feed.wxss */
+.container {
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding-bottom: 40rpx;
+}
+
+/* 顶部状态与饱腹度 */
+.feed-header-card {
+  display: flex;
+  flex-direction: row;
+  background: #121929;
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  border-radius: 24rpx;
+  padding: 20rpx;
+  gap: 20rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.4);
+}
+
+.avatar-preview-box {
+  width: 190rpx;
+  height: 280rpx;
+  border-radius: 18rpx;
+  overflow: hidden;
+  background: #000;
+  flex-shrink: 0;
+}
+
+.feed-status-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.status-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.pet-title {
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #f472b6;
+}
+
+.feed-count-badge {
+  font-size: 20rpx;
+  color: #cbd5e1;
+  background: rgba(236, 72, 153, 0.15);
+  display: inline-block;
+  align-self: flex-start;
+  padding: 4rpx 14rpx;
+  border-radius: 20rpx;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+.metric-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 22rpx;
+  margin-bottom: 4rpx;
+}
+
+.metric-label {
+  color: #94a3b8;
+}
+
+.highlight-pink {
+  color: #f472b6;
+  font-weight: 700;
+}
+
+.highlight-cyan {
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.metric-bar-bg {
+  width: 100%;
+  height: 14rpx;
+  background: #020617;
+  border-radius: 999rpx;
+  overflow: hidden;
+  border: 1px solid #1e293b;
+}
+
+.metric-bar-fill {
+  height: 100%;
+  border-radius: 999rpx;
+  transition: width 0.3s ease;
+}
+
+.energy-fill {
+  background: linear-gradient(90deg, #06b6d4, #3b82f6);
+}
+
+.xp-fill {
+  background: linear-gradient(90deg, #ec4899, #f43f5e);
+}
+
+.tip-pill {
+  font-size: 18rpx;
+  color: #64748b;
+  line-height: 1.4;
+  margin-top: 6rpx;
+}
+
+/* 甜点货架 */
+.shelf-card {
+  background: #121929;
+  border: 1px solid #1e293b;
+  border-radius: 24rpx;
+  padding: 24rpx;
+}
+
+.shelf-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.shelf-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.shelf-subtitle {
+  font-size: 20rpx;
+  color: #f472b6;
+}
+
+.snack-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.snack-item {
+  display: flex;
+  align-items: center;
+  background: #0b1120;
+  border: 1px solid #1e293b;
+  border-radius: 18rpx;
+  padding: 16rpx 20rpx;
+  gap: 16rpx;
+  transition: all 0.2s ease;
+}
+
+.snack-item:active {
+  background: #151e32;
+  border-color: #f472b6;
+}
+
+.snack-icon-wrap {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 16rpx;
+  background: #020617;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid #334155;
+  flex-shrink: 0;
+}
+
+.snack-icon {
+  font-size: 40rpx;
+}
+
+.snack-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.snack-name {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.snack-desc {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.snack-buffs {
+  display: flex;
+  gap: 10rpx;
+  margin-top: 4rpx;
+}
+
+.buff-tag {
+  font-size: 18rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+}
+
+.buff-energy {
+  background: rgba(6, 182, 212, 0.15);
+  color: #22d3ee;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.buff-xp {
+  background: rgba(236, 72, 153, 0.15);
+  color: #f472b6;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+.btn-feed-snack {
+  background: linear-gradient(135deg, #ec4899, #d946ef);
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 700;
+  padding: 12rpx 28rpx;
+  border-radius: 30rpx;
+  border: none;
+  line-height: normal;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.btn-feed-snack:active {
+  opacity: 0.85;
+}
+
+.snack-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* 灵宠赏味日记 */
+.food-diary-card {
+  background: #121929;
+  border: 1px solid #1e293b;
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+}
+
+.food-diary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.food-diary-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #f6d365;
+}
+
+.food-diary-tag {
+  font-size: 20rpx;
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.15);
+  padding: 2rpx 12rpx;
+  border-radius: 10rpx;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.food-diary-bubble {
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+  font-size: 24rpx;
+  color: #e2e8f0;
+  line-height: 1.6;
+}

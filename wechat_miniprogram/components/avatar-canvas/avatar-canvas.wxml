@@ -1,0 +1,15 @@
+<!-- wechat_miniprogram/components/avatar-canvas/avatar-canvas.wxml -->
+<view class="avatar-canvas-container" style="width: {{widthRpx}}rpx; height: {{heightRpx}}rpx;">
+  <canvas 
+    type="2d" 
+    id="avatarCanvas" 
+    class="avatar-canvas-element"
+    bindtap="onCanvasTap"
+    bindlongpress="onCanvasLongPress"
+  ></canvas>
+  
+  <!-- 触碰灵动反馈气泡 -->
+  <view wx:if="{{showHint}}" class="touch-hint-pill">
+    <text class="hint-text">{{hintText}}</text>
+  </view>
+</view>

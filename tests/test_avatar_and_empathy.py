@@ -399,5 +399,77 @@ def test_wechat_miniprogram_suite_contract():
     assert "方向 13" in prompts_src, "提示词标准库必须收录移动端续写方向 13"
 
 
+def test_wechat_miniprogram_product_architecture_contract():
+    """验证微信小程序四大 TabBar 交互、<avatar-canvas> 自定义组件、触觉与离线存储契约"""
+    import json
+    repo_root = os.path.abspath(os.path.join(FW_ROOT, "..", ".."))
+    mp_root = os.path.join(repo_root, "wechat_miniprogram")
+
+    # 1. <avatar-canvas> 自定义组件契约
+    comp_dir = os.path.join(mp_root, "components", "avatar-canvas")
+    assert os.path.exists(os.path.join(comp_dir, "avatar-canvas.json")), "avatar-canvas.json 必须存在"
+    assert os.path.exists(os.path.join(comp_dir, "avatar-canvas.wxml")), "avatar-canvas.wxml 必须存在"
+    assert os.path.exists(os.path.join(comp_dir, "avatar-canvas.wxss")), "avatar-canvas.wxss 必须存在"
+    assert os.path.exists(os.path.join(comp_dir, "avatar-canvas.js")), "avatar-canvas.js 必须存在"
+
+    with open(os.path.join(comp_dir, "avatar-canvas.js"), "r", encoding="utf-8") as f:
+        comp_js = f.read()
+    assert "pixelRatio" in comp_js, "自定义组件必须适配多端 DPR 屏幕像素比"
+    assert "AvatarRenderer" in comp_js, "自定义组件必须集成迪士尼微表情引擎"
+    assert "onCanvasTap" in comp_js, "自定义组件必须支持轻触解算"
+    assert "onCanvasLongPress" in comp_js, "自定义组件必须支持长按击掌"
+
+    # 2. 四大 Tab 页面与资源完整性
+    pages = ["index", "feed", "diary", "settings"]
+    for p in pages:
+        p_dir = os.path.join(mp_root, "pages", p)
+        assert os.path.exists(os.path.join(p_dir, f"{p}.json")), f"{p}.json 必须存在"
+        assert os.path.exists(os.path.join(p_dir, f"{p}.wxml")), f"{p}.wxml 必须存在"
+        assert os.path.exists(os.path.join(p_dir, f"{p}.wxss")), f"{p}.wxss 必须存在"
+        assert os.path.exists(os.path.join(p_dir, f"{p}.js")), f"{p}.js 必须存在"
+
+    # 3. app.json TabBar 配置契约
+    with open(os.path.join(mp_root, "app.json"), "r", encoding="utf-8") as f:
+        app_json = json.load(f)
+    assert len(app_json.get("pages", [])) == 4, "必须注册全部 4 个主页面"
+    assert "tabBar" in app_json, "必须配置全局 TabBar"
+    assert len(app_json["tabBar"]["list"]) == 4, "TabBar 必须包含 4 个 Tab"
+
+    tab_icons = [
+        "home.png", "home_active.png",
+        "feed.png", "feed_active.png",
+        "diary.png", "diary_active.png",
+        "settings.png", "settings_active.png"
+    ]
+    for icon in tab_icons:
+        icon_path = os.path.join(mp_root, "assets", "tabbar", icon)
+        assert os.path.exists(icon_path), f"TabBar 图标 {icon} 必须存在"
+
+    # 4. 触觉微震动与离线持久化 SDK 契约
+    haptics_js = os.path.join(mp_root, "utils", "haptics.js")
+    assert os.path.exists(haptics_js), "haptics.js 必须存在"
+    with open(haptics_js, "r", encoding="utf-8") as f:
+        haptics_src = f.read()
+    assert "vibrateShort" in haptics_src
+    assert "feed" in haptics_src and "pet" in haptics_src and "play" in haptics_src
+
+    storage_js = os.path.join(mp_root, "utils", "storage_manager.js")
+    assert os.path.exists(storage_js), "storage_manager.js 必须存在"
+    with open(storage_js, "r", encoding="utf-8") as f:
+        storage_src = f.read()
+    assert "setStorageSync" in storage_src
+    assert "getStorageSync" in storage_src
+    assert "saveDiaryEntry" in storage_src
+    assert "lingbuddy_diaries" in storage_src
+
+    buddy_js = os.path.join(mp_root, "utils", "buddy_service.js")
+    assert os.path.exists(buddy_js), "buddy_service.js 必须存在"
+    with open(buddy_js, "r", encoding="utf-8") as f:
+        buddy_src = f.read()
+    assert "provisionWifi" in buddy_src, "必须支持 BLE 一键智能配网"
+    assert "dispatchAction" in buddy_src, "必须具备跨页面动作下发调度器"
+
+
+
 
 

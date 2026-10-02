@@ -1,6 +1,9 @@
 {
   "pages": [
-    "pages/index/index"
+    "pages/index/index",
+    "pages/feed/feed",
+    "pages/diary/diary",
+    "pages/settings/settings"
   ],
   "window": {
     "backgroundTextStyle": "dark",
@@ -8,6 +11,41 @@
     "navigationBarTitleText": "LingBuddy 灵宠伴侣",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#080c16"
+  },
+  "tabBar": {
+    "color": "#64748b",
+    "selectedColor": "#00f2fe",
+    "backgroundColor": "#0c1322",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "伴侣主页",
+        "iconPath": "assets/tabbar/home.png",
+        "selectedIconPath": "assets/tabbar/home_active.png"
+      },
+      {
+        "pagePath": "pages/feed/feed",
+        "text": "投喂屋",
+        "iconPath": "assets/tabbar/feed.png",
+        "selectedIconPath": "assets/tabbar/feed_active.png"
+      },
+      {
+        "pagePath": "pages/diary/diary",
+        "text": "心声日记",
+        "iconPath": "assets/tabbar/diary.png",
+        "selectedIconPath": "assets/tabbar/diary_active.png"
+      },
+      {
+        "pagePath": "pages/settings/settings",
+        "text": "设备设置",
+        "iconPath": "assets/tabbar/settings.png",
+        "selectedIconPath": "assets/tabbar/settings_active.png"
+      }
+    ]
+  },
+  "usingComponents": {
+    "avatar-canvas": "/components/avatar-canvas/avatar-canvas"
   },
   "permission": {
     "scope.bluetooth": {

@@ -1,0 +1,108 @@
+<!-- pages/diary/diary.wxml -->
+<view class="container">
+  <!-- 头部概览 -->
+  <view class="diary-stats-card">
+    <view class="stats-left">
+      <text class="stats-title">📖 {{petName}} 的第一人称心声日记</text>
+      <text class="stats-subtitle">硬件端离线记录 · 本地永久珍藏</text>
+    </view>
+    <view class="stats-right">
+      <view class="stat-pill">
+        <text class="stat-num">{{diaries.length}}</text>
+        <text class="stat-lbl">篇日记</text>
+      </view>
+      <view class="stat-pill fav-pill">
+        <text class="stat-num">{{favoriteCount}}</text>
+        <text class="stat-lbl">收藏</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 情绪分类筛选器 (横向滚动胶囊标签) -->
+  <scroll-view scroll-x="true" class="filter-scroll" enable-flex="true">
+    <view 
+      class="filter-chip {{selectedFilter === item.key ? 'filter-active' : ''}}" 
+      wx:for="{{filterList}}" 
+      wx:key="key"
+      bindtap="onSelectFilter"
+      data-key="{{item.key}}"
+    >
+      <text>{{item.label}}</text>
+    </view>
+  </scroll-view>
+
+  <!-- 日记瀑布流卡片列表 -->
+  <view class="diary-list">
+    <block wx:if="{{filteredDiaries.length === 0}}">
+      <view class="empty-diary-box">
+        <text class="empty-icon">🍃</text>
+        <text class="empty-title">当前分类暂无日记</text>
+        <text class="empty-desc">在主页与小木进行投喂、抚摸互动，将自动生成专属心声</text>
+      </view>
+    </block>
+
+    <view class="diary-card-item" wx:for="{{filteredDiaries}}" wx:key="id">
+      <view class="card-header">
+        <view class="header-tag-group">
+          <text class="mood-tag-badge">{{item.moodTag || '📖 心声'}}</text>
+          <text class="time-label">{{item.timeStr}}</text>
+        </view>
+        <view class="fav-action-btn" bindtap="handleToggleFavorite" data-id="{{item.id}}">
+          <text class="heart-icon">{{item.isFavorite ? '❤️' : '🤍'}}</text>
+        </view>
+      </view>
+
+      <view class="card-body">
+        <text class="quote-mark">“</text>
+        <text class="quote-content">{{item.content}}</text>
+        <text class="quote-mark">”</text>
+      </view>
+
+      <view class="card-footer">
+        <button class="footer-btn" bindtap="handleCopyDiary" data-content="{{item.content}}">
+          <text>📋 复制</text>
+        </button>
+        <button class="footer-btn btn-share" bindtap="handleOpenShareModal" data-diary="{{item}}">
+          <text>✨ 生成卡片</text>
+        </button>
+        <button class="footer-btn btn-del" bindtap="handleDeleteDiary" data-id="{{item.id}}">
+          <text>🗑️</text>
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 分享海报预览弹窗 Modal -->
+  <view class="share-modal-overlay" wx:if="{{showShareModal}}" bindtap="handleCloseShareModal">
+    <view class="share-card-container" catchtap="stopPropagation">
+      <view class="share-header">
+        <text class="share-title">🌟 灵宠心声纪念卡</text>
+        <text class="share-close" bindtap="handleCloseShareModal">✕</text>
+      </view>
+
+      <view class="share-poster-box">
+        <view class="poster-pet-header">
+          <text class="poster-avatar">🤖</text>
+          <view class="poster-pet-info">
+            <text class="poster-pet-name">{{petName}}</text>
+            <text class="poster-pet-lvl">Lv.{{petLevel}} 灵宠伙伴 · 陪伴第 1 天</text>
+          </view>
+        </view>
+
+        <view class="poster-quote-box">
+          <text class="poster-quote">“{{sharingDiary.content}}”</text>
+          <text class="poster-time">{{sharingDiary.timeStr}} · 记录于 M5StickS3</text>
+        </view>
+
+        <view class="poster-footer">
+          <text class="poster-branding">LingBuddy 灵宠伴侣 · 掌心具身生灵</text>
+        </view>
+      </view>
+
+      <view class="modal-btn-row">
+        <button class="btn-modal-action" bindtap="handleCopyPosterText">复制图文</button>
+        <button class="btn-modal-action btn-modal-primary" open-type="share">分享给好友</button>
+      </view>
+    </view>
+  </view>
+</view>
