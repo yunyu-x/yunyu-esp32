@@ -525,6 +525,63 @@
   border: none;
 }
 
+/* 连续性动作 第 4 步：局域网直连框 */
+.lan-direct-flow-box {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px dashed rgba(56, 189, 248, 0.4);
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-top: 14rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.lan-flow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lan-flow-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.lan-step-pill {
+  background: #38bdf8;
+  color: #020617;
+  font-size: 18rpx;
+  font-weight: 800;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+}
+
+.lan-flow-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.lan-flow-status {
+  font-size: 20rpx;
+}
+
+.status-connected {
+  color: #00e676;
+}
+
+.status-waiting {
+  color: #94a3b8;
+}
+
+.lan-flow-desc {
+  font-size: 20rpx;
+  color: #64748b;
+  line-height: 1.4;
+}
+
 /* 系统偏好行 */
 .setting-row {
   display: flex;

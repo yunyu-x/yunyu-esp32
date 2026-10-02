@@ -380,53 +380,7 @@ public:
 
     // 读取当前环境音频能量 RMS (0 ~ 100%)
     uint8_t readMicRMS() {
-        if (!_initialized) return _last_mic_rms;
-        // 若大模型正在流式发声，由 checkVoiceBargeInTrigger 高频采样更新 _last_mic_rms，直接返回最新值
-        if (_is_streaming_llm) return _last_mic_rms;
-        if (_is_recording || _playing_sound) return _last_mic_rms;
-
-        // 若处于百炼工作状态，由 readMicSamples 统一采样解算能量，避免争抢 I2S DMA
-        static uint32_t last_rms_read = 0;
-        if (millis() - last_rms_read < 40) return _last_mic_rms;
-        last_rms_read = millis();
-
-        const size_t SAMPLES_COUNT = 64;
-        int16_t sample_buf[SAMPLES_COUNT];
-        size_t bytes_read = 0;
-
-        esp_err_t res = i2s_read(I2S_NUM_0, sample_buf, sizeof(sample_buf), &bytes_read, 0);
-        if (res != ESP_OK || bytes_read == 0) return _last_mic_rms;
-
-        size_t samples = bytes_read / sizeof(int16_t);
-        if (samples == 0) return _last_mic_rms;
-
-        // 消除 DC 偏置并解算交流信号能量
-        int32_t mean = 0;
-        for (size_t i = 0; i < samples; ++i) mean += sample_buf[i];
-        mean /= (int32_t)samples;
-
-        int64_t sum_sq = 0;
-        for (size_t i = 0; i < samples; ++i) {
-            int32_t diff = sample_buf[i] - mean;
-            sum_sq += (diff * diff);
-        }
-
-        _raw_rms = std::sqrt((float)(sum_sq / samples));
-
-        // 动态灵敏度映射 (环境安静约 50~100, 说话声 300~1500)
-        int pct = 0;
-        if (_raw_rms > 60.0f) {
-            pct = static_cast<int>(((_raw_rms - 60.0f) / 1000.0f) * 100.0f);
-        }
-        if (pct < 0) pct = 0;
-        if (pct > 100) pct = 100;
-
-        // 专业 VU 表弹跳质感 (快冲慢放)
-        if (pct > _last_mic_rms) {
-            _last_mic_rms = static_cast<uint8_t>((_last_mic_rms * 2 + pct * 8) / 10);
-        } else {
-            _last_mic_rms = static_cast<uint8_t>((_last_mic_rms * 8 + pct * 2) / 10);
-        }
+        if (!_initialized) return 0;
         return _last_mic_rms;
     }
 

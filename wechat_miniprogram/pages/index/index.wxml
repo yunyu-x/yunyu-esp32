@@ -115,6 +115,30 @@
     </view>
   </view>
 
+  <!-- 历史对话记忆预览卡片 -->
+  <view class="memory-card">
+    <view class="memory-header">
+      <view class="memory-title-group">
+        <text class="memory-title">💬 {{petState.name}} 的最新对话记忆</text>
+        <text class="memory-badge" wx:if="{{memoryCount > 0}}">{{memoryCount}}轮</text>
+      </view>
+      <text class="memory-link" bindtap="navigateToDialogueHistory">历史对话 ›</text>
+    </view>
+    <view class="memory-preview-bubble" bindtap="navigateToDialogueHistory" wx:if="{{latestMemory}}">
+      <view class="mem-preview-row">
+        <text class="mem-role-tag user-tag">👤 我:</text>
+        <text class="mem-snippet-text">{{latestMemory.user}}</text>
+      </view>
+      <view class="mem-preview-row">
+        <text class="mem-role-tag pet-tag">🤖 {{petState.name}}:</text>
+        <text class="mem-snippet-text pet-answer">{{latestMemory.ai}}</text>
+      </view>
+    </view>
+    <view class="memory-empty-preview" bindtap="navigateToDialogueHistory" wx:else>
+      <text>暂无历史对话，呼唤“悄悄”唤醒词开启畅聊 ›</text>
+    </view>
+  </view>
+
   <!-- 拓麻歌子具身互动控制中心 (微震动触觉联觉) -->
   <view class="tamagotchi-card">
     <view class="section-title">

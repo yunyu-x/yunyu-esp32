@@ -175,6 +175,29 @@ class StickS3HttpClient {
     });
   }
 
+  // 7. 获取人机多轮历史对话记忆流 (GET /pet/memories)
+  getMemories() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/pet/memories`,
+        method: "GET",
+        timeout: 4000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            const list = Array.isArray(res.data) ? res.data : (res.data.turns || res.data.memories || []);
+            resolve(list);
+          } else {
+            resolve([]);
+          }
+        },
+        fail: (err) => {
+          console.warn("[HTTP] getMemories failed:", err);
+          resolve([]);
+        }
+      });
+    });
+  }
+
   // 3. 启动微信小程序 mDNS 本地局域网服务发现 (ZeroConf)
   startLocalDiscovery(onServiceFound, onError) {
     if (this.isDiscoveryRunning) return;

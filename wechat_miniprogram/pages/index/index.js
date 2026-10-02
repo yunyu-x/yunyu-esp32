@@ -54,9 +54,8 @@ Page({
     ],
     selectedSnackIndex: 0,
 
-    memoryTurns: [
-      { user: "你好小木，今天天气怎么样？", ai: "今天阳光明媚，微风正好，最适合我们一起去散步啦！" }
-    ]
+    memoryCount: 0,
+    latestMemory: null
   },
 
   onLoad() {
@@ -65,10 +64,14 @@ Page({
     // 订阅 BuddyService 统一状态机
     this.stateListener = (evt) => {
       this.syncFromService(evt);
+      if (evt.type === "memory") {
+        this.refreshMemories();
+      }
     };
     this.buddyService.subscribe(this.stateListener);
 
     this.refreshDiaryStats();
+    this.refreshMemories();
   },
 
   onShow() {
@@ -84,6 +87,7 @@ Page({
       });
     }
     this.refreshDiaryStats();
+    this.refreshMemories();
   },
 
   onUnload() {
@@ -130,6 +134,16 @@ Page({
   refreshDiaryStats() {
     const diaries = StorageManager.getDiaries();
     this.setData({ diaryCount: diaries.length });
+  },
+
+  refreshMemories() {
+    const mems = StorageManager.getMemories();
+    const count = mems.length;
+    const latest = count > 0 ? mems[count - 1] : null;
+    this.setData({
+      memoryCount: count,
+      latestMemory: latest
+    });
   },
 
   // 1. 触摸头像组件触发动作
@@ -237,6 +251,11 @@ Page({
   },
 
   navigateToDiary() {
+    wx.switchTab({ url: "/pages/diary/diary" });
+  },
+
+  navigateToDialogueHistory() {
+    buddyService.diaryTargetTab = "dialogue";
     wx.switchTab({ url: "/pages/diary/diary" });
   },
 

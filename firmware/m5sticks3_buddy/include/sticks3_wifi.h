@@ -1650,6 +1650,11 @@ private:
             _web_server.send(200, "application/json; charset=utf-8", json);
         });
 
+        _web_server.on("/pet/memories", HTTP_GET, [this]() {
+            String json = StickS3MemoryStore::getInstance().getHistoryJSON();
+            _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
         _web_server.on("/pet/action", HTTP_POST, [this]() {
             String act = _web_server.hasArg("action") ? _web_server.arg("action") : "";
             String item = _web_server.hasArg("item") ? _web_server.arg("item") : "";

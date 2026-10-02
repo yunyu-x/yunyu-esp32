@@ -702,6 +702,7 @@ void loop() {
     sticks3::StickS3WiFi::getInstance().updateTelemetry(imu_roll, imu_pitch);
     sticks3::StickS3WiFi::getInstance().update();
     sticks3::StickS3Audio::getInstance().update();
+    sticks3::StickS3BailianClient::getInstance().update();
     uint8_t mic_rms = sticks3::StickS3Audio::getInstance().readMicRMS();
 
     // 1. 扫描按键事件 (Btn A: G11, Btn B: G12)
@@ -936,15 +937,37 @@ void loop() {
             } else {
                 display.startWrite();
 
-        // 1. 顶部标题栏 (0 ~ 24, 未连 Wi-Fi 展现醒目警告底色)
-        uint16_t top_theme = cfg_mgr.isStaConnected() ? theme_color : 0xA800;
-        display.fillRect(0, 0, SCREEN_W, 24, top_theme);
+        // 1. 顶部标题栏 (0 ~ 22, 展现 BLE 与 WiFi 状态指示徽章)
+        uint16_t top_theme = cfg_mgr.isStaConnected() ? theme_color : 0x0841;
+        display.fillRect(0, 0, SCREEN_W, 20, top_theme);
         display.setTextColor(TFT_WHITE, top_theme);
-        display.setTextDatum(MC_DATUM);
-        if (cfg_mgr.isStaConnected()) {
-            display.drawString("StickS3 | " + cfg_mgr.getStaIP(), SCREEN_W / 2, 12);
+        display.setTextDatum(ML_DATUM);
+        display.drawString("StickS3", 4, 10);
+
+        // 蓝牙连接标志 (BLE 已连蓝青标志)
+        if (device_connected) {
+            display.fillRect(54, 2, 32, 16, 0x03FF); // 霓虹青底
+            display.setTextColor(0x0000, 0x03FF);
+            display.setTextDatum(MC_DATUM);
+            display.drawString("BLE", 70, 10);
         } else {
-            display.drawString("StickS3 [断网离线]", SCREEN_W / 2, 12);
+            display.drawRect(54, 2, 32, 16, TFT_DARKGREY);
+            display.setTextColor(TFT_LIGHTGREY, top_theme);
+            display.setTextDatum(MC_DATUM);
+            display.drawString("BLE", 70, 10);
+        }
+
+        // Wi-Fi 联网标志 (已连亮绿，未联网鲜红警示)
+        if (cfg_mgr.isStaConnected()) {
+            display.fillRect(90, 2, 42, 16, 0x07E0); // 亮绿底
+            display.setTextColor(0x0000, 0x07E0);
+            display.setTextDatum(MC_DATUM);
+            display.drawString("WiFi", 111, 10);
+        } else {
+            display.fillRect(90, 2, 42, 16, 0xF800); // 鲜红警示底
+            display.setTextColor(0xFFFF, 0xF800);
+            display.setTextDatum(MC_DATUM);
+            display.drawString("!WiFi", 111, 10);
         }
 
         // 2. 信息卡片区 (26 ~ 68)

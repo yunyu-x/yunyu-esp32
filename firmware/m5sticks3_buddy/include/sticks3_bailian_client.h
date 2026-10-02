@@ -414,6 +414,21 @@ static const char* DASHSCOPE_ROOT_CA =
             }
         }
 
+        // 3.1 离线唤醒词常态麦克风采样：
+        // 当未处于主动上行流式推流 (BL_STATE_LISTENING) 且非放音期时，
+        // 持续读取麦克风 PCM 灌入 StickS3WakeWordEngine，确保「悄悄」在任何网络或空闲状态下均可毫秒级唤醒！
+        if (StickS3WakeWordEngine::getInstance().isEnabled() && !audio.isPlaying() && !(_state == BL_STATE_LISTENING && isConnected())) {
+            static uint32_t last_offline_mic_time = 0;
+            if (millis() - last_offline_mic_time >= 40) {
+                last_offline_mic_time = millis();
+                static int16_t s_offline_mic_buf[512];
+                size_t samples_read = 0;
+                if (audio.readMicSamples(s_offline_mic_buf, 512, samples_read) && samples_read >= 128) {
+                    StickS3WakeWordEngine::getInstance().feedSamples(s_offline_mic_buf, samples_read);
+                }
+            }
+        }
+
         // 4. 通知主线程 UI 渲染新文本
         if (_rx_text_dirty) {
             _rx_text_dirty = false;

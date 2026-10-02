@@ -122,36 +122,47 @@
       <text class="panel-subtitle">BLE 0xFFB4 安全注入凭证</text>
     </view>
 
-    <!-- 配网指引步骤向导 (Step-by-Step Wizard) -->
+    <!-- 配网指引步骤向导 (Step-by-Step Wizard: 4 连续步骤) -->
     <view class="wizard-stepper">
-      <!-- 步骤 1 -->
+      <!-- 步骤 1: 蓝牙信道 -->
       <view class="wizard-step {{isBleConnected ? 'step-done' : 'step-current'}}">
         <view class="step-num">{{isBleConnected ? '✓' : '1'}}</view>
         <view class="step-content">
           <text class="step-title">蓝牙信道</text>
-          <text class="step-desc">{{isBleConnected ? '已建立连接' : '需先连接上方蓝牙'}}</text>
+          <text class="step-desc">{{isBleConnected ? '已连' : '先连上方'}}</text>
         </view>
       </view>
       
       <view class="step-divider {{isBleConnected ? 'divider-active' : ''}}"></view>
 
-      <!-- 步骤 2 -->
+      <!-- 步骤 2: 输入账号 -->
       <view class="wizard-step {{isBleConnected ? (wifiSsid ? 'step-done' : 'step-current') : 'step-pending'}}">
         <view class="step-num">{{(isBleConnected && wifiSsid) ? '✓' : '2'}}</view>
         <view class="step-content">
           <text class="step-title">输入账号</text>
-          <text class="step-desc">Wi-Fi 或手机热点</text>
+          <text class="step-desc">Wi-Fi/热点</text>
         </view>
       </view>
 
       <view class="step-divider {{(isBleConnected && wifiSsid) ? 'divider-active' : ''}}"></view>
 
-      <!-- 步骤 3 -->
+      <!-- 步骤 3: 隔空配网 -->
       <view class="wizard-step {{(isBleConnected && isWifiConnected) ? 'step-done' : ((isBleConnected && wifiSsid) ? 'step-current' : 'step-pending')}}">
         <view class="step-num">{{(isBleConnected && isWifiConnected) ? '✓' : '3'}}</view>
         <view class="step-content">
           <text class="step-title">隔空配网</text>
-          <text class="step-desc">{{isWifiConnected ? '设备已联网' : '点击下方安全注入'}}</text>
+          <text class="step-desc">{{isWifiConnected ? '已注入' : '安全下发'}}</text>
+        </view>
+      </view>
+
+      <view class="step-divider {{(isBleConnected && isWifiConnected) ? 'divider-active' : ''}}"></view>
+
+      <!-- 步骤 4: 局域网直连 -->
+      <view class="wizard-step {{isWifiConnected ? 'step-done' : ((isBleConnected && wifiSsid) ? 'step-current' : 'step-pending')}}">
+        <view class="step-num">{{isWifiConnected ? '✓' : '4'}}</view>
+        <view class="step-content">
+          <text class="step-title">局域网直连</text>
+          <text class="step-desc">{{isWifiConnected ? '高速通道' : '极速HTTP'}}</text>
         </view>
       </view>
     </view>
@@ -325,6 +336,40 @@
       >
         {{!isBleConnected ? '⚠️ 请先连接上方 BLE 蓝牙再配网' : (networkMode === 'hotspot' ? '🚀 写入热点配置并连接共享网络' : '🚀 注入凭证并一键配网')}}
       </button>
+
+      <!-- 连续性动作 第 4 步：局域网高速通道直连 (配网与直连一体化) -->
+      <view class="lan-direct-flow-box">
+        <view class="lan-flow-header">
+          <view class="lan-flow-title-group">
+            <text class="lan-step-pill">第 4 步</text>
+            <text class="lan-flow-title">🌐 局域网高速通道直连</text>
+          </view>
+          <text class="lan-flow-status {{isWifiConnected ? 'status-connected' : 'status-waiting'}}">
+            {{isWifiConnected ? '● 设备已在网' : '○ 待设备入网分配IP'}}
+          </text>
+        </view>
+        <text class="lan-flow-desc">配网注入后设备将自动联网并获取局域网 IP，输入 IP 即可建立全双工极速通道</text>
+
+        <view class="input-row" style="margin-top: 10rpx;">
+          <text class="input-label">硬件局域网 IP</text>
+          <input 
+            class="form-input" 
+            placeholder="如 192.168.110.67" 
+            placeholder-class="input-placeholder"
+            value="{{wifiHostInput}}" 
+            bindinput="onInputHost"
+          />
+        </view>
+
+        <view class="wifi-action-grid">
+          <button class="btn-wifi-test" bindtap="handleTestWifiConnection" loading="{{isTestingWifi}}">
+            ⚡ 测试连通性
+          </button>
+          <button class="btn-wifi-connect {{isWifiConnected ? 'btn-active-wifi' : ''}}" bindtap="handleToggleWifiConnection">
+            {{isWifiConnected ? '断开局域网' : '🌐 直连局域网通道'}}
+          </button>
+        </view>
+      </view>
     </view>
   </view>
 
@@ -390,36 +435,6 @@
       <button class="btn-traffic-action btn-reset" bindtap="handleResetTraffic">
         0️⃣ 重置统计
       </button>
-    </view>
-  </view>
-
-  <!-- 5. 局域网 Wi-Fi 直连配置 -->
-  <view class="panel-card">
-    <view class="panel-header">
-      <text class="panel-title">🌐 Wi-Fi 局域网高速通道</text>
-      <text class="panel-subtitle">用于长程记忆与高吞吐交互</text>
-    </view>
-
-    <view class="form-group">
-      <view class="input-row">
-        <text class="input-label">硬件局域网 IP</text>
-        <input 
-          class="form-input" 
-          placeholder="如 192.168.110.67" 
-          placeholder-class="input-placeholder"
-          value="{{wifiHostInput}}" 
-          bindinput="onInputHost"
-        />
-      </view>
-
-      <view class="wifi-action-grid">
-        <button class="btn-wifi-test" bindtap="handleTestWifiConnection" loading="{{isTestingWifi}}">
-          ⚡ 测试连通性
-        </button>
-        <button class="btn-wifi-connect {{isWifiConnected ? 'btn-active-wifi' : ''}}" bindtap="handleToggleWifiConnection">
-          {{isWifiConnected ? '断开 Wi-Fi' : '切换 Wi-Fi 通道'}}
-        </button>
-      </view>
     </view>
   </view>
 

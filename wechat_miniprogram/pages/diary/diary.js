@@ -16,6 +16,7 @@ const FILTERS = [
 
 Page({
   data: {
+    activeSection: "diary", // 'diary' | 'dialogue'
     petName: "小木",
     petLevel: 1,
     diaries: [],
@@ -24,38 +25,125 @@ Page({
     filterList: FILTERS,
     selectedFilter: "all",
 
+    // 历史人机对话多轮记忆
+    memories: [],
+    isSyncingMemories: false,
+
     showShareModal: false,
     sharingDiary: null
   },
 
-  onLoad() {
+  onLoad(options) {
+    if (options && options.tab === "dialogue") {
+      this.setData({ activeSection: "dialogue" });
+    }
     this.loadDiaries();
+    this.loadMemories();
 
-    // 监听实时日记更新
-    this.diaryListener = (evt) => {
+    // 监听实时日记与记忆更新
+    this.stateListener = (evt) => {
       if (evt.type === "diary") {
         this.loadDiaries();
+      } else if (evt.type === "memory") {
+        this.loadMemories();
       }
     };
-    buddyService.subscribe(this.diaryListener);
+    buddyService.subscribe(this.stateListener);
   },
 
   onShow() {
+    if (buddyService.diaryTargetTab) {
+      this.setData({ activeSection: buddyService.diaryTargetTab });
+      buddyService.diaryTargetTab = null;
+    }
     this.loadDiaries();
+    this.loadMemories();
   },
 
   onUnload() {
-    if (this.diaryListener) {
-      buddyService.unsubscribe(this.diaryListener);
+    if (this.stateListener) {
+      buddyService.unsubscribe(this.stateListener);
     }
   },
 
   onPullDownRefresh() {
-    this.loadDiaries();
-    setTimeout(() => {
-      wx.stopPullDownRefresh();
-      wx.showToast({ title: "已同步最新日记", icon: "none" });
-    }, 400);
+    if (this.data.activeSection === "dialogue") {
+      this.handleSyncMemories(true);
+    } else {
+      this.loadDiaries();
+      setTimeout(() => {
+        wx.stopPullDownRefresh();
+        wx.showToast({ title: "已同步最新日记", icon: "none" });
+      }, 400);
+    }
+  },
+
+  onSwitchSection(e) {
+    const sec = e.currentTarget.dataset.section;
+    if (sec && sec !== this.data.activeSection) {
+      this.setData({ activeSection: sec });
+      haptics.vibrate("light");
+    }
+  },
+
+  loadMemories() {
+    const mems = StorageManager.getMemories();
+    this.setData({ memories: mems });
+  },
+
+  async handleSyncMemories(isPullDown = false) {
+    this.setData({ isSyncingMemories: true });
+    haptics.vibrate("medium");
+    if (!isPullDown) {
+      wx.showLoading({ title: "正在同步硬件记忆..." });
+    }
+
+    try {
+      const list = await buddyService.syncMemories();
+      this.setData({ 
+        memories: list || [],
+        isSyncingMemories: false 
+      });
+      if (!isPullDown) wx.hideLoading();
+      else wx.stopPullDownRefresh();
+
+      haptics.levelUp();
+      wx.showToast({ title: `已同步 ${list.length} 条记忆`, icon: "success" });
+    } catch (e) {
+      this.setData({ isSyncingMemories: false });
+      if (!isPullDown) wx.hideLoading();
+      else wx.stopPullDownRefresh();
+      wx.showToast({ title: "记忆同步失败", icon: "none" });
+    }
+  },
+
+  handleClearMemories() {
+    wx.showModal({
+      title: "清空历史对话记忆",
+      content: "确定要清空与小木的全部历史对话记忆吗？",
+      confirmText: "清空",
+      confirmColor: "#ef4444",
+      success: (res) => {
+        if (res.confirm) {
+          buddyService.clearMemories();
+          this.setData({ memories: [] });
+          haptics.vibrate("medium");
+          wx.showToast({ title: "记忆已清空", icon: "none" });
+        }
+      }
+    });
+  },
+
+  handleCopyMemory(e) {
+    const text = e.currentTarget.dataset.text;
+    if (!text) return;
+    wx.setClipboardData({
+      data: text,
+      success: () => {
+        haptics.vibrate("light");
+        wx.showToast({ title: "对话已复制", icon: "success" });
+      }
+    });
   },
 
   loadDiaries() {

@@ -1,76 +1,189 @@
 <!-- pages/diary/diary.wxml -->
 <view class="container">
-  <!-- 头部概览 -->
-  <view class="diary-stats-card">
-    <view class="stats-left">
-      <text class="stats-title">📖 {{petName}} 的第一人称心声日记</text>
-      <text class="stats-subtitle">硬件端离线记录 · 本地永久珍藏</text>
-    </view>
-    <view class="stats-right">
-      <view class="stat-pill">
-        <text class="stat-num">{{diaries.length}}</text>
-        <text class="stat-lbl">篇日记</text>
-      </view>
-      <view class="stat-pill fav-pill">
-        <text class="stat-num">{{favoriteCount}}</text>
-        <text class="stat-lbl">收藏</text>
-      </view>
-    </view>
-  </view>
-
-  <!-- 情绪分类筛选器 (横向滚动胶囊标签) -->
-  <scroll-view scroll-x="true" class="filter-scroll" enable-flex="true">
+  <!-- 顶部主分段切换器 (心声日记 vs 历史对话记忆) -->
+  <view class="section-tab-bar">
     <view 
-      class="filter-chip {{selectedFilter === item.key ? 'filter-active' : ''}}" 
-      wx:for="{{filterList}}" 
-      wx:key="key"
-      bindtap="onSelectFilter"
-      data-key="{{item.key}}"
+      class="tab-btn {{activeSection === 'diary' ? 'tab-btn-active' : ''}}" 
+      bindtap="onSwitchSection" 
+      data-section="diary"
     >
-      <text>{{item.label}}</text>
+      <text class="tab-icon">📖</text>
+      <text class="tab-label">灵宠心声日记</text>
+      <text class="tab-count-badge">{{diaries.length}}</text>
     </view>
-  </scroll-view>
-
-  <!-- 日记瀑布流卡片列表 -->
-  <view class="diary-list">
-    <block wx:if="{{filteredDiaries.length === 0}}">
-      <view class="empty-diary-box">
-        <text class="empty-icon">🍃</text>
-        <text class="empty-title">当前分类暂无日记</text>
-        <text class="empty-desc">在主页与小木进行投喂、抚摸互动，将自动生成专属心声</text>
-      </view>
-    </block>
-
-    <view class="diary-card-item" wx:for="{{filteredDiaries}}" wx:key="id">
-      <view class="card-header">
-        <view class="header-tag-group">
-          <text class="mood-tag-badge">{{item.moodTag || '📖 心声'}}</text>
-          <text class="time-label">{{item.timeStr}}</text>
-        </view>
-        <view class="fav-action-btn" bindtap="handleToggleFavorite" data-id="{{item.id}}">
-          <text class="heart-icon">{{item.isFavorite ? '❤️' : '🤍'}}</text>
-        </view>
-      </view>
-
-      <view class="card-body">
-        <text class="quote-mark">“</text>
-        <text class="quote-content">{{item.content}}</text>
-        <text class="quote-mark">”</text>
-      </view>
-
-      <view class="card-footer">
-        <button class="footer-btn" bindtap="handleCopyDiary" data-content="{{item.content}}">
-          <text>📋 复制</text>
-        </button>
-        <button class="footer-btn btn-share" bindtap="handleOpenShareModal" data-diary="{{item}}">
-          <text>✨ 生成卡片</text>
-        </button>
-        <button class="footer-btn btn-del" bindtap="handleDeleteDiary" data-id="{{item.id}}">
-          <text>🗑️</text>
-        </button>
-      </view>
+    <view 
+      class="tab-btn {{activeSection === 'dialogue' ? 'tab-btn-active tab-dialogue-active' : ''}}" 
+      bindtap="onSwitchSection" 
+      data-section="dialogue"
+    >
+      <text class="tab-icon">💬</text>
+      <text class="tab-label">历史对话记忆</text>
+      <text class="tab-count-badge badge-cyan">{{memories.length}}</text>
     </view>
   </view>
+
+  <!-- ==================== 1. 灵宠心声日记区域 ==================== -->
+  <block wx:if="{{activeSection === 'diary'}}">
+    <!-- 头部概览 -->
+    <view class="diary-stats-card">
+      <view class="stats-left">
+        <text class="stats-title">📖 {{petName}} 的第一人称心声日记</text>
+        <text class="stats-subtitle">硬件端离线记录 · 本地永久珍藏</text>
+      </view>
+      <view class="stats-right">
+        <view class="stat-pill">
+          <text class="stat-num">{{diaries.length}}</text>
+          <text class="stat-lbl">篇日记</text>
+        </view>
+        <view class="stat-pill fav-pill">
+          <text class="stat-num">{{favoriteCount}}</text>
+          <text class="stat-lbl">收藏</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 情绪分类筛选器 (横向滚动胶囊标签) -->
+    <scroll-view scroll-x="true" class="filter-scroll" enable-flex="true">
+      <view 
+        class="filter-chip {{selectedFilter === item.key ? 'filter-active' : ''}}" 
+        wx:for="{{filterList}}" 
+        wx:key="key"
+        bindtap="onSelectFilter"
+        data-key="{{item.key}}"
+      >
+        <text>{{item.label}}</text>
+      </view>
+    </scroll-view>
+
+    <!-- 日记瀑布流卡片列表 -->
+    <view class="diary-list">
+      <block wx:if="{{filteredDiaries.length === 0}}">
+        <view class="empty-diary-box">
+          <text class="empty-icon">🍃</text>
+          <text class="empty-title">当前分类暂无日记</text>
+          <text class="empty-desc">在主页与小木进行投喂、抚摸互动，将自动生成专属心声</text>
+        </view>
+      </block>
+
+      <view class="diary-card-item" wx:for="{{filteredDiaries}}" wx:key="id">
+        <view class="card-header">
+          <view class="header-tag-group">
+            <text class="mood-tag-badge">{{item.moodTag || '📖 心声'}}</text>
+            <text class="time-label">{{item.timeStr}}</text>
+          </view>
+          <view class="fav-action-btn" bindtap="handleToggleFavorite" data-id="{{item.id}}">
+            <text class="heart-icon">{{item.isFavorite ? '❤️' : '🤍'}}</text>
+          </view>
+        </view>
+
+        <view class="card-body">
+          <text class="quote-mark">“</text>
+          <text class="quote-content">{{item.content}}</text>
+          <text class="quote-mark">”</text>
+        </view>
+
+        <view class="card-footer">
+          <button class="footer-btn" bindtap="handleCopyDiary" data-content="{{item.content}}">
+            <text>📋 复制</text>
+          </button>
+          <button class="footer-btn btn-share" bindtap="handleOpenShareModal" data-diary="{{item}}">
+            <text>✨ 生成卡片</text>
+          </button>
+          <button class="footer-btn btn-del" bindtap="handleDeleteDiary" data-id="{{item.id}}">
+            <text>🗑️</text>
+          </button>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ==================== 2. 历史人机对话多轮记忆区域 ==================== -->
+  <block wx:if="{{activeSection === 'dialogue'}}">
+    <!-- 对话头部概览卡片 -->
+    <view class="memory-stats-card">
+      <view class="stats-left">
+        <text class="stats-title">💬 {{petName}} 的历史对话记忆</text>
+        <text class="stats-subtitle">全双工大模型语音互动 · 硬件与本地双向留存</text>
+      </view>
+      <view class="stats-right">
+        <view class="stat-pill dialogue-pill">
+          <text class="stat-num">{{memories.length}}</text>
+          <text class="stat-lbl">轮对话</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 操作工具栏 -->
+    <view class="memory-toolbar">
+      <button 
+        class="toolbar-btn btn-sync-mem" 
+        bindtap="handleSyncMemories" 
+        loading="{{isSyncingMemories}}"
+      >
+        <text>🔄 同步硬件记忆</text>
+      </button>
+      <button 
+        class="toolbar-btn btn-clear-mem" 
+        bindtap="handleClearMemories"
+        wx:if="{{memories.length > 0}}"
+      >
+        <text>🗑️ 清空记录</text>
+      </button>
+    </view>
+
+    <!-- 对话列表 -->
+    <view class="memory-list">
+      <block wx:if="{{memories.length === 0}}">
+        <view class="empty-diary-box">
+          <text class="empty-icon">💭</text>
+          <text class="empty-title">暂无历史对话记忆</text>
+          <text class="empty-desc">对准 M5StickS3 呼唤“悄悄”唤醒词即可开启对话，对话记录将自动沉淀在硬件与手机端</text>
+          <button class="btn-empty-action" bindtap="handleSyncMemories">
+            <text>🔄 尝试从硬件同步</text>
+          </button>
+        </view>
+      </block>
+
+      <!-- 多轮对话卡片流 -->
+      <view class="dialogue-card" wx:for="{{memories}}" wx:key="index">
+        <view class="dialogue-card-header">
+          <view class="dialogue-badge">
+            <text class="turn-idx"># {{index + 1}}</text>
+            <text class="turn-title">对话往来</text>
+          </view>
+          <button 
+            class="dialogue-copy-btn" 
+            bindtap="handleCopyMemory" 
+            data-text="我: {{item.user}}\n小木: {{item.ai}}"
+          >
+            <text>📋 复制整轮</text>
+          </button>
+        </view>
+
+        <!-- 用户发言气泡 -->
+        <view class="chat-bubble-row user-row">
+          <view class="bubble-avatar-box user-avatar">
+            <text>👤</text>
+          </view>
+          <view class="bubble-content-box bubble-user">
+            <text class="bubble-sender">我</text>
+            <text class="bubble-text" user-select="true">{{item.user}}</text>
+          </view>
+        </view>
+
+        <!-- 灵宠回复气泡 -->
+        <view class="chat-bubble-row ai-row">
+          <view class="bubble-avatar-box ai-avatar">
+            <text>🤖</text>
+          </view>
+          <view class="bubble-content-box bubble-ai">
+            <text class="bubble-sender sender-pet">{{petName}}</text>
+            <text class="bubble-text" user-select="true">{{item.ai}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
 
   <!-- 分享海报预览弹窗 Modal -->
   <view class="share-modal-overlay" wx:if="{{showShareModal}}" bindtap="handleCloseShareModal">

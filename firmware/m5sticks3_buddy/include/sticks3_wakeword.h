@@ -233,13 +233,12 @@ private:
     bool processFeatureFrame(const WakeFrameFeature& f) {
         _state_frames++;
 
-        // 灵敏度门限折算
-        // 灵敏度 10~100 对应动态乘子，灵敏度越高门限越容易达到
-        float sens_factor = (float)_sensitivity / 75.0f;
-        float min_rms_q = 70.0f / sens_factor;
-        float min_rms_iao = 110.0f / sens_factor;
-        int min_zcr_q = (int)(48 * (1.15f - sens_factor * 0.15f));
-        int max_zcr_iao = (int)(42 * (0.85f + sens_factor * 0.15f));
+        // 灵敏度门限折算 (适配 MEMS 硅麦在 StickS3 声学腔体中的真实发音频响)
+        float sens_factor = (float)_sensitivity / 70.0f;
+        float min_rms_q = 45.0f / sens_factor;
+        float min_rms_iao = 70.0f / sens_factor;
+        int min_zcr_q = (int)(36 * (1.15f - sens_factor * 0.15f));
+        int max_zcr_iao = (int)(48 * (0.85f + sens_factor * 0.15f));
 
         switch (_fsm_state) {
             case WAKE_STATE_IDLE:
@@ -347,8 +346,8 @@ private:
                 // 第二个元音结束或稳定发音达 4 帧以上，评估整词对称度与置信度
                 if (_iao2_frames >= 4) {
                     float conf = evaluateConfidence();
-                    float req_conf = 85.0f - (_sensitivity * 0.35f); // 灵敏度 75% -> 要求 58.75%
-                    if (req_conf < 45.0f) req_conf = 45.0f;
+                    float req_conf = 80.0f - (_sensitivity * 0.40f); // 灵敏度 75% -> 要求 50%
+                    if (req_conf < 40.0f) req_conf = 40.0f;
 
                     if (conf >= req_conf) {
                         _fsm_state = WAKE_STATE_TRIGGERED;
@@ -399,12 +398,12 @@ private:
         // 校验塞擦音与元音的鲜明对比度
         float s_acoustic = 25.0f;
         if (_q1_frames < 2 || _q2_frames < 2) s_acoustic -= 8.0f;
-        if (_gap_frames < 1 || _gap_frames > 5) s_acoustic -= 6.0f;
+        if (_gap_frames < 1 || _gap_frames > 6) s_acoustic -= 6.0f;
 
-        // 4. 总时长合理性惩罚 (正常「悄悄」发音应在 400ms ~ 900ms / 20 ~ 45 帧)
+        // 4. 总时长合理性惩罚 (正常「悄悄」发音应在 240ms ~ 1000ms / 12 ~ 50 帧)
         uint32_t total_frames = _q1_frames + _iao1_frames + _gap_frames + _q2_frames + _iao2_frames;
         float s_timing = 10.0f;
-        if (total_frames < 18 || total_frames > 48) {
+        if (total_frames < 12 || total_frames > 52) {
             s_timing -= 5.0f;
         }
 

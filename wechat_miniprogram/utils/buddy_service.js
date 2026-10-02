@@ -541,6 +541,35 @@ class BuddyService {
     }
     return this.hotspot;
   }
+
+  // --- 历史人机对话多轮记忆同步与管理 ---
+  async syncMemories() {
+    if (this.isWifiMode) {
+      try {
+        const mems = await this.httpClient.getMemories();
+        if (Array.isArray(mems) && mems.length > 0) {
+          this.memoryTurns = mems;
+          StorageManager.saveMemories(mems);
+          this.notifyListeners("memory", mems);
+          return mems;
+        }
+      } catch (e) {
+        console.warn("[BuddyService] syncMemories HTTP error:", e);
+      }
+    }
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("sync_memory", "");
+    }
+    const local = StorageManager.getMemories();
+    this.memoryTurns = local;
+    return local;
+  }
+
+  clearMemories() {
+    this.memoryTurns = [];
+    StorageManager.saveMemories([]);
+    this.notifyListeners("memory", []);
+  }
 }
 
 // 单例模式全局服务

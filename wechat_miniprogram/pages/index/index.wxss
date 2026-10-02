@@ -383,6 +383,100 @@
   cursor: pointer;
 }
 
+/* 历史对话记忆预览 */
+.memory-card {
+  background: #121929;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+}
+
+.memory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.memory-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.memory-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.memory-badge {
+  font-size: 18rpx;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+  padding: 2rpx 10rpx;
+  border-radius: 12rpx;
+}
+
+.memory-link {
+  font-size: 20rpx;
+  color: #38bdf8;
+  cursor: pointer;
+}
+
+.memory-preview-bubble {
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  cursor: pointer;
+}
+
+.mem-preview-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.mem-role-tag {
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.user-tag {
+  color: #94a3b8;
+}
+
+.pet-tag {
+  color: #00f2fe;
+}
+
+.mem-snippet-text {
+  color: #cbd5e1;
+  word-break: break-all;
+}
+
+.pet-answer {
+  color: #f1f5f9;
+}
+
+.memory-empty-preview {
+  background: #020617;
+  border: 1px dashed #334155;
+  border-radius: 14rpx;
+  padding: 20rpx;
+  font-size: 22rpx;
+  color: #64748b;
+  text-align: center;
+  cursor: pointer;
+}
+
 /* 拓麻歌子互动区 */
 .section-title {
   display: flex;
