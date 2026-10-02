@@ -37,6 +37,14 @@ Page({
     currentMoodTag: "就绪",
     diaryCount: 3,
 
+    hotspot: {
+      isHotspot: false,
+      usedMb: 0,
+      limitMb: 100,
+      remainingMb: 100,
+      cutoffActive: false
+    },
+
     snackOptions: [
       "🍓 草莓奶油大福 (+20活力, +10羁绊)",
       "🍰 鲜奶舒芙蕾蛋糕 (+20活力, +10羁绊)",
@@ -107,6 +115,7 @@ Page({
     this.setData({
       petState: st,
       currentMoodTag: moodTag,
+      hotspot: evt.hotspot || this.buddyService.hotspot || this.data.hotspot,
       isConnected: evt.isConnected !== undefined ? evt.isConnected : this.buddyService.isConnected,
       isBleMode: evt.isBleMode !== undefined ? evt.isBleMode : this.buddyService.isBleMode,
       isWifiMode: evt.isWifiMode !== undefined ? evt.isWifiMode : this.buddyService.isWifiMode,

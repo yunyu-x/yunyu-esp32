@@ -123,9 +123,52 @@ wechat_miniprogram/
 - [x] 支持日记长图生成预览、图文一键复制与微信好友分享卡片（`onShareAppMessage`）；
 - [x] 建立单例模式 `utils/buddy_service.js` 统一跨页面状态树与事件发布订阅（SSOT）。
 
+### 任务 6：Wi-Fi 智能配网与手机移动热点流量保护 (Mobile Hotspot Quota & Cutoff) (Completed)
+- [x] **网络模式分段选择器**：支持在小程序设置页直接切换「🏠 常规 Wi-Fi 宽带」与「📱 手机共享移动热点」；
+- [x] **移动热点流量配额多档预设**：提供 50MB (轻度)、100MB (推荐)、200MB (畅聊)、500MB (长途) 及自定义 MB 上限配置；
+- [x] **超额自动熔断保护机制**：
+  - 100% 配额耗尽时，固件端自动切断阿里云百炼 16kHz PCM WebSocket 流式推流，坚决防止高额手机话费账单；
+  - 保持 BLE GATT `0xFFB0` 控制信道 100% 畅通，允许用户随时在小程序一键「追加 50MB」或「重置流量统计」；
+- [x] **80% 临界预警机制**：流量达 80% 临界线时，设备生成第一人称心声日记推送并播报温馨提醒；
+- [x] **Flash NVS 寿命保护**：固件端流量累积每 256KB 批量刷盘一次，杜绝因高频计量写穿 ESP32-S3 Flash；
+- [x] **实时遥测看板与主页警示**：
+  - 设置页实时看板呈现动态彩色百分比进度条（绿/橙/红）、已消耗/剩余/上限 MB 三联格、刷新/追加/重置快捷控制；
+  - 伴侣主页顶部显示热点状态标签，超额时渲染醒目脉冲警示横幅。
+
 ---
 
-## 五、 新会话启动：一键复制继续开发提示词 (Master Prompt)
+## 六、 手机共享移动热点与流量保护技术架构 (Hotspot Quota Architecture)
+
+### 1. 设计背景与问题定义
+StickS3 作为随身陪伴玩具，核心体验依赖阿里云百炼 DashScope 实时全双工流式大模型（16kHz 16-bit 单声道 PCM 音频推流）。  
+在室外无常规宽带时，需开启手机移动热点共享蜂窝数据。语音流推流每分钟约产生 **1.8MB** 流量：若用户离线未关机或持续对话，易造成高额话费损失。
+
+### 2. 软硬件协同熔断时序 (Sequence Diagram)
+
+```
+[用户手机端 小程序]             [M5StickS3 固件]             [阿里云百炼 / NVS]
+       │                               │                             │
+       │─── 0xFFB4 注入 wifi_cfg ──────>│                             │
+       │  (is_hotspot=true,limit=100MB)│─── 保存配额到 NVS ─────────>│
+       │                               │                             │
+       │                               │─── 实时计量全双工音频流 ────>│
+       │                               │    (rx/tx 累计计算 KB)      │
+       │                               │                             │
+       │                               │ [流量到达 80% 警戒线]        │
+       │<── 0xFFB3 心声日记告警推送 ─────│ (生成心声并软提示音)        │
+       │                               │                             │
+       │                               │ [流量到达 100% 熔断阈值]     │
+       │                               │─── 停止 WebSocket 推流 ────>│ (保护手机话费)
+       │<── 0xFFB2 状态快照 (cutoff=true)│                             │
+       │                               │                             │
+       │─── 点击“追加 50MB”/重置 ───────>│─── 更新配额 / 清零统计 ────>│
+       │    (BLE / HTTP 立即解封)       │                             │
+       │                               │─── 恢复全双工语音推流 ──────>│
+```
+
+---
+
+## 七、 新会话启动：一键复制继续开发提示词 (Master Prompt)
 
 在新开启的对话中，**直接复制以下整段提示词** 发送给新的 AI Agent：
 
@@ -135,21 +178,22 @@ wechat_miniprogram/
 2. 架构与通信协议规范：`docs/28_M5StickS3微信小程序对接架构与通信协议工程指南.md`
 3. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`（关注方向 13 成果与方向 14）
 4. 小程序工程全景：`wechat_miniprogram/` 下的 4 大 Tab 页面 (`index/`, `feed/`, `diary/`, `settings/`)、`<avatar-canvas>` 组件及 `utils/`
-5. 固件通信端点对照：`firmware/m5sticks3_buddy/include/sticks3_ble_sync.h` 与 `include/sticks3_wifi.h`
+5. 固件通信端点对照：`firmware/m5sticks3_buddy/include/sticks3_ble_sync.h`、`include/sticks3_wifi.h` 与 `include/sticks3_wifi_config.h`
 
 【当前工程与硬件基线】：
 - 代码仓库：https://github.com/yunyu-x/yunyu-esp32（主仓库，已配置 remote: esp32）与 yunyu-microUnit
 - 当前分支：`feature/lingbuddy-companion`（微信小程序工程位于 `wechat_miniprogram/`）
-- 物理设备：M5StickS3 已连接于串口 `COM3`，局域网 IP `192.168.110.67`，已烧录最新迪士尼微表情与隔空投喂固件
+- 物理设备：M5StickS3 已连接于串口 `COM3`，局域网 IP `192.168.110.67`，已烧录最新迪士尼微表情、隔空投喂与移动热点保护固件
 - 已就绪特性：
   - 微信小程序全套产品化多页面 TabBar 架构交付完毕（伴侣主页、隔空投喂屋、心声日记本、设备设置与 BLE 配网）；
-  - 自适应自定义组件 `<avatar-canvas>` 交付完毕，具备跨平台 DPR 物理自适应、触摸交互手势解算与 60FPS 矢量动画；
-  - 真机触觉微震动引擎 `utils/haptics.js` 与离线持久化沉淀管理器 `utils/storage_manager.js` 全面就绪；
-  - 严格遵守 20 字节安全 MTU 分片与时间戳/Nonce 防重放安全契约，零丢包、零死锁；
-  - 全套 17 项自动化单元测试全绿通过（`python -m pytest tests/test_avatar_and_empathy.py tests/test_vector_knowledge_base.py -v`）。
+  - 小程序支持常规 Wi-Fi 与手机共享移动热点双模式配置，支持 50MB/100MB/200MB/500MB/自定义配额；
+  - 固件支持硬件级流量计量（256KB 批量写盘防磨损）、80% 临界预警与 100% 自动熔断切断大模型推流保护，支持追加 50MB 与清零重置；
+  - 自适应自定义组件 `<avatar-canvas>` 具备跨平台 DPR 物理自适应、触摸手势解算与 60FPS 矢量动画；
+  - 全套 41 项自动化单元测试全绿通过（`python -m pytest tests/test_avatar_and_empathy.py tests/test_wifi_hotspot_and_quota.py -v`）。
 
 【后续进阶研发目标】：
 1. 微信运动步数联动：集成微信步数解密与每日步数兑换专属灵宠神秘点心礼盒；
-2. 微信云开发 (CloudBase) 或离线长图合成：将日记生成精美海报图片保存至系统相册；
-3. 硬件端 BLE 配网响应闭环优化：硬件解析 `wifi_cfg` 并将结果通过 0xFFB3/0xFFB2 回传确认。
+2. 朋友圈回忆海报 Canvas 合成与导出：离线生成 9:16 精美海报长图保存至手机系统相册或分享朋友圈；
+3. 微信云开发 (CloudBase) 或离线多端同步：支持跨多手机/多终端登录查看灵宠同一成长记忆。
 ```
+

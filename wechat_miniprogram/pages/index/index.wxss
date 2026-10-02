@@ -77,6 +77,62 @@
   margin-left: 4rpx;
 }
 
+.status-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.hotspot-badge {
+  background: rgba(236, 72, 153, 0.2);
+  border: 1px solid #ec4899;
+  color: #f472b6;
+  font-size: 20rpx;
+  font-weight: 700;
+  padding: 6rpx 14rpx;
+  border-radius: 30rpx;
+}
+
+/* 热点熔断与告警横幅 */
+.hotspot-alert-banner {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  border-radius: 16rpx;
+  padding: 14rpx 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  animation: pulse-alert 2s infinite;
+}
+
+.hotspot-warn-banner {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid #f59e0b;
+  border-radius: 16rpx;
+  padding: 14rpx 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+@keyframes pulse-alert {
+  0% { opacity: 0.9; }
+  50% { opacity: 1; box-shadow: 0 0 16rpx rgba(239, 68, 68, 0.4); }
+  100% { opacity: 0.9; }
+}
+
+.banner-icon {
+  font-size: 26rpx;
+  flex-shrink: 0;
+}
+
+.banner-text {
+  font-size: 20rpx;
+  color: #f8fafc;
+  line-height: 1.4;
+  flex: 1;
+}
+
 /* 灵宠主画板区 */
 .avatar-card {
   display: flex;

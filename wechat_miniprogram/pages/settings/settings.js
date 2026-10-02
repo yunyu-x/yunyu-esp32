@@ -18,6 +18,24 @@ Page({
     wifiPwd: "",
     showPwd: false,
 
+    networkMode: "wifi", // 'wifi' | 'hotspot'
+    selectedPreset: 100, // 50 | 100 | 200 | 500 | 'custom'
+    customLimitInput: "",
+    hotspotLimitMb: 100,
+    hotspotCutoffEnabled: true,
+    hotspotWarningEnabled: true,
+
+    hotspot: {
+      isHotspot: false,
+      usedMb: 0,
+      limitMb: 100,
+      remainingMb: 100,
+      cutoffActive: false,
+      cutoffEnabled: true,
+      warningIssued: false
+    },
+    trafficPercent: 0,
+
     petState: {
       level: 1
     },
@@ -33,11 +51,21 @@ Page({
 
   onLoad() {
     const settings = StorageManager.getSettings();
+    const isHs = Boolean(settings.isHotspot);
+    const limit = Number(settings.hotspotLimitMb) || 100;
+    const preset = [50, 100, 200, 500].includes(limit) ? limit : "custom";
+
     this.setData({
       wifiHost: settings.wifiHost || "192.168.110.67",
       wifiHostInput: settings.wifiHost || "192.168.110.67",
-      wifiSsid: settings.savedSsid || "",
-      vibrationEnabled: settings.vibrationEnabled !== false
+      wifiSsid: settings.savedSsid || settings.wifiSsid || "",
+      vibrationEnabled: settings.vibrationEnabled !== false,
+      networkMode: isHs ? "hotspot" : "wifi",
+      hotspotLimitMb: limit,
+      selectedPreset: preset,
+      customLimitInput: preset === "custom" ? String(limit) : "",
+      hotspotCutoffEnabled: settings.hotspotCutoffEnabled !== false,
+      hotspotWarningEnabled: settings.hotspotWarningEnabled !== false
     });
 
     this.stateListener = (evt) => {
@@ -72,11 +100,16 @@ Page({
     const isBle = evt.isBleMode !== undefined ? evt.isBleMode : buddyService.isBleMode;
     const isWifi = evt.isWifiMode !== undefined ? evt.isWifiMode : buddyService.isWifiMode;
     const isSim = evt.isSimMode !== undefined ? evt.isSimMode : buddyService.isSimMode;
+    const hs = evt.hotspot || buddyService.hotspot;
 
     let modeName = "未连接";
     if (isBle) modeName = "BLE 专属通道";
-    else if (isWifi) modeName = "Wi-Fi 局域网";
+    else if (isWifi) modeName = hs && hs.isHotspot ? "手机热点 Wi-Fi" : "Wi-Fi 局域网";
     else if (isSim) modeName = "离线仿真";
+
+    const used = hs ? Number(hs.usedMb || 0) : 0;
+    const limit = hs && hs.limitMb > 0 ? Number(hs.limitMb) : this.data.hotspotLimitMb;
+    const percent = Math.min(100, Math.round((used / (limit || 1)) * 100));
 
     this.setData({
       isConnected: isConn,
@@ -86,8 +119,14 @@ Page({
       connectionStatusText: evt.connectionStatusText || buddyService.connectionStatusText,
       currentModeName: modeName,
       petState: evt.petState || buddyService.petState,
-      wifiHost: buddyService.httpClient.host
+      wifiHost: buddyService.httpClient.host,
+      hotspot: hs || this.data.hotspot,
+      trafficPercent: percent
     });
+
+    if (hs && hs.isHotspot && this.data.networkMode !== "hotspot") {
+      this.setData({ networkMode: "hotspot" });
+    }
   },
 
   // 1. BLE 扫描
@@ -143,9 +182,59 @@ Page({
     wx.showToast({ title: "已断开 BLE 蓝牙", icon: "none" });
   },
 
-  // 2. BLE 一键智能配网 (Smart Provisioning)
+  // 2. Wi-Fi / 手机热点智能配网与流量保护交互
   onInputSsid(e) { this.setData({ wifiSsid: e.detail.value }); },
   onInputPwd(e)  { this.setData({ wifiPwd: e.detail.value }); },
+  onToggleShowPwd() { this.setData({ showPwd: !this.data.showPwd }); },
+
+  onSelectNetworkMode(e) {
+    const mode = e.currentTarget.dataset.mode;
+    this.setData({ networkMode: mode });
+    haptics.vibrate("light");
+  },
+
+  onSelectPreset(e) {
+    const p = e.currentTarget.dataset.preset;
+    haptics.vibrate("light");
+    if (p === "custom") {
+      this.setData({
+        selectedPreset: "custom",
+        customLimitInput: String(this.data.hotspotLimitMb)
+      });
+    } else {
+      const mb = Number(p);
+      this.setData({
+        selectedPreset: mb,
+        hotspotLimitMb: mb
+      });
+    }
+  },
+
+  onInputCustomLimit(e) {
+    const raw = e.detail.value;
+    const val = parseInt(raw, 10);
+    this.setData({ customLimitInput: raw });
+    if (!isNaN(val) && val > 0) {
+      this.setData({ hotspotLimitMb: val });
+    }
+  },
+
+  onToggleCutoff(e) {
+    const val = e.detail.value;
+    this.setData({ hotspotCutoffEnabled: val });
+    buddyService.updateHotspotConfig({
+      cutoffEnabled: val,
+      dataLimitMb: this.data.hotspotLimitMb
+    });
+    haptics.vibrate("light");
+  },
+
+  onToggleWarning(e) {
+    const val = e.detail.value;
+    this.setData({ hotspotWarningEnabled: val });
+    StorageManager.saveSettings({ hotspotWarningEnabled: val });
+    haptics.vibrate("light");
+  },
 
   handleGetConnectedWifi() {
     wx.startWifi({
@@ -170,38 +259,50 @@ Page({
   },
 
   async handleSmartProvision() {
-    const { wifiSsid, wifiPwd } = this.data;
+    const { wifiSsid, wifiPwd, networkMode, hotspotLimitMb, hotspotCutoffEnabled } = this.data;
     if (!wifiSsid || !wifiSsid.trim()) {
-      wx.showToast({ title: "请输入 Wi-Fi 名称", icon: "none" });
+      wx.showToast({ title: networkMode === "hotspot" ? "请输入热点名称" : "请输入 Wi-Fi 名称", icon: "none" });
       return;
     }
 
     if (!buddyService.isBleMode || !buddyService.bleClient.isConnected) {
-      wx.showModal({
-        title: "需要先连接 BLE 蓝牙",
-        content: "智能配网需要通过 0xFFB4 蓝牙特征值安全注入凭证。请先在上方连接 StickS3-Buddy。",
-        showCancel: false
-      });
-      return;
+      if (!buddyService.isWifiMode && !buddyService.isSimMode) {
+        wx.showModal({
+          title: "请先连接设备",
+          content: "智能配网需要通过 0xFFB4 蓝牙特征值安全注入凭证。请在上方先连接 StickS3-Buddy。",
+          showCancel: false
+        });
+        return;
+      }
     }
 
     this.setData({ isProvisioning: true });
     haptics.vibrate("medium");
-
     wx.showLoading({ title: "20字节安全分片注入中..." });
 
+    const isHs = networkMode === "hotspot";
     try {
-      await buddyService.provisionWifi(wifiSsid.trim(), wifiPwd);
+      await buddyService.provisionWifi({
+        ssid: wifiSsid.trim(),
+        password: wifiPwd,
+        isHotspot: isHs,
+        dataLimitMb: isHs ? hotspotLimitMb : 0,
+        cutoffEnabled: hotspotCutoffEnabled
+      });
+
       wx.hideLoading();
       this.setData({ isProvisioning: false });
-
-      // 保存已配网 SSID
-      StorageManager.saveSettings({ savedSsid: wifiSsid.trim() });
+      StorageManager.saveSettings({
+        savedSsid: wifiSsid.trim(),
+        isHotspot: isHs,
+        hotspotLimitMb: hotspotLimitMb,
+        hotspotCutoffEnabled: hotspotCutoffEnabled
+      });
 
       haptics.levelUp();
       wx.showModal({
-        title: "配网凭据已下发",
-        content: `Wi-Fi [${wifiSsid}] 凭据已通过 20 字节安全切片写入 StickS3 固件。设备将自动连网，连网后可通过局域网 IP 高速直连。`,
+        title: isHs ? "📱 移动热点凭证已下发" : "🏠 Wi-Fi 凭据已下发",
+        content: `网络 [${wifiSsid}] 已通过 20 字节安全切片写入设备。${isHs ? `已启用流量上限: ${hotspotLimitMb}MB，超额自动熔断保护: ${hotspotCutoffEnabled ? "开启" : "关闭"}。` : "设备将自动连网，连网后可通过局域网 IP 高速直连。"}`,
         showCancel: false
       });
     } catch (e) {
@@ -209,6 +310,63 @@ Page({
       this.setData({ isProvisioning: false });
       wx.showToast({ title: "配网下发异常，请重试", icon: "none" });
     }
+  },
+
+  // 手机热点流量看板操作
+  async handleRefreshTraffic() {
+    haptics.vibrate("light");
+    wx.showLoading({ title: "刷新流量中..." });
+    try {
+      await buddyService.fetchHotspotTraffic();
+      wx.hideLoading();
+      wx.showToast({ title: "流量已刷新", icon: "success" });
+    } catch (e) {
+      wx.hideLoading();
+      wx.showToast({ title: "刷新失败", icon: "none" });
+    }
+  },
+
+  async handleAddQuota() {
+    const currentLimit = this.data.hotspot.limitMb || this.data.hotspotLimitMb || 100;
+    const newLimit = currentLimit + 50;
+    haptics.vibrate("medium");
+
+    try {
+      await buddyService.updateHotspotConfig({
+        isHotspot: true,
+        dataLimitMb: newLimit,
+        cutoffEnabled: this.data.hotspotCutoffEnabled
+      });
+      this.setData({
+        hotspotLimitMb: newLimit,
+        selectedPreset: "custom",
+        customLimitInput: String(newLimit)
+      });
+      haptics.levelUp();
+      wx.showToast({ title: `已成功追加 50MB (新上限: ${newLimit}MB)`, icon: "none" });
+    } catch (e) {
+      wx.showToast({ title: "配额更新失败", icon: "none" });
+    }
+  },
+
+  handleResetTraffic() {
+    wx.showModal({
+      title: "重置流量统计",
+      content: "确定要将 StickS3 设备上的手机热点流量使用计数重置为 0 MB 吗？",
+      confirmText: "确定重置",
+      confirmColor: "#ef4444",
+      success: async (res) => {
+        if (res.confirm) {
+          haptics.vibrate("medium");
+          try {
+            await buddyService.resetHotspotTraffic();
+            wx.showToast({ title: "流量已清零", icon: "success" });
+          } catch (e) {
+            wx.showToast({ title: "重置失败", icon: "none" });
+          }
+        }
+      }
+    });
   },
 
   // 3. Wi-Fi 局域网高速通道配置

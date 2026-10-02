@@ -73,6 +73,108 @@ class StickS3HttpClient {
     });
   }
 
+  // 3. Wi-Fi / 手机热点一键配网连接 (POST /wifi/connect)
+  connectWifiNetwork({ ssid, password, isHotspot = false, limitMb = 100, cutoff = true }) {
+    return new Promise((resolve, reject) => {
+      const data = `ssid=${encodeURIComponent(ssid)}&pass=${encodeURIComponent(password || "")}&is_hotspot=${isHotspot ? "1" : "0"}&limit_mb=${limitMb}&cutoff=${cutoff ? "1" : "0"}`;
+      wx.request({
+        url: `http://${this.host}/wifi/connect`,
+        method: "POST",
+        header: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        data: data,
+        timeout: 5000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Connect failed with status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.error("[HTTP] connectWifiNetwork failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 4. 获取手机热点流量遥测统计 (GET /hotspot/traffic)
+  getHotspotTraffic() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/hotspot/traffic`,
+        method: "GET",
+        timeout: 3000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Get traffic failed with status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.error("[HTTP] getHotspotTraffic failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 5. 在线设置手机热点上限与熔断策略 (POST /hotspot/config)
+  setHotspotConfig({ isHotspot = true, limitMb = 100, cutoff = true }) {
+    return new Promise((resolve, reject) => {
+      const data = `is_hotspot=${isHotspot ? "1" : "0"}&limit_mb=${limitMb}&cutoff=${cutoff ? "1" : "0"}`;
+      wx.request({
+        url: `http://${this.host}/hotspot/config`,
+        method: "POST",
+        header: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        data: data,
+        timeout: 4000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Config hotspot failed with status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.error("[HTTP] setHotspotConfig failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 6. 重置手机热点流量统计计数器 (POST /hotspot/reset_traffic)
+  resetHotspotTraffic() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/hotspot/reset_traffic`,
+        method: "POST",
+        header: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        data: "",
+        timeout: 4000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Reset traffic failed with status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.error("[HTTP] resetHotspotTraffic failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
   // 3. 启动微信小程序 mDNS 本地局域网服务发现 (ZeroConf)
   startLocalDiscovery(onServiceFound, onError) {
     if (this.isDiscoveryRunning) return;

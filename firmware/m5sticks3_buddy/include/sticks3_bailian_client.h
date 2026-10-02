@@ -233,9 +233,21 @@ static const char* DASHSCOPE_ROOT_CA =
     // 线程安全与自适应重试发送 (带毫秒级让渡，彻底解决高吞吐时锁争用失败问题)
     bool sendWsTextWithRetry(const char* data, size_t len, int max_retries = 5, TickType_t timeout = pdMS_TO_TICKS(60)) {
         if (!_ws_client || !_is_ws_connected) return false;
+
+        // 手机热点流量超额自动熔断保护检查
+        if (StickS3ConfigManager::getInstance().isHotspotCutoffActive() &&
+            StickS3ConfigManager::getInstance().isHotspotCutoffEnabled()) {
+            Serial.println("[HOTSPOT-GUARD] Bailian streaming suspended due to traffic limit cutoff!");
+            return false;
+        }
+
         for (int i = 0; i < max_retries; i++) {
             int ret = esp_websocket_client_send_text(_ws_client, data, len, timeout);
-            if (ret >= 0) return true;
+            if (ret >= 0) {
+                // 累计上行网络流量
+                StickS3ConfigManager::getInstance().addNetworkTraffic(0, len);
+                return true;
+            }
             vTaskDelay(pdMS_TO_TICKS(15));
         }
         if (!esp_websocket_client_is_connected(_ws_client)) {
@@ -825,6 +837,9 @@ private:
                 break;
 
             case WEBSOCKET_EVENT_DATA:
+                if (data->data_len > 0) {
+                    StickS3ConfigManager::getInstance().addNetworkTraffic(data->data_len, 0);
+                }
                 if (data->op_code == 0x01 && data->data_ptr && data->data_len > 0) { // Text JSON frame
                     static char* s_rx_buf = nullptr;
                     if (!s_rx_buf) {

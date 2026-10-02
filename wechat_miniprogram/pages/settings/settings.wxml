@@ -69,20 +69,42 @@
     </view>
   </view>
 
-  <!-- 3. BLE 一键智能配网 (Smart Wi-Fi Provisioning) -->
+  <!-- 3. Wi-Fi / 手机热点智能配网与流量保护 -->
   <view class="panel-card">
     <view class="panel-header">
-      <text class="panel-title">📶 BLE 一键智能配网</text>
-      <text class="panel-subtitle">通过 0xFFB4 蓝牙安全注入 Wi-Fi 凭证</text>
+      <view class="panel-title-group">
+        <text class="panel-title">📶 网络配置与手机热点共享</text>
+        <text class="badge-hotspot-tag" wx:if="{{networkMode === 'hotspot'}}">已启用流量保护</text>
+      </view>
+      <text class="panel-subtitle">BLE 0xFFB4 安全注入凭证</text>
+    </view>
+
+    <!-- 网络模式切换分段器 -->
+    <view class="segmented-control">
+      <view 
+        class="segment-item {{networkMode === 'wifi' ? 'segment-active' : ''}}" 
+        bindtap="onSelectNetworkMode" 
+        data-mode="wifi"
+      >
+        <text>🏠 常规 Wi-Fi 宽带</text>
+      </view>
+      <view 
+        class="segment-item {{networkMode === 'hotspot' ? 'segment-active segment-hotspot' : ''}}" 
+        bindtap="onSelectNetworkMode" 
+        data-mode="hotspot"
+      >
+        <text>📱 手机共享移动热点</text>
+      </view>
     </view>
 
     <view class="form-group">
+      <!-- SSID 输入 -->
       <view class="input-row">
-        <text class="input-label">Wi-Fi 名称 (SSID)</text>
+        <text class="input-label">{{networkMode === 'hotspot' ? '手机热点名称 (SSID)' : 'Wi-Fi 名称 (SSID)'}}</text>
         <view class="input-with-action">
           <input 
             class="form-input" 
-            placeholder="输入 2.4GHz Wi-Fi SSID" 
+            placeholder="{{networkMode === 'hotspot' ? '输入个人热点名称' : '输入 2.4GHz Wi-Fi 名称'}}" 
             value="{{wifiSsid}}" 
             bindinput="onInputSsid"
           />
@@ -90,32 +112,190 @@
         </view>
       </view>
 
+      <!-- 密码输入 -->
       <view class="input-row" style="margin-top: 14rpx;">
-        <text class="input-label">Wi-Fi 密码</text>
+        <view class="label-with-action">
+          <text class="input-label">{{networkMode === 'hotspot' ? '个人热点密码' : 'Wi-Fi 密码'}}</text>
+          <text class="pwd-toggle" bindtap="onToggleShowPwd">{{showPwd ? '🙈 隐藏' : '👁️ 显示'}}</text>
+        </view>
         <input 
           class="form-input" 
           password="{{!showPwd}}" 
-          placeholder="输入 Wi-Fi 密码" 
+          placeholder="输入连接密码（无密码可留空）" 
           value="{{wifiPwd}}" 
           bindinput="onInputPwd"
         />
       </view>
 
-      <view class="form-tip">
-        <text>⚠️ StickS3 仅支持 2.4GHz 频段 Wi-Fi；配网采用严格 20 字节安全切片防溢出传输。</text>
+      <!-- 手机热点专属流量配额配置区 (仅在热点模式下显示) -->
+      <view class="hotspot-config-box" wx:if="{{networkMode === 'hotspot'}}">
+        <view class="hotspot-box-header">
+          <text class="hotspot-box-title">🛡️ 移动热点流量保护策略</text>
+          <text class="hotspot-box-sub">防止大模型语音流推爆手机话费</text>
+        </view>
+
+        <!-- 流量预设档位选择器 -->
+        <view class="quota-presets-row">
+          <view 
+            class="quota-chip {{selectedPreset === 50 ? 'quota-chip-active' : ''}}" 
+            bindtap="onSelectPreset" 
+            data-preset="50"
+          >
+            <text class="chip-val">50MB</text>
+            <text class="chip-desc">轻度体验</text>
+          </view>
+          <view 
+            class="quota-chip {{selectedPreset === 100 ? 'quota-chip-active' : ''}}" 
+            bindtap="onSelectPreset" 
+            data-preset="100"
+          >
+            <text class="chip-val">100MB</text>
+            <text class="chip-desc">推荐档位</text>
+          </view>
+          <view 
+            class="quota-chip {{selectedPreset === 200 ? 'quota-chip-active' : ''}}" 
+            bindtap="onSelectPreset" 
+            data-preset="200"
+          >
+            <text class="chip-val">200MB</text>
+            <text class="chip-desc">畅聊陪伴</text>
+          </view>
+          <view 
+            class="quota-chip {{selectedPreset === 500 ? 'quota-chip-active' : ''}}" 
+            bindtap="onSelectPreset" 
+            data-preset="500"
+          >
+            <text class="chip-val">500MB</text>
+            <text class="chip-desc">长途出行</text>
+          </view>
+          <view 
+            class="quota-chip {{selectedPreset === 'custom' ? 'quota-chip-active' : ''}}" 
+            bindtap="onSelectPreset" 
+            data-preset="custom"
+          >
+            <text class="chip-val">自定义</text>
+            <text class="chip-desc">MB 上限</text>
+          </view>
+        </view>
+
+        <!-- 自定义输入 -->
+        <view class="custom-limit-row" wx:if="{{selectedPreset === 'custom'}}">
+          <text class="custom-limit-label">自定义上限:</text>
+          <input 
+            class="custom-limit-input" 
+            type="number" 
+            placeholder="输入 MB 数 (如 150)" 
+            value="{{customLimitInput}}" 
+            bindinput="onInputCustomLimit"
+          />
+          <text class="custom-limit-unit">MB</text>
+        </view>
+
+        <view class="current-limit-hint">
+          <text>当前设定的流量警戒线：</text>
+          <text class="limit-highlight">{{hotspotLimitMb}} MB</text>
+        </view>
+
+        <!-- 熔断与预警策略开关 -->
+        <view class="policy-switch-row">
+          <view class="policy-switch-info">
+            <text class="policy-switch-title">超额自动熔断保护</text>
+            <text class="policy-switch-desc">达 100% 时自动切断百炼语音推流，保持 BLE 畅通</text>
+          </view>
+          <switch checked="{{hotspotCutoffEnabled}}" bindchange="onToggleCutoff" color="#ec4899" />
+        </view>
+
+        <view class="policy-switch-row" style="border-top: 1px dashed #1e293b; padding-top: 12rpx;">
+          <view class="policy-switch-info">
+            <text class="policy-switch-title">80% 临界预警心声提醒</text>
+            <text class="policy-switch-desc">流量达 80% 时在日记中播报温馨提醒</text>
+          </view>
+          <switch checked="{{hotspotWarningEnabled}}" bindchange="onToggleWarning" color="#00f2fe" />
+        </view>
       </view>
 
+      <view class="form-tip">
+        <text wx:if="{{networkMode === 'hotspot'}}">💡 手机开启热点后建议保持 2.4GHz 兼容模式；配网采用严格 20 字节安全切片防丢包传输。</text>
+        <text wx:else>⚠️ StickS3 仅支持 2.4GHz 频段 Wi-Fi；配网采用严格 20 字节安全切片防溢出传输。</text>
+      </view>
+
+      <!-- 配网注入按钮 -->
       <button 
-        class="btn-provision" 
+        class="btn-provision {{networkMode === 'hotspot' ? 'btn-provision-hotspot' : ''}}" 
         bindtap="handleSmartProvision" 
         loading="{{isProvisioning}}"
       >
-        🚀 注入凭证并一键配网
+        {{networkMode === 'hotspot' ? '🚀 写入热点配置并连接共享网络' : '🚀 注入凭证并一键配网'}}
       </button>
     </view>
   </view>
 
-  <!-- 4. 局域网 Wi-Fi 直连配置 -->
+  <!-- 4. 手机热点实时流量遥测与控制看板 -->
+  <view class="panel-card traffic-panel" wx:if="{{hotspot.isHotspot || networkMode === 'hotspot'}}">
+    <view class="panel-header">
+      <view class="panel-title-group">
+        <text class="panel-title">📊 手机热点流量监控看板</text>
+        <view class="traffic-status-badge {{hotspot.cutoffActive ? 'status-cutoff' : (trafficPercent >= 80 ? 'status-warn' : 'status-normal')}}">
+          <text>{{hotspot.cutoffActive ? '🛑 已触发熔断保护' : (trafficPercent >= 80 ? '⚠️ 临界预警中' : '🟢 流量健康')}}</text>
+        </view>
+      </view>
+      <text class="panel-subtitle">ESP32 硬件级实时计量</text>
+    </view>
+
+    <!-- 流量进度条与占比 -->
+    <view class="traffic-gauge-box">
+      <view class="gauge-top-row">
+        <text class="gauge-label">流量消耗进度</text>
+        <text class="gauge-percent {{hotspot.cutoffActive ? 'text-red' : (trafficPercent >= 80 ? 'text-amber' : 'text-cyan')}}">{{trafficPercent}}%</text>
+      </view>
+      <view class="gauge-bar-bg">
+        <view 
+          class="gauge-bar-fill {{hotspot.cutoffActive ? 'bar-red' : (trafficPercent >= 80 ? 'bar-amber' : 'bar-cyan')}}" 
+          style="width: {{trafficPercent}}%;"
+        ></view>
+      </view>
+    </view>
+
+    <!-- 遥测数据三联格 -->
+    <view class="traffic-metrics-grid">
+      <view class="metric-card">
+        <text class="metric-label">已消耗数据</text>
+        <text class="metric-val highlight-cyan">{{hotspot.usedMb}} <text class="metric-unit">MB</text></text>
+      </view>
+      <view class="metric-card">
+        <text class="metric-label">剩余安全配额</text>
+        <text class="metric-val {{hotspot.remainingMb <= 10 ? 'text-red' : 'highlight-green'}}">{{hotspot.remainingMb}} <text class="metric-unit">MB</text></text>
+      </view>
+      <view class="metric-card">
+        <text class="metric-label">保护额度上限</text>
+        <text class="metric-val highlight-pink">{{hotspot.limitMb}} <text class="metric-unit">MB</text></text>
+      </view>
+    </view>
+
+    <!-- 熔断状态特别提示条 -->
+    <view class="cutoff-notice-box" wx:if="{{hotspot.cutoffActive}}">
+      <text class="notice-icon">🛑</text>
+      <view class="notice-text">
+        <text class="notice-title">全双工音频推流已安全熔断</text>
+        <text class="notice-sub">已消耗 {{hotspot.usedMb}}MB 达到设定的 {{hotspot.limitMb}}MB 上限。点击下方“追加 50MB”即可立即恢复大模型语音对话。</text>
+      </view>
+    </view>
+
+    <!-- 流量管理快捷操作栏 -->
+    <view class="traffic-actions-row">
+      <button class="btn-traffic-action btn-refresh" bindtap="handleRefreshTraffic">
+        🔄 刷新流量
+      </button>
+      <button class="btn-traffic-action btn-add-quota" bindtap="handleAddQuota">
+        ➕ 追加 50MB
+      </button>
+      <button class="btn-traffic-action btn-reset" bindtap="handleResetTraffic">
+        0️⃣ 重置统计
+      </button>
+    </view>
+  </view>
+
+  <!-- 5. 局域网 Wi-Fi 直连配置 -->
   <view class="panel-card">
     <view class="panel-header">
       <text class="panel-title">🌐 Wi-Fi 局域网高速通道</text>

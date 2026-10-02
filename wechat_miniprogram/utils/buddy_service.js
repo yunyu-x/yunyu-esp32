@@ -26,6 +26,17 @@ class BuddyService {
     this.memoryTurns = StorageManager.getMemories();
     this.diaries = StorageManager.getDiaries();
 
+    // 手机共享热点与流量配额状态
+    this.hotspot = {
+      isHotspot: Boolean(savedSettings.isHotspot),
+      usedMb: 0,
+      limitMb: Number(savedSettings.hotspotLimitMb) || 100,
+      remainingMb: Number(savedSettings.hotspotLimitMb) || 100,
+      cutoffActive: false,
+      cutoffEnabled: savedSettings.hotspotCutoffEnabled !== false,
+      warningIssued: false
+    };
+
     this.isConnected = false;
     this.isBleMode = false;
     this.isWifiMode = false;
@@ -77,6 +88,7 @@ class BuddyService {
       fn({
         type: "init",
         petState: this.petState,
+        hotspot: this.hotspot,
         isConnected: this.isConnected,
         isBleMode: this.isBleMode,
         isWifiMode: this.isWifiMode,
@@ -97,6 +109,7 @@ class BuddyService {
           type,
           data,
           petState: this.petState,
+          hotspot: this.hotspot,
           isConnected: this.isConnected,
           isBleMode: this.isBleMode,
           isWifiMode: this.isWifiMode,
@@ -125,9 +138,34 @@ class BuddyService {
     if (st.shakes !== undefined) cur.shakes = st.shakes;
     if (st.diary) cur.diary = st.diary;
 
+    // 同步热点遥测指标
+    let hotspotChanged = false;
+    if (st.is_hotspot !== undefined) {
+      this.hotspot.isHotspot = Boolean(st.is_hotspot);
+      hotspotChanged = true;
+    }
+    if (st.hs_used_mb !== undefined) {
+      this.hotspot.usedMb = Number(st.hs_used_mb);
+      hotspotChanged = true;
+    }
+    if (st.hs_limit_mb !== undefined) {
+      this.hotspot.limitMb = Number(st.hs_limit_mb);
+      hotspotChanged = true;
+    }
+    if (st.hs_cutoff !== undefined) {
+      this.hotspot.cutoffActive = Boolean(st.hs_cutoff);
+      hotspotChanged = true;
+    }
+    if (hotspotChanged) {
+      this.hotspot.remainingMb = Math.max(0, parseFloat((this.hotspot.limitMb - this.hotspot.usedMb).toFixed(2)));
+    }
+
     this.petState = cur;
     StorageManager.savePetState(cur);
     this.notifyListeners("state", this.petState);
+    if (hotspotChanged) {
+      this.notifyListeners("hotspot", this.hotspot);
+    }
   }
 
   // 接收并沉淀新日记
@@ -353,21 +391,153 @@ class BuddyService {
     return this.isSimMode;
   }
 
-  // --- BLE 一键智能配网 (Smart Wi-Fi Provisioning via 0xFFB4 20-byte safe chunks) ---
-  async provisionWifi(ssid, password) {
-    if (!this.isBleMode || !this.bleClient.isConnected) {
-      throw new Error("请先通过 BLE 蓝牙连接 StickS3 设备后再执行配网");
+  // --- Wi-Fi / 手机热点智能配网 (Smart Wi-Fi / Mobile Hotspot Provisioning via 0xFFB4 20-byte safe chunks or HTTP) ---
+  async provisionWifi(arg1, arg2, arg3 = {}) {
+    let ssid = "";
+    let password = "";
+    let isHotspot = false;
+    let dataLimitMb = 100;
+    let cutoffEnabled = true;
+
+    if (typeof arg1 === "object" && arg1 !== null) {
+      ssid = arg1.ssid || "";
+      password = arg1.password || arg1.pwd || "";
+      isHotspot = Boolean(arg1.isHotspot);
+      dataLimitMb = Number(arg1.dataLimitMb !== undefined ? arg1.dataLimitMb : (arg1.limitMb || 100));
+      cutoffEnabled = arg1.cutoffEnabled !== undefined ? Boolean(arg1.cutoffEnabled) : true;
+    } else {
+      ssid = arg1 || "";
+      password = arg2 || "";
+      isHotspot = Boolean(arg3.isHotspot);
+      dataLimitMb = Number(arg3.dataLimitMb !== undefined ? arg3.dataLimitMb : 100);
+      cutoffEnabled = arg3.cutoffEnabled !== undefined ? Boolean(arg3.cutoffEnabled) : true;
     }
 
-    const payload = {
-      cmd: "wifi_cfg",
-      ssid: ssid,
-      pwd: password
-    };
+    if (!ssid || ssid.trim().length === 0) {
+      throw new Error("SSID 不能为空");
+    }
 
-    // 采用 20 字节安全 MTU 分片写入到 0xFFB4
-    await this.bleClient.injectAction("wifi_cfg", JSON.stringify(payload));
-    return { status: "provisioned", ssid };
+    // 更新本地 settings 存储
+    const currentSettings = StorageManager.getSettings();
+    currentSettings.wifiSsid = ssid;
+    currentSettings.isHotspot = isHotspot;
+    currentSettings.hotspotLimitMb = dataLimitMb;
+    currentSettings.hotspotCutoffEnabled = cutoffEnabled;
+    StorageManager.saveSettings(currentSettings);
+
+    this.hotspot.isHotspot = isHotspot;
+    this.hotspot.limitMb = dataLimitMb;
+    this.hotspot.cutoffEnabled = cutoffEnabled;
+    this.hotspot.remainingMb = Math.max(0, parseFloat((this.hotspot.limitMb - this.hotspot.usedMb).toFixed(2)));
+
+    // 1. 若 BLE 已连接，采用 20 字节安全 MTU 分片写入到 0xFFB4
+    if (this.isBleMode && this.bleClient.isConnected) {
+      const payload = {
+        action: "wifi_cfg",
+        cmd: "wifi_cfg",
+        ssid: ssid,
+        pwd: password,
+        is_hotspot: isHotspot,
+        data_limit_mb: dataLimitMb,
+        cutoff_enabled: cutoffEnabled
+      };
+      await this.bleClient.injectAction("wifi_cfg", JSON.stringify(payload));
+      this.notifyListeners("hotspot", this.hotspot);
+      return { status: "provisioned", mode: "ble", ssid, isHotspot, dataLimitMb };
+    }
+
+    // 2. 若 Wi-Fi 模式在线，通过 RESTful API 下发
+    if (this.isWifiMode) {
+      const res = await this.httpClient.connectWifiNetwork({
+        ssid,
+        password,
+        isHotspot,
+        limitMb: dataLimitMb,
+        cutoff: cutoffEnabled
+      });
+      this.notifyListeners("hotspot", this.hotspot);
+      return { status: "provisioned", mode: "wifi", data: res, ssid, isHotspot, dataLimitMb };
+    }
+
+    // 3. 仿真演示模式
+    if (this.isSimMode) {
+      this.handleIncomingDiary(`[仿真配网] 成功配置 ${isHotspot ? "手机移动热点" : "Wi-Fi网络"}: ${ssid}，流量上限 ${dataLimitMb}MB`, "📶 网络");
+      this.notifyListeners("hotspot", this.hotspot);
+      return { status: "provisioned", mode: "sim", ssid, isHotspot, dataLimitMb };
+    }
+
+    throw new Error("请先通过 BLE 蓝牙或 Wi-Fi 连接 StickS3 设备后再执行配网");
+  }
+
+  // --- 手机热点流量配额与熔断策略在线配置 ---
+  async updateHotspotConfig({ isHotspot = true, dataLimitMb, cutoffEnabled }) {
+    if (dataLimitMb !== undefined) this.hotspot.limitMb = Number(dataLimitMb);
+    if (isHotspot !== undefined) this.hotspot.isHotspot = Boolean(isHotspot);
+    if (cutoffEnabled !== undefined) this.hotspot.cutoffEnabled = Boolean(cutoffEnabled);
+    this.hotspot.remainingMb = Math.max(0, parseFloat((this.hotspot.limitMb - this.hotspot.usedMb).toFixed(2)));
+
+    const currentSettings = StorageManager.getSettings();
+    currentSettings.isHotspot = this.hotspot.isHotspot;
+    currentSettings.hotspotLimitMb = this.hotspot.limitMb;
+    currentSettings.hotspotCutoffEnabled = this.hotspot.cutoffEnabled;
+    StorageManager.saveSettings(currentSettings);
+
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("hotspot_cfg", JSON.stringify({
+        action: "hotspot_cfg",
+        is_hotspot: this.hotspot.isHotspot,
+        data_limit_mb: this.hotspot.limitMb,
+        cutoff_enabled: this.hotspot.cutoffEnabled
+      }));
+    } else if (this.isWifiMode) {
+      await this.httpClient.setHotspotConfig({
+        isHotspot: this.hotspot.isHotspot,
+        limitMb: this.hotspot.limitMb,
+        cutoff: this.hotspot.cutoffEnabled
+      });
+    }
+
+    this.notifyListeners("hotspot", this.hotspot);
+    return { success: true, hotspot: this.hotspot };
+  }
+
+  // --- 重置手机热点流量统计计数器 ---
+  async resetHotspotTraffic() {
+    this.hotspot.usedMb = 0;
+    this.hotspot.remainingMb = this.hotspot.limitMb;
+    this.hotspot.cutoffActive = false;
+    this.hotspot.warningIssued = false;
+
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("reset_traffic", JSON.stringify({ action: "reset_traffic" }));
+    } else if (this.isWifiMode) {
+      await this.httpClient.resetHotspotTraffic();
+    }
+
+    this.notifyListeners("hotspot", this.hotspot);
+    return { success: true, hotspot: this.hotspot };
+  }
+
+  // --- 查询热点流量实时数据 (针对 Wi-Fi 在线模式主动轮询) ---
+  async fetchHotspotTraffic() {
+    if (this.isWifiMode) {
+      try {
+        const data = await this.httpClient.getHotspotTraffic();
+        if (data) {
+          if (data.is_hotspot !== undefined) this.hotspot.isHotspot = Boolean(data.is_hotspot);
+          if (data.used_mb !== undefined) this.hotspot.usedMb = Number(data.used_mb);
+          if (data.limit_mb !== undefined) this.hotspot.limitMb = Number(data.limit_mb);
+          if (data.remaining_mb !== undefined) this.hotspot.remainingMb = Number(data.remaining_mb);
+          if (data.cutoff_active !== undefined) this.hotspot.cutoffActive = Boolean(data.cutoff_active);
+          if (data.cutoff_enabled !== undefined) this.hotspot.cutoffEnabled = Boolean(data.cutoff_enabled);
+          if (data.warning_issued !== undefined) this.hotspot.warningIssued = Boolean(data.warning_issued);
+          this.notifyListeners("hotspot", this.hotspot);
+        }
+      } catch (e) {
+        console.warn("[BuddyService] fetchHotspotTraffic error:", e);
+      }
+    }
+    return this.hotspot;
   }
 }
 

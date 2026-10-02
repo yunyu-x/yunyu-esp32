@@ -9,11 +9,26 @@
         <text class="app-subtitle">M5StickS3 · 微信随身陪伴中枢</text>
       </view>
     </view>
-    <view class="status-badge {{isConnected ? 'status-online' : 'status-offline'}}" bindtap="navigateToSettings">
-      <view class="status-dot"></view>
-      <text>{{connectionStatusText}}</text>
-      <text class="status-arrow">⚙️</text>
+    <view class="status-badge-group">
+      <view class="hotspot-badge" wx:if="{{hotspot && hotspot.isHotspot}}" bindtap="navigateToSettings">
+        <text>📱 {{hotspot.usedMb}}/{{hotspot.limitMb}}M</text>
+      </view>
+      <view class="status-badge {{isConnected ? 'status-online' : 'status-offline'}}" bindtap="navigateToSettings">
+        <view class="status-dot"></view>
+        <text>{{connectionStatusText}}</text>
+        <text class="status-arrow">⚙️</text>
+      </view>
     </view>
+  </view>
+
+  <!-- 手机共享热点超额熔断与预警提示栏 -->
+  <view class="hotspot-alert-banner" wx:if="{{hotspot && hotspot.cutoffActive}}" bindtap="navigateToSettings">
+    <text class="banner-icon">🛑</text>
+    <text class="banner-text">手机热点已达 {{hotspot.limitMb}}MB 上限，语音流已自动熔断保护。点击前往调整配额 ›</text>
+  </view>
+  <view class="hotspot-warn-banner" wx:elif="{{hotspot && hotspot.isHotspot && hotspot.usedMb >= hotspot.limitMb * 0.8}}" bindtap="navigateToSettings">
+    <text class="banner-icon">⚠️</text>
+    <text class="banner-text">热点流量已使用 {{hotspot.usedMb}}MB (超80%)，请留意流量消耗。点击管理 ›</text>
   </view>
 
   <!-- 灵宠主画板区 (采用高自适应 <avatar-canvas> 自定义组件) -->

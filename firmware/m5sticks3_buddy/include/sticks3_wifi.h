@@ -1183,10 +1183,14 @@ private:
             _web_server.send(200, "application/json; charset=utf-8", json);
         });
 
-        // 提交 Wi-Fi 配网参数并触发连接
+        // 提交 Wi-Fi 配网参数并触发连接 (支持手机共享热点与流量上限设置)
         _web_server.on("/wifi/connect", HTTP_POST, [this]() {
             String ssid = _web_server.hasArg("ssid") ? _web_server.arg("ssid") : "";
             String pass = _web_server.hasArg("pass") ? _web_server.arg("pass") : "";
+            bool is_hs = _web_server.hasArg("is_hotspot") ? (_web_server.arg("is_hotspot") == "1" || _web_server.arg("is_hotspot") == "true") : false;
+            uint32_t limit_mb = _web_server.hasArg("limit_mb") ? _web_server.arg("limit_mb").toInt() : 100;
+            bool cutoff = _web_server.hasArg("cutoff") ? (_web_server.arg("cutoff") == "1" || _web_server.arg("cutoff") == "true") : true;
+
             ssid.trim();
             if (ssid.length() == 0) {
                 _web_server.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"empty_ssid\"}");
@@ -1196,10 +1200,46 @@ private:
             // 保存到 NVS 并启动异步连接
             auto& cfg_mgr = StickS3ConfigManager::getInstance();
             cfg_mgr.saveWiFiConfig(ssid, pass);
+            cfg_mgr.saveHotspotConfig(is_hs, limit_mb, cutoff);
             cfg_mgr.startConnectSTA(ssid, pass);
 
-            _web_server.send(200, "application/json; charset=utf-8",
-                             "{\"status\":\"connecting\",\"ssid\":\"" + ssid + "\"}");
+            char json_resp[256];
+            snprintf(json_resp, sizeof(json_resp),
+                     "{\"status\":\"connecting\",\"ssid\":\"%s\",\"is_hotspot\":%s,\"limit_mb\":%u}",
+                     ssid.c_str(), is_hs ? "true" : "false", (unsigned)limit_mb);
+            _web_server.send(200, "application/json; charset=utf-8", json_resp);
+        });
+
+        // 手机共享热点数据流量遥测端点
+        _web_server.on("/hotspot/traffic", HTTP_GET, [this]() {
+            auto& cfg = StickS3ConfigManager::getInstance();
+            char json[300];
+            snprintf(json, sizeof(json),
+                     "{\"is_hotspot\":%s,\"used_mb\":%.2f,\"limit_mb\":%u,\"remaining_mb\":%.2f,\"cutoff_active\":%s,\"cutoff_enabled\":%s,\"warning_issued\":%s}",
+                     cfg.isHotspot() ? "true" : "false",
+                     cfg.getHotspotUsedMB(),
+                     (unsigned)cfg.getHotspotLimitMB(),
+                     cfg.getHotspotRemainingMB(),
+                     cfg.isHotspotCutoffActive() ? "true" : "false",
+                     cfg.isHotspotCutoffEnabled() ? "true" : "false",
+                     cfg.isHotspotWarningIssued() ? "true" : "false");
+            _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
+        // 手机共享热点策略动态配置端点
+        _web_server.on("/hotspot/config", HTTP_POST, [this]() {
+            bool is_hs = _web_server.hasArg("is_hotspot") ? (_web_server.arg("is_hotspot") == "1" || _web_server.arg("is_hotspot") == "true") : true;
+            uint32_t limit_mb = _web_server.hasArg("limit_mb") ? _web_server.arg("limit_mb").toInt() : 100;
+            bool cutoff = _web_server.hasArg("cutoff") ? (_web_server.arg("cutoff") == "1" || _web_server.arg("cutoff") == "true") : true;
+
+            StickS3ConfigManager::getInstance().saveHotspotConfig(is_hs, limit_mb, cutoff);
+            _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\",\"msg\":\"hotspot_configured\"}");
+        });
+
+        // 手机共享热点流量统计重置
+        _web_server.on("/hotspot/reset_traffic", HTTP_POST, [this]() {
+            StickS3ConfigManager::getInstance().resetHotspotTraffic();
+            _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\",\"msg\":\"traffic_reset\"}");
         });
 
         // 查询 Wi-Fi STA 联网状态
@@ -1210,11 +1250,14 @@ private:
             else if (cfg_mgr.getStaState() == STA_STATE_CONNECTING) st = "connecting";
             else if (cfg_mgr.getStaState() == STA_STATE_FAILED) st = "failed";
 
-            char json[256];
+            char json[300];
             snprintf(json, sizeof(json),
-                     "{\"sta_state\":\"%s\",\"sta_ip\":\"%s\",\"sta_ssid\":\"%s\",\"sta_rssi\":%d}",
+                     "{\"sta_state\":\"%s\",\"sta_ip\":\"%s\",\"sta_ssid\":\"%s\",\"sta_rssi\":%d,\"is_hotspot\":%s,\"hs_used_mb\":%.2f,\"hs_limit_mb\":%u}",
                      st.c_str(), cfg_mgr.getStaIP().c_str(),
-                     cfg_mgr.getConfig().wifi_ssid.c_str(), cfg_mgr.getStaRSSI());
+                     cfg_mgr.getConfig().wifi_ssid.c_str(), cfg_mgr.getStaRSSI(),
+                     cfg_mgr.isHotspot() ? "true" : "false",
+                     cfg_mgr.getHotspotUsedMB(),
+                     (unsigned)cfg_mgr.getHotspotLimitMB());
             _web_server.send(200, "application/json; charset=utf-8", json);
         });
 
@@ -1596,9 +1639,13 @@ private:
             json += "\"grooms\":" + String(st.total_grooms) + ",";
             json += "\"pets\":" + String(st.total_pets) + ",";
             json += "\"shakes\":" + String(st.total_shakes) + ",";
-            json += "\"convos\":" + String(st.total_convos) + ",";
+            auto& cfg = StickS3ConfigManager::getInstance();
             json += "\"diary\":\"" + st.current_diary + "\",";
-            json += "\"avatar_mode\":" + String(avatar.isAvatarMode() ? "true" : "false");
+            json += "\"avatar_mode\":" + String(avatar.isAvatarMode() ? "true" : "false") + ",";
+            json += "\"is_hotspot\":" + String(cfg.isHotspot() ? "true" : "false") + ",";
+            json += "\"hs_used_mb\":" + String(cfg.getHotspotUsedMB(), 2) + ",";
+            json += "\"hs_limit_mb\":" + String(cfg.getHotspotLimitMB()) + ",";
+            json += "\"hs_cutoff\":" + String(cfg.isHotspotCutoffActive() ? "true" : "false");
             json += "}";
             _web_server.send(200, "application/json; charset=utf-8", json);
         });

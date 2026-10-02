@@ -48,7 +48,11 @@ const DEFAULT_SETTINGS = {
   savedSsid: "",
   savedPwd: "",
   autoReconnect: true,
-  screenAvatarMode: true
+  screenAvatarMode: true,
+  isHotspot: false,
+  hotspotLimitMb: 100,
+  hotspotCutoffEnabled: true,
+  hotspotWarningEnabled: true
 };
 
 class StorageManager {

@@ -18,6 +18,7 @@
 #include <ArduinoJson.h>
 #include "sticks3_memory_store.h"
 #include "sticks3_avatar.h"
+#include "sticks3_wifi_config.h"
 
 namespace sticks3 {
 
@@ -95,6 +96,14 @@ public:
         doc_status["grooms"] = stats.total_grooms;
         doc_status["energy"] = stats.energy;
         doc_status["mood"] = (int)StickS3Avatar::getInstance().getMood();
+
+        // 手机共享热点状态与流量配额遥测
+        const auto& cfg = StickS3ConfigManager::getInstance();
+        doc_status["is_hotspot"] = cfg.isHotspot();
+        doc_status["hs_used_mb"] = cfg.getHotspotUsedMB();
+        doc_status["hs_limit_mb"] = cfg.getHotspotLimitMB();
+        doc_status["hs_cutoff"] = cfg.isHotspotCutoffActive();
+        doc_status["sta_ip"] = cfg.getStaIP();
 
         String json_status;
         serializeJson(doc_status, json_status);
@@ -213,6 +222,58 @@ public:
                 StickS3Avatar::getInstance().generateDiaryEntry("主人从手机同步了一条新的生活备忘给我。");
                 notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
             }
+        } else if (action == "wifi_cfg") {
+            String ssid = "";
+            String pwd = "";
+            bool is_hs = false;
+            uint32_t limit_mb = 100;
+            bool cutoff = true;
+
+            // 支持嵌套在 value 字段中的 JSON 字符串
+            String val_str = doc["value"] | "";
+            if (val_str.startsWith("{")) {
+                JsonDocument sub;
+                if (!deserializeJson(sub, val_str)) {
+                    ssid = sub["ssid"] | "";
+                    pwd = sub["pwd"] | (sub["pass"] | "");
+                    is_hs = sub["is_hotspot"] | false;
+                    limit_mb = sub["data_limit_mb"] | 100;
+                    cutoff = sub["cutoff_enabled"] | true;
+                }
+            }
+            if (ssid.length() == 0) {
+                ssid = doc["ssid"] | "";
+                pwd = doc["pwd"] | (doc["pass"] | "");
+                is_hs = doc["is_hotspot"] | false;
+                limit_mb = doc["data_limit_mb"] | 100;
+                cutoff = doc["cutoff_enabled"] | true;
+            }
+
+            if (ssid.length() > 0) {
+                auto& cfg_mgr = StickS3ConfigManager::getInstance();
+                cfg_mgr.saveWiFiConfig(ssid, pwd);
+                cfg_mgr.saveHotspotConfig(is_hs, limit_mb, cutoff);
+                cfg_mgr.startConnectSTA(ssid, pwd);
+
+                String diary_msg = String("主人通过蓝牙配网连接了 ") + (is_hs ? "手机移动热点[" : "Wi-Fi网络[") + ssid + "]";
+                if (is_hs && limit_mb > 0) {
+                    diary_msg += "，并设置了 " + String(limit_mb) + "MB 流量保护上限！";
+                }
+                StickS3Avatar::getInstance().generateDiaryEntry(diary_msg);
+                notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+            }
+        } else if (action == "hotspot_cfg" || action == "set_traffic_limit") {
+            bool is_hs = doc["is_hotspot"] | true;
+            uint32_t limit_mb = doc["data_limit_mb"] | (doc["value"] | 100);
+            bool cutoff = doc["cutoff_enabled"] | true;
+            StickS3ConfigManager::getInstance().saveHotspotConfig(is_hs, limit_mb, cutoff);
+            String msg = "已更新手机热点流量策略：上限 " + String(limit_mb) + "MB，自动熔断保护 " + (cutoff ? "开启" : "关闭");
+            StickS3Avatar::getInstance().generateDiaryEntry(msg);
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+        } else if (action == "reset_traffic") {
+            StickS3ConfigManager::getInstance().resetHotspotTraffic();
+            StickS3Avatar::getInstance().generateDiaryEntry("手机热点流量统计已重置为 0 MB。");
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
         }
         Serial.printf("[BLE-INJECT] Processed action: %s\n", action.c_str());
         updateSnapshots();

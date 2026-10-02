@@ -36,6 +36,13 @@ struct StickS3Config {
     bool wakeword_enabled;
     uint8_t wakeword_sensitivity;
     uint16_t wakeword_timeout_sec;
+    // 手机共享热点数据与流量限制管理
+    bool is_hotspot;                 // 是否为手机移动热点
+    uint32_t hotspot_limit_mb;       // 流量上限 (MB)，0 表示无限制
+    uint32_t hotspot_used_kb;        // 当前已用流量 (KB)
+    bool hotspot_cutoff_enabled;     // 达到 100% 流量上限是否自动熔断大模型连接保护流量
+    bool hotspot_warning_issued;     // 80% 警戒通知是否已下发
+    bool hotspot_cutoff_active;      // 是否正处于流量熔断保护状态
 };
 
 class StickS3ConfigManager {
@@ -45,7 +52,8 @@ public:
     StickS3ConfigManager()
         : _sta_state(STA_STATE_IDLE), _conn_start_time(0),
           _conn_timeout_ms(15000), _last_reconnect_attempt(0),
-          _auto_reconnect(true), _sta_ip("0.0.0.0"), _sta_rssi(0) {
+          _auto_reconnect(true), _sta_ip("0.0.0.0"), _sta_rssi(0),
+          _traffic_byte_accumulator(0), _last_nvs_flush_kb(0) {
         _cfg.bailian_model = "qwen3.8-omni-flash-realtime";
         _cfg.bailian_voice = "Tina";
         _cfg.bailian_ws_url = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
@@ -53,6 +61,13 @@ public:
         _cfg.wakeword_enabled = true;
         _cfg.wakeword_sensitivity = 75;
         _cfg.wakeword_timeout_sec = 8;
+        // 手机热点默认策略
+        _cfg.is_hotspot = false;
+        _cfg.hotspot_limit_mb = 100;
+        _cfg.hotspot_used_kb = 0;
+        _cfg.hotspot_cutoff_enabled = true;
+        _cfg.hotspot_warning_issued = false;
+        _cfg.hotspot_cutoff_active = false;
     }
 
     static StickS3ConfigManager& getInstance() {
@@ -112,16 +127,123 @@ public:
         _cfg.wakeword_sensitivity = (uint8_t)prefs.getUChar("ww_sens", 75);
         _cfg.wakeword_timeout_sec = prefs.getUShort("ww_tout", 8);
 
+        // 加载手机共享热点策略与流量累计
+        _cfg.is_hotspot = prefs.getBool("is_hs", false);
+        _cfg.hotspot_limit_mb = prefs.getUInt("hs_limit", 100);
+        _cfg.hotspot_used_kb = prefs.getUInt("hs_kb", 0);
+        _cfg.hotspot_cutoff_enabled = prefs.getBool("hs_cutoff", true);
+        _cfg.hotspot_warning_issued = false;
+        _cfg.hotspot_cutoff_active = (_cfg.is_hotspot && _cfg.hotspot_limit_mb > 0 && (_cfg.hotspot_used_kb / 1024) >= _cfg.hotspot_limit_mb);
+
         prefs.end();
 
-        Serial.printf("[NVS] Loaded config: SSID=\"%s\", BailianKey=%s, Model=\"%s\", Voice=\"%s\", WakeWord=%s(%u%%)\n",
+        Serial.printf("[NVS] Loaded config: SSID=\"%s\", Hotspot=%s(Limit:%uMB, Used:%.2fMB), BailianKey=%s, Model=\"%s\", Voice=\"%s\", WakeWord=%s(%u%%)\n",
                       _cfg.wifi_ssid.c_str(),
+                      _cfg.is_hotspot ? "YES" : "NO",
+                      (unsigned)_cfg.hotspot_limit_mb,
+                      (float)_cfg.hotspot_used_kb / 1024.0f,
                       _cfg.bailian_key.length() > 6 ? (_cfg.bailian_key.substring(0, 4) + "****").c_str() : "NotSet",
                       _cfg.bailian_model.c_str(),
                       _cfg.bailian_voice.c_str(),
                       _cfg.wakeword_enabled ? "ON" : "OFF",
                       (unsigned)_cfg.wakeword_sensitivity);
     }
+
+    bool saveHotspotConfig(bool is_hotspot, uint32_t limit_mb, bool cutoff_enabled = true) {
+        Preferences prefs;
+        if (!prefs.begin(NVS_NAMESPACE, false)) return false;
+
+        _cfg.is_hotspot = is_hotspot;
+        _cfg.hotspot_limit_mb = limit_mb;
+        _cfg.hotspot_cutoff_enabled = cutoff_enabled;
+        if (!_cfg.is_hotspot) {
+            _cfg.hotspot_cutoff_active = false;
+            _cfg.hotspot_warning_issued = false;
+        } else if (_cfg.hotspot_limit_mb > 0) {
+            _cfg.hotspot_cutoff_active = ((_cfg.hotspot_used_kb / 1024) >= _cfg.hotspot_limit_mb);
+        }
+
+        prefs.putBool("is_hs", is_hotspot);
+        prefs.putUInt("hs_limit", limit_mb);
+        prefs.putBool("hs_cutoff", cutoff_enabled);
+        prefs.end();
+
+        Serial.printf("[NVS] Saved Hotspot config: is_hotspot=%s, limit=%uMB, cutoff=%s\n",
+                      is_hotspot ? "true" : "false", (unsigned)limit_mb, cutoff_enabled ? "true" : "false");
+        return true;
+    }
+
+    void addNetworkTraffic(size_t rx_bytes, size_t tx_bytes) {
+        if (!_cfg.is_hotspot) return;
+
+        _traffic_byte_accumulator += (rx_bytes + tx_bytes);
+        if (_traffic_byte_accumulator >= 1024) {
+            uint32_t kb_delta = _traffic_byte_accumulator / 1024;
+            _traffic_byte_accumulator %= 1024;
+            _cfg.hotspot_used_kb += kb_delta;
+
+            // 检查 80% 警戒阈值
+            if (_cfg.hotspot_limit_mb > 0) {
+                uint32_t limit_kb = _cfg.hotspot_limit_mb * 1024;
+                if (_cfg.hotspot_used_kb >= (limit_kb * 8 / 10) && !_cfg.hotspot_warning_issued) {
+                    _cfg.hotspot_warning_issued = true;
+                    Serial.printf("[TRAFFIC-WARN] Hotspot traffic reached 80%% (%u KB / %u KB)\n",
+                                  (unsigned)_cfg.hotspot_used_kb, (unsigned)limit_kb);
+                }
+
+                // 检查 100% 熔断阈值
+                if (_cfg.hotspot_used_kb >= limit_kb) {
+                    _cfg.hotspot_cutoff_active = true;
+                    Serial.printf("[TRAFFIC-CUTOFF] Hotspot limit %u MB exceeded! Cloud streaming protected.\n",
+                                  (unsigned)_cfg.hotspot_limit_mb);
+                }
+            }
+
+            // 每增加 256KB 自动沉淀 NVS，保护 Flash 擦写寿命同时兼顾掉电保存
+            if (_cfg.hotspot_used_kb - _last_nvs_flush_kb >= 256) {
+                flushTrafficToNVS();
+            }
+        }
+    }
+
+    void flushTrafficToNVS() {
+        Preferences prefs;
+        if (prefs.begin(NVS_NAMESPACE, false)) {
+            prefs.putUInt("hs_kb", _cfg.hotspot_used_kb);
+            prefs.end();
+            _last_nvs_flush_kb = _cfg.hotspot_used_kb;
+        }
+    }
+
+    void resetHotspotTraffic() {
+        _cfg.hotspot_used_kb = 0;
+        _traffic_byte_accumulator = 0;
+        _last_nvs_flush_kb = 0;
+        _cfg.hotspot_warning_issued = false;
+        _cfg.hotspot_cutoff_active = false;
+        flushTrafficToNVS();
+        Serial.println("[TRAFFIC] Hotspot usage reset to 0 KB.");
+    }
+
+    float getHotspotUsedMB() const {
+        return (float)_cfg.hotspot_used_kb / 1024.0f;
+    }
+
+    uint32_t getHotspotLimitMB() const {
+        return _cfg.hotspot_limit_mb;
+    }
+
+    float getHotspotRemainingMB() const {
+        if (!_cfg.is_hotspot || _cfg.hotspot_limit_mb == 0) return 9999.0f;
+        float used = getHotspotUsedMB();
+        if (used >= (float)_cfg.hotspot_limit_mb) return 0.0f;
+        return (float)_cfg.hotspot_limit_mb - used;
+    }
+
+    bool isHotspot() const { return _cfg.is_hotspot; }
+    bool isHotspotCutoffActive() const { return _cfg.hotspot_cutoff_active; }
+    bool isHotspotCutoffEnabled() const { return _cfg.hotspot_cutoff_enabled; }
+    bool isHotspotWarningIssued() const { return _cfg.hotspot_warning_issued; }
 
     bool saveWakeWordConfig(bool enabled, uint8_t sensitivity, uint16_t timeout_sec = 8) {
         if (sensitivity > 100) sensitivity = 100;
@@ -305,6 +427,8 @@ private:
     bool _auto_reconnect;
     String _sta_ip;
     int _sta_rssi;
+    uint32_t _traffic_byte_accumulator;
+    uint32_t _last_nvs_flush_kb;
 };
 
 } // namespace sticks3
