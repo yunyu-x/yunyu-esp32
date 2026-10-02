@@ -243,10 +243,10 @@ public:
             Serial.println("[AUDIO] Allocated 256KB PSRAM stream ring buffer for LLM playback");
         }
 
-        // 5. 启动独立 FreeRTOS 音频流式播放任务 (Core 1, 优先级 3, 栈 4KB)
+        // 5. 启动独立 FreeRTOS 音频流式播放任务 (Core 1, 优先级 3, 栈 6KB 充裕保障)
         if (!_audio_task_handle) {
-            xTaskCreatePinnedToCore(audioTaskStatic, "audioTask", 4096, this, 3, &_audio_task_handle, 1);
-            Serial.println("[AUDIO] FreeRTOS audioTask pinned to Core 1 (Prio: 3)");
+            xTaskCreatePinnedToCore(audioTaskStatic, "audioTask", 6144, this, 3, &_audio_task_handle, 1);
+            Serial.println("[AUDIO] FreeRTOS audioTask pinned to Core 1 (Prio: 3, Stack: 6KB)");
         }
 
         _initialized = true;

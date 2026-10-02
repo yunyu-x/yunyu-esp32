@@ -114,6 +114,8 @@ public:
 };
 
 static StickS3Display display;
+static LGFX_Sprite canvas(&display);
+static bool canvas_ready = false;
 static BLEServer* pServer = nullptr;
 static BLECharacteristic* pTxCharacteristic = nullptr;
 static bool device_connected = false;
@@ -191,7 +193,8 @@ void onNewTextMessage(const String& msg, const String& source) {
 }
 
 // 专用汉字多行排版渲染引擎 (基于 LovyanGFX / M5GFX)
-void drawChineseText(StickS3Display& d, const String& text, int start_x, int start_y, int max_w, int line_height, uint16_t color, uint16_t bg, const lgfx::U8g2font* font = &fonts::efontCN_12) {
+template <typename DisplayType>
+void drawChineseText(DisplayType& d, const String& text, int start_x, int start_y, int max_w, int line_height, uint16_t color, uint16_t bg, const lgfx::U8g2font* font = &fonts::efontCN_12) {
     d.setFont(font);
     d.setTextDatum(TL_DATUM);
     d.setTextColor(color, bg);
@@ -568,6 +571,19 @@ void setup() {
     display.setBrightness(200); // 高亮模式 (200/255)
     Serial.printf("[BOOT] Display initialized: %d x %d\n", display.width(), display.height());
 
+    // 4.1 初始化防闪烁显存画布 (PSRAM Double-Buffer LGFX_Sprite, 135x240 @ 16-bit RGB565)
+    canvas.setColorDepth(16);
+    canvas.setPsram(true);
+    canvas_ready = (canvas.createSprite(SCREEN_W, SCREEN_H) != nullptr);
+    if (!canvas_ready) {
+        Serial.println("[BOOT] WARNING: PSRAM Canvas failed, trying internal SRAM...");
+        canvas.setPsram(false);
+        canvas_ready = (canvas.createSprite(SCREEN_W, SCREEN_H) != nullptr);
+    }
+    Serial.printf("[BOOT] Anti-Flicker Double-Buffer Canvas %s (135x240 in %s)!\n",
+                  canvas_ready ? "ONLINE" : "FAILED",
+                  canvas_ready ? (canvas.getBuffer() ? "PSRAM/SRAM" : "RAM") : "NONE");
+
     // 5. 绘制启动 7 色彩虹校色条 (验证屏幕物理点亮与中文字库自检)
     Serial.println("[BOOT] Drawing Rainbow Test Strip & Chinese Font Test...");
     display.startWrite();
@@ -701,6 +717,7 @@ void loop() {
     // 0.1 更新 Wi-Fi 遥测、后台扫描与多通道网络服务
     sticks3::StickS3WiFi::getInstance().updateTelemetry(imu_roll, imu_pitch);
     sticks3::StickS3WiFi::getInstance().update();
+    sticks3::StickS3BLESync::getInstance().update();
     sticks3::StickS3Audio::getInstance().update();
     sticks3::StickS3BailianClient::getInstance().update();
     uint8_t mic_rms = sticks3::StickS3Audio::getInstance().readMicRMS();
@@ -834,26 +851,30 @@ void loop() {
         }
 
         // 渲染审批警报页面 (红黄高亮)
-        display.startWrite();
-        display.fillScreen(TFT_MAROON);
-        display.fillRect(0, 0, SCREEN_W, 26, TFT_RED);
-        display.setTextColor(TFT_WHITE, TFT_RED);
-        display.setTextDatum(MC_DATUM);
-        display.drawString("! APPROVAL !", SCREEN_W / 2, 13);
+        LovyanGFX& out_d = canvas_ready ? static_cast<LovyanGFX&>(canvas) : static_cast<LovyanGFX&>(display);
+        out_d.startWrite();
+        out_d.fillScreen(TFT_MAROON);
+        out_d.fillRect(0, 0, SCREEN_W, 26, TFT_RED);
+        out_d.setTextColor(TFT_WHITE, TFT_RED);
+        out_d.setTextDatum(MC_DATUM);
+        out_d.drawString("! APPROVAL !", SCREEN_W / 2, 13);
 
-        display.setTextColor(TFT_YELLOW, TFT_MAROON);
-        display.setTextDatum(ML_DATUM);
-        display.drawString("Tool: " + String(perm.tool.c_str()), 6, 38);
+        out_d.setTextColor(TFT_YELLOW, TFT_MAROON);
+        out_d.setTextDatum(ML_DATUM);
+        out_d.drawString("Tool: " + String(perm.tool.c_str()), 6, 38);
 
-        display.setTextColor(TFT_WHITE, TFT_MAROON);
-        display.drawString("Cmd: " + String(perm.command.c_str()), 6, 58);
+        out_d.setTextColor(TFT_WHITE, TFT_MAROON);
+        out_d.drawString("Cmd: " + String(perm.command.c_str()), 6, 58);
 
-        display.fillRect(0, 185, SCREEN_W, 55, TFT_BLACK);
-        display.setTextColor(TFT_GREEN, TFT_BLACK);
-        display.drawString("[A] Approve", 10, 198);
-        display.setTextColor(TFT_RED, TFT_BLACK);
-        display.drawString("[B] Deny", 10, 220);
-        display.endWrite();
+        out_d.fillRect(0, 185, SCREEN_W, 55, TFT_BLACK);
+        out_d.setTextColor(TFT_GREEN, TFT_BLACK);
+        out_d.drawString("[A] Approve", 10, 198);
+        out_d.setTextColor(TFT_RED, TFT_BLACK);
+        out_d.drawString("[B] Deny", 10, 220);
+        out_d.endWrite();
+        if (canvas_ready) {
+            canvas.pushSprite(0, 0);
+        }
     } else {
         auto& bl = sticks3::StickS3BailianClient::getInstance();
         auto& audio = sticks3::StickS3Audio::getInstance();
@@ -936,9 +957,11 @@ void loop() {
         if (millis() - last_display_draw >= 66) {
             last_display_draw = millis();
 
+            LovyanGFX& out_d = canvas_ready ? static_cast<LovyanGFX&>(canvas) : static_cast<LovyanGFX&>(display);
+            out_d.startWrite();
+
             g_pet_avatar_mode = sticks3::StickS3Avatar::getInstance().isAvatarMode();
             if (g_pet_avatar_mode) {
-                display.startWrite();
                 String subtitle = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? bl.getAiReply() : (bl.getUserQuery().length() > 0 ? bl.getUserQuery() : latest_ble_msg);
                 if (subtitle.length() == 0) subtitle = "按正面[A]键说话，摇摇我有惊喜~";
                 auto cur_m = sticks3::StickS3Avatar::getInstance().getMood();
@@ -951,60 +974,57 @@ void loop() {
                              (cur_m == sticks3::MOOD_HAPPY) ? "开心" :
                              (cur_m == sticks3::MOOD_DIZZY) ? "晕眩" :
                              (cur_m == sticks3::MOOD_SLEEP) ? "睡眠中" : "就绪";
-                sticks3::StickS3Avatar::getInstance().render(display, subtitle, tag, device_connected, cfg_mgr.isStaConnected(), cfg_mgr.isHotspot());
-                drawChineseText(display, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
-                display.endWrite();
+                sticks3::StickS3Avatar::getInstance().render(out_d, subtitle, tag, device_connected, cfg_mgr.isStaConnected(), cfg_mgr.isHotspot());
+                drawChineseText(out_d, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
             } else {
-                display.startWrite();
-
         // 1. 顶部标题栏 (0 ~ 22, 展现 BLE 与 WiFi 状态指示徽章)
         uint16_t top_theme = cfg_mgr.isStaConnected() ? theme_color : 0x0841;
-        display.fillRect(0, 0, SCREEN_W, 20, top_theme);
-        display.setTextColor(TFT_WHITE, top_theme);
-        display.setTextDatum(ML_DATUM);
-        display.drawString("StickS3", 4, 10);
+        out_d.fillRect(0, 0, SCREEN_W, 20, top_theme);
+        out_d.setTextColor(TFT_WHITE, top_theme);
+        out_d.setTextDatum(ML_DATUM);
+        out_d.drawString("StickS3", 4, 10);
 
         // 蓝牙连接标志 (BLE 已连蓝青标志)
         if (device_connected) {
-            display.fillRect(54, 2, 32, 16, 0x03FF); // 霓虹青底
-            display.setTextColor(0x0000, 0x03FF);
-            display.setTextDatum(MC_DATUM);
-            display.drawString("BLE", 70, 10);
+            out_d.fillRect(54, 2, 32, 16, 0x03FF); // 霓虹青底
+            out_d.setTextColor(0x0000, 0x03FF);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString("BLE", 70, 10);
         } else {
-            display.drawRect(54, 2, 32, 16, TFT_DARKGREY);
-            display.setTextColor(TFT_LIGHTGREY, top_theme);
-            display.setTextDatum(MC_DATUM);
-            display.drawString("BLE", 70, 10);
+            out_d.drawRect(54, 2, 32, 16, TFT_DARKGREY);
+            out_d.setTextColor(TFT_LIGHTGREY, top_theme);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString("BLE", 70, 10);
         }
 
         // 网络联网标志: 手机热点显示橙色 "HOT", Wi-Fi 宽带显示亮绿 "WiFi", 未联网亮红标 "!NET"
         if (cfg_mgr.isStaConnected()) {
             if (cfg_mgr.isHotspot()) {
-                display.fillRect(90, 2, 42, 16, 0xFD20); // 暖橙底 (手机热点)
-                display.setTextColor(0x0000, 0xFD20);
-                display.setTextDatum(MC_DATUM);
-                display.drawString("HOT", 111, 10);
+                out_d.fillRect(90, 2, 42, 16, 0xFD20); // 暖橙底 (手机热点)
+                out_d.setTextColor(0x0000, 0xFD20);
+                out_d.setTextDatum(MC_DATUM);
+                out_d.drawString("HOT", 111, 10);
             } else {
-                display.fillRect(90, 2, 42, 16, 0x07E0); // 亮绿底 (Wi-Fi 宽带)
-                display.setTextColor(0x0000, 0x07E0);
-                display.setTextDatum(MC_DATUM);
-                display.drawString("WiFi", 111, 10);
+                out_d.fillRect(90, 2, 42, 16, 0x07E0); // 亮绿底 (Wi-Fi 宽带)
+                out_d.setTextColor(0x0000, 0x07E0);
+                out_d.setTextDatum(MC_DATUM);
+                out_d.drawString("WiFi", 111, 10);
             }
         } else {
-            display.fillRect(90, 2, 42, 16, 0xF800); // 鲜红警示底 (断网)
-            display.setTextColor(0xFFFF, 0xF800);
-            display.setTextDatum(MC_DATUM);
-            display.drawString("!NET", 111, 10);
+            out_d.fillRect(90, 2, 42, 16, 0xF800); // 鲜红警示底 (断网)
+            out_d.setTextColor(0xFFFF, 0xF800);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString("!NET", 111, 10);
         }
 
         // 2. 信息卡片区 (26 ~ 68)
-        display.fillRect(0, 26, SCREEN_W, 42, TFT_DARKGREY);
-        display.setTextColor(TFT_YELLOW, TFT_DARKGREY);
-        display.setTextDatum(ML_DATUM);
+        out_d.fillRect(0, 26, SCREEN_W, 42, TFT_DARKGREY);
+        out_d.setTextColor(TFT_YELLOW, TFT_DARKGREY);
+        out_d.setTextDatum(ML_DATUM);
 
         char buf[40];
         snprintf(buf, sizeof(buf), "Vbat: %.2fV", battery_voltage);
-        display.drawString(buf, 4, 35);
+        out_d.drawString(buf, 4, 35);
 
         // 显示百炼大模型状态
         String bl_str = "BL: " + bl_client.getStateName();
@@ -1014,28 +1034,28 @@ void loop() {
         else if (bl_client.getState() == sticks3::BL_STATE_THINKING) bl_color = TFT_YELLOW;
         else if (bl_client.getState() == sticks3::BL_STATE_INTERRUPTED) bl_color = TFT_RED;
         else if (bl_client.isConnected()) bl_color = TFT_GREENYELLOW;
-        display.setTextColor(bl_color, TFT_DARKGREY);
-        display.drawString(bl_str.substring(0, 10), 66, 35);
+        out_d.setTextColor(bl_color, TFT_DARKGREY);
+        out_d.drawString(bl_str.substring(0, 10), 66, 35);
 
         // 显示 Wi-Fi 状态
         if (cfg_mgr.isStaConnected()) {
             snprintf(buf, sizeof(buf), "%s: %ddBm", cfg_mgr.isHotspot() ? "HOT" : "STA", cfg_mgr.getStaRSSI());
-            display.setTextColor(cfg_mgr.isHotspot() ? 0xFD20 : TFT_GREENYELLOW, TFT_DARKGREY);
+            out_d.setTextColor(cfg_mgr.isHotspot() ? 0xFD20 : TFT_GREENYELLOW, TFT_DARKGREY);
         } else if (cfg_mgr.getStaState() == sticks3::STA_STATE_CONNECTING) {
             snprintf(buf, sizeof(buf), "STA: Conn...");
-            display.setTextColor(TFT_YELLOW, TFT_DARKGREY);
+            out_d.setTextColor(TFT_YELLOW, TFT_DARKGREY);
         } else {
             int wf_cnt = sticks3::StickS3WiFi::getInstance().getNetworkCount();
             snprintf(buf, sizeof(buf), "WiFi: %d AP", wf_cnt);
-            display.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
+            out_d.setTextColor(TFT_LIGHTGREY, TFT_DARKGREY);
         }
-        display.drawString(buf, 4, 53);
+        out_d.drawString(buf, 4, 53);
 
         snprintf(buf, sizeof(buf), "W:%lu I:%lu",
                  (unsigned long)sticks3::StickS3WakeWordEngine::getInstance().getTotalWakeCount(),
                  (unsigned long)bl_client.getTotalInterrupts());
-        display.setTextColor(TFT_WHITE, TFT_DARKGREY);
-        display.drawString(buf, 66, 53);
+        out_d.setTextColor(TFT_WHITE, TFT_DARKGREY);
+        out_d.drawString(buf, 66, 53);
 
         // 3. 手机蓝牙/WiFi多通道消息与大模型语音交互展示区 (70 ~ 138)
         auto& audio_inst = sticks3::StickS3Audio::getInstance();
@@ -1077,109 +1097,109 @@ void loop() {
                 }
             }
 
-            display.fillRect(0, 70, SCREEN_W, 16, hdr_bg);
-            display.setTextColor(TFT_WHITE, hdr_bg);
-            display.setTextDatum(MC_DATUM);
-            display.drawString(hdr_txt, SCREEN_W / 2, 78);
+            out_d.fillRect(0, 70, SCREEN_W, 16, hdr_bg);
+            out_d.setTextColor(TFT_WHITE, hdr_bg);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString(hdr_txt, SCREEN_W / 2, 78);
 
-            display.fillRect(0, 86, SCREEN_W, 52, TFT_BLACK);
-            display.drawRect(0, 86, SCREEN_W, 52, hdr_bg);
+            out_d.fillRect(0, 86, SCREEN_W, 52, TFT_BLACK);
+            out_d.drawRect(0, 86, SCREEN_W, 52, hdr_bg);
 
             // 实时流式渲染大模型问答汉字
             if (bl_client.getState() == sticks3::BL_STATE_ERROR) {
                 String err_str = "异常: " + bl_client.getLastError();
-                drawChineseText(display, err_str, 6, 90, SCREEN_W - 12, 14, TFT_RED, TFT_BLACK, &fonts::efontCN_12);
+                drawChineseText(out_d, err_str, 6, 90, SCREEN_W - 12, 14, TFT_RED, TFT_BLACK, &fonts::efontCN_12);
             } else if (bl_client.getAiReply().length() > 0) {
                 String reply_str = "AI: " + bl_client.getAiReply();
-                drawChineseText(display, reply_str, 6, 90, SCREEN_W - 12, 14, TFT_YELLOW, TFT_BLACK, &fonts::efontCN_12);
+                drawChineseText(out_d, reply_str, 6, 90, SCREEN_W - 12, 14, TFT_YELLOW, TFT_BLACK, &fonts::efontCN_12);
             } else if (bl_client.getUserQuery().length() > 0) {
                 String query_str = "你: " + bl_client.getUserQuery();
-                drawChineseText(display, query_str, 6, 90, SCREEN_W - 12, 14, TFT_CYAN, TFT_BLACK, &fonts::efontCN_12);
+                drawChineseText(out_d, query_str, 6, 90, SCREEN_W - 12, 14, TFT_CYAN, TFT_BLACK, &fonts::efontCN_12);
             } else {
                 auto& cfg_ww = sticks3::StickS3ConfigManager::getInstance().getConfig();
                 if (cfg_ww.wakeword_enabled && !bl_client.isWakeWindowOpen()) {
-                    drawChineseText(display, "呼唤【悄悄】唤醒\n随时打断与流式问答\n离线声学匹配引擎", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
+                    drawChineseText(out_d, "呼唤【悄悄】唤醒\n随时打断与流式问答\n离线声学匹配引擎", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
                 } else {
-                    drawChineseText(display, "对准硅麦讲话\n支持全双工交互\n随时开口即可打断", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
+                    drawChineseText(out_d, "对准硅麦讲话\n支持全双工交互\n随时开口即可打断", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
                 }
             }
         } else if (is_recording) {
             // 录音状态专用高亮卡片 (红底 + 倒计时 + 能量动态)
-            display.fillRect(0, 70, SCREEN_W, 16, TFT_RED);
-            display.setTextColor(TFT_WHITE, TFT_RED);
-            display.setTextDatum(MC_DATUM);
-            display.drawString("● 正在录音 (REC)", SCREEN_W / 2, 78);
+            out_d.fillRect(0, 70, SCREEN_W, 16, TFT_RED);
+            out_d.setTextColor(TFT_WHITE, TFT_RED);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString("● 正在录音 (REC)", SCREEN_W / 2, 78);
 
-            display.fillRect(0, 86, SCREEN_W, 52, TFT_BLACK);
-            display.drawRect(0, 86, SCREEN_W, 52, TFT_RED);
+            out_d.fillRect(0, 86, SCREEN_W, 52, TFT_BLACK);
+            out_d.drawRect(0, 86, SCREEN_W, 52, TFT_RED);
 
             char rec_str[32];
             snprintf(rec_str, sizeof(rec_str), "%.1fs / 10.0s", (float)audio_inst.getRecordDurationMs() / 1000.0f);
-            display.setTextColor(TFT_YELLOW, TFT_BLACK);
-            display.setTextDatum(MC_DATUM);
-            display.drawString(rec_str, SCREEN_W / 2, 98);
+            out_d.setTextColor(TFT_YELLOW, TFT_BLACK);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString(rec_str, SCREEN_W / 2, 98);
 
-            drawChineseText(display, "对准硅麦讲话\n按[A]键提前保存", 6, 110, SCREEN_W - 12, 14, TFT_WHITE, TFT_BLACK, &fonts::efontCN_12);
+            drawChineseText(out_d, "对准硅麦讲话\n按[A]键提前保存", 6, 110, SCREEN_W - 12, 14, TFT_WHITE, TFT_BLACK, &fonts::efontCN_12);
         } else if (is_playing_stream) {
             // 播放网页下发音频专用卡片 (青蓝底)
-            display.fillRect(0, 70, SCREEN_W, 16, 0x0320);
-            display.setTextColor(TFT_WHITE, 0x0320);
-            display.setTextDatum(MC_DATUM);
-            display.drawString("▶ 正在播放网页音频", SCREEN_W / 2, 78);
+            out_d.fillRect(0, 70, SCREEN_W, 16, 0x0320);
+            out_d.setTextColor(TFT_WHITE, 0x0320);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString("▶ 正在播放网页音频", SCREEN_W / 2, 78);
 
-            display.fillRect(0, 86, SCREEN_W, 52, TFT_BLACK);
-            display.drawRect(0, 86, SCREEN_W, 52, TFT_CYAN);
+            out_d.fillRect(0, 86, SCREEN_W, 52, TFT_BLACK);
+            out_d.drawRect(0, 86, SCREEN_W, 52, TFT_CYAN);
 
             int p_fill = static_cast<int>(audio_inst.getPlaybackProgress() * (SCREEN_W - 20));
             if (p_fill < 0) p_fill = 0;
             if (p_fill > SCREEN_W - 20) p_fill = SCREEN_W - 20;
-            display.drawRect(10, 96, SCREEN_W - 20, 8, TFT_DARKGREY);
-            if (p_fill > 0) display.fillRect(10, 96, p_fill, 8, TFT_CYAN);
+            out_d.drawRect(10, 96, SCREEN_W - 20, 8, TFT_DARKGREY);
+            if (p_fill > 0) out_d.fillRect(10, 96, p_fill, 8, TFT_CYAN);
 
-            drawChineseText(display, "AW8737 功放输出\n高保真回放中...", 6, 110, SCREEN_W - 12, 14, TFT_CYAN, TFT_BLACK, &fonts::efontCN_12);
+            drawChineseText(out_d, "AW8737 功放输出\n高保真回放中...", 6, 110, SCREEN_W - 12, 14, TFT_CYAN, TFT_BLACK, &fonts::efontCN_12);
         } else {
             bool is_recent = (millis() - last_ble_msg_time < 8000) && (total_ble_msgs_received > 0);
             uint16_t card_border = is_recent ? TFT_YELLOW : (device_connected ? TFT_CYAN : (sticks3::StickS3WiFi::getInstance().getConnectedStations() > 0 ? TFT_GREENYELLOW : TFT_DARKGREY));
 
-            display.fillRect(0, 70, SCREEN_W, 16, is_recent ? TFT_YELLOW : (device_connected ? TFT_NAVY : (sticks3::StickS3WiFi::getInstance().getConnectedStations() > 0 ? 0x0320 : TFT_BLACK)));
-            display.setTextColor(is_recent ? TFT_BLACK : TFT_CYAN, is_recent ? TFT_YELLOW : (device_connected ? TFT_NAVY : (sticks3::StickS3WiFi::getInstance().getConnectedStations() > 0 ? 0x0320 : TFT_BLACK)));
-            display.setTextDatum(MC_DATUM);
+            out_d.fillRect(0, 70, SCREEN_W, 16, is_recent ? TFT_YELLOW : (device_connected ? TFT_NAVY : (sticks3::StickS3WiFi::getInstance().getConnectedStations() > 0 ? 0x0320 : TFT_BLACK)));
+            out_d.setTextColor(is_recent ? TFT_BLACK : TFT_CYAN, is_recent ? TFT_YELLOW : (device_connected ? TFT_NAVY : (sticks3::StickS3WiFi::getInstance().getConnectedStations() > 0 ? 0x0320 : TFT_BLACK)));
+            out_d.setTextDatum(MC_DATUM);
             if (total_ble_msgs_received > 0) {
                 snprintf(buf, sizeof(buf), is_recent ? "* 新消息 (#%lu) *" : "消息回显 (#%lu):", (unsigned long)total_ble_msgs_received);
-                display.drawString(buf, SCREEN_W / 2, 78);
+                out_d.drawString(buf, SCREEN_W / 2, 78);
             } else if (device_connected) {
-                display.drawString("BLE 已就绪", SCREEN_W / 2, 78);
+                out_d.drawString("BLE 已就绪", SCREEN_W / 2, 78);
             } else if (sticks3::StickS3WiFi::getInstance().getConnectedStations() > 0) {
-                display.drawString("WiFi 已连接", SCREEN_W / 2, 78);
+                out_d.drawString("WiFi 已连接", SCREEN_W / 2, 78);
             } else {
-                display.drawString("等待手机连接...", SCREEN_W / 2, 78);
+                out_d.drawString("等待手机连接...", SCREEN_W / 2, 78);
             }
 
-            display.fillRect(0, 86, SCREEN_W, 52, TFT_BLACK);
-            display.drawRect(0, 86, SCREEN_W, 52, card_border);
+            out_d.fillRect(0, 86, SCREEN_W, 52, TFT_BLACK);
+            out_d.drawRect(0, 86, SCREEN_W, 52, card_border);
 
             if (total_ble_msgs_received > 0 && latest_ble_msg.length() > 0) {
-                drawChineseText(display, latest_ble_msg, 6, 90, SCREEN_W - 12, 14, is_recent ? TFT_YELLOW : TFT_WHITE, TFT_BLACK, &fonts::efontCN_12);
+                drawChineseText(out_d, latest_ble_msg, 6, 90, SCREEN_W - 12, 14, is_recent ? TFT_YELLOW : TFT_WHITE, TFT_BLACK, &fonts::efontCN_12);
             } else if (audio_inst.hasDeviceAudio()) {
                 char dev_aud_str[64];
                 snprintf(dev_aud_str, sizeof(dev_aud_str), "已录音 #%u (%.1fs)\n网页端可直接播放\nIP: 192.168.4.1",
                          (unsigned)audio_inst.getDeviceAudioId(), (float)audio_inst.getRecordDurationMs() / 1000.0f);
-                drawChineseText(display, dev_aud_str, 6, 90, SCREEN_W - 12, 14, TFT_GREEN, TFT_BLACK, &fonts::efontCN_12);
+                drawChineseText(out_d, dev_aud_str, 6, 90, SCREEN_W - 12, 14, TFT_GREEN, TFT_BLACK, &fonts::efontCN_12);
             } else if (device_connected) {
-                drawChineseText(display, "BLE 已连接!\n在手机小程序中\n发送任意汉字", 6, 90, SCREEN_W - 12, 14, TFT_GREEN, TFT_BLACK, &fonts::efontCN_12);
+                drawChineseText(out_d, "BLE 已连接!\n在手机小程序中\n发送任意汉字", 6, 90, SCREEN_W - 12, 14, TFT_GREEN, TFT_BLACK, &fonts::efontCN_12);
             } else if (sticks3::StickS3WiFi::getInstance().getConnectedStations() > 0) {
-                drawChineseText(display, "手机已连热点!\n小程序/网页发汉字\nIP: 192.168.4.1", 6, 90, SCREEN_W - 12, 14, TFT_GREENYELLOW, TFT_BLACK, &fonts::efontCN_12);
+                drawChineseText(out_d, "手机已连热点!\n小程序/网页发汉字\nIP: 192.168.4.1", 6, 90, SCREEN_W - 12, 14, TFT_GREENYELLOW, TFT_BLACK, &fonts::efontCN_12);
             } else {
-                drawChineseText(display, "WiFi: StickS3-Buddy\n网页配网/百炼\nIP: 192.168.4.1", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
+                drawChineseText(out_d, "WiFi: StickS3-Buddy\n网页配网/百炼\nIP: 192.168.4.1", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
             }
         }
-        display.setFont(nullptr);
+        out_d.setFont(nullptr);
 
         // 4. 中下部：IMU 动态姿态水准仪 (140 ~ 194)
-        display.fillRect(0, 140, SCREEN_W, 54, TFT_BLACK);
-        display.drawRect(2, 140, SCREEN_W - 4, 54, TFT_DARKGREY);
-        display.drawLine(SCREEN_W / 2, 142, SCREEN_W / 2, 192, 0x18C3); // 浅灰十字交叉线
-        display.drawLine(4, 166, SCREEN_W - 4, 166, 0x18C3);
+        out_d.fillRect(0, 140, SCREEN_W, 54, TFT_BLACK);
+        out_d.drawRect(2, 140, SCREEN_W - 4, 54, TFT_DARKGREY);
+        out_d.drawLine(SCREEN_W / 2, 142, SCREEN_W / 2, 192, 0x18C3); // 浅灰十字交叉线
+        out_d.drawLine(4, 166, SCREEN_W - 4, 166, 0x18C3);
 
         // 水准球映射 (Y基准 166)
         int ball_x = SCREEN_W / 2 + static_cast<int>(imu_roll * 1.0f);
@@ -1189,38 +1209,38 @@ void loop() {
         if (ball_y < 146) ball_y = 146;
         if (ball_y > 186) ball_y = 186;
 
-        display.fillCircle(ball_x, ball_y, 5, TFT_RED);
-        display.drawCircle(ball_x, ball_y, 5, TFT_WHITE);
+        out_d.fillCircle(ball_x, ball_y, 5, TFT_RED);
+        out_d.drawCircle(ball_x, ball_y, 5, TFT_WHITE);
 
         // 实时姿态角数值
         char ang_buf[32];
         snprintf(ang_buf, sizeof(ang_buf), "R:%+.0f P:%+.0f", imu_roll, imu_pitch);
-        display.setTextColor(TFT_YELLOW, TFT_BLACK);
-        display.setTextDatum(MR_DATUM);
-        display.drawString(ang_buf, SCREEN_W - 6, 186);
+        out_d.setTextColor(TFT_YELLOW, TFT_BLACK);
+        out_d.setTextDatum(MR_DATUM);
+        out_d.drawString(ang_buf, SCREEN_W - 6, 186);
 
         // 5. 底部按键指引与麦克风实时 VU Meter (196 ~ 240)
-        display.fillRect(0, 196, SCREEN_W, 20, TFT_NAVY);
-        display.setTextColor(TFT_WHITE, TFT_NAVY);
-        display.setTextDatum(MC_DATUM);
+        out_d.fillRect(0, 196, SCREEN_W, 20, TFT_NAVY);
+        out_d.setTextColor(TFT_WHITE, TFT_NAVY);
+        out_d.setTextDatum(MC_DATUM);
         if (bl_client.getState() == sticks3::BL_STATE_SPEAKING) {
-            display.drawString("[A] 立即打断  [B] 5V/扫描", SCREEN_W / 2, 206);
+            out_d.drawString("[A] 立即打断  [B] 5V/扫描", SCREEN_W / 2, 206);
         } else if (bl_client.isConnected()) {
-            display.drawString("[A] 新问答  [B] 5V/扫描", SCREEN_W / 2, 206);
+            out_d.drawString("[A] 新问答  [B] 5V/扫描", SCREEN_W / 2, 206);
         } else if (audio_inst.isRecording()) {
-            display.drawString("[A] 停止保存  [B] 5V/WiFi", SCREEN_W / 2, 206);
+            out_d.drawString("[A] 停止保存  [B] 5V/WiFi", SCREEN_W / 2, 206);
         } else {
-            display.drawString("[A] 问答/录音  [B] 5V/WiFi", SCREEN_W / 2, 206);
+            out_d.drawString("[A] 问答/录音  [B] 5V/WiFi", SCREEN_W / 2, 206);
         }
 
         // 动态麦克风音量能量条 (218 ~ 238)
-        display.fillRect(0, 218, SCREEN_W, 22, TFT_BLACK);
-        display.setTextColor(TFT_CYAN, TFT_BLACK);
-        display.setTextDatum(ML_DATUM);
-        display.drawString("MIC", 4, 228);
+        out_d.fillRect(0, 218, SCREEN_W, 22, TFT_BLACK);
+        out_d.setTextColor(TFT_CYAN, TFT_BLACK);
+        out_d.setTextDatum(ML_DATUM);
+        out_d.drawString("MIC", 4, 228);
 
         // 动态音量柱外框与动态填充
-        display.drawRect(26, 223, 72, 11, TFT_DARKGREY);
+        out_d.drawRect(26, 223, 72, 11, TFT_DARKGREY);
         int bar_fill = (mic_rms * 68) / 100;
         if (bar_fill > 68) bar_fill = 68;
         uint16_t vu_color = TFT_GREEN;
@@ -1228,18 +1248,21 @@ void loop() {
         else if (mic_rms > 40) vu_color = TFT_YELLOW;
 
         if (bar_fill > 0) {
-            display.fillRect(28, 225, bar_fill, 7, vu_color);
+            out_d.fillRect(28, 225, bar_fill, 7, vu_color);
         }
         if (bar_fill < 68) {
-            display.fillRect(28 + bar_fill, 225, 68 - bar_fill, 7, TFT_BLACK);
+            out_d.fillRect(28 + bar_fill, 225, 68 - bar_fill, 7, TFT_BLACK);
         }
 
         snprintf(buf, sizeof(buf), "%2d%%", mic_rms);
-        display.setTextColor(vu_color, TFT_BLACK);
-        display.setTextDatum(MR_DATUM);
-        display.drawString(buf, SCREEN_W - 4, 228);
+        out_d.setTextColor(vu_color, TFT_BLACK);
+        out_d.setTextDatum(MR_DATUM);
+        out_d.drawString(buf, SCREEN_W - 4, 228);
+            }
 
-        display.endWrite();
+            out_d.endWrite();
+            if (canvas_ready) {
+                canvas.pushSprite(0, 0);
             }
         }
     }

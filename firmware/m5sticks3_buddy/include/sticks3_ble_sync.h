@@ -380,11 +380,42 @@ public:
         updateSnapshots();
     }
 
+    // 由 BLE 中断任务 (BTC_TASK) 调用：极速存入队列，栈消耗 < 32 字节，杜绝 BTC_TASK 栈溢出
+    void queueIncomingBytes(const uint8_t* data, size_t len) {
+        if (!data || len == 0) return;
+        portENTER_CRITICAL(&_rx_mux);
+        if (_rx_queue.size() + len <= 2048) {
+            _rx_queue.insert(_rx_queue.end(), data, data + len);
+            _rx_pending = true;
+        }
+        portEXIT_CRITICAL(&_rx_mux);
+    }
+
+    // 由 Arduino 主循环 loop() (Core 1, loopTask, 16KB 栈) 周期性调用：安全重组分片并执行
+    void update() {
+        if (!_rx_pending) return;
+
+        std::vector<uint8_t> batch;
+        portENTER_CRITICAL(&_rx_mux);
+        if (!_rx_queue.empty()) {
+            batch.swap(_rx_queue);
+        }
+        _rx_pending = false;
+        portEXIT_CRITICAL(&_rx_mux);
+
+        if (!batch.empty()) {
+            feedInjectBytes(batch.data(), batch.size());
+        }
+    }
+
 private:
     StickS3BLESync()
         : _pCharMemory(nullptr), _pCharStatus(nullptr),
           _pCharDiary(nullptr), _pCharInject(nullptr),
-          _inject_accum_buf(""), _last_inject_rx_time(0) {}
+          _inject_accum_buf(""), _last_inject_rx_time(0),
+          _rx_pending(false) {
+        portMUX_INITIALIZE(&_rx_mux);
+    }
 
     BLECharacteristic* _pCharMemory;
     BLECharacteristic* _pCharStatus;
@@ -392,13 +423,16 @@ private:
     BLECharacteristic* _pCharInject;
     String _inject_accum_buf;
     uint32_t _last_inject_rx_time;
+    portMUX_TYPE _rx_mux;
+    std::vector<uint8_t> _rx_queue;
+    volatile bool _rx_pending;
 };
 
 inline void StickS3BLEInjectCallbacks::onWrite(BLECharacteristic* pChar) {
     if (!pChar) return;
     std::string val = pChar->getValue();
     if (!val.empty()) {
-        StickS3BLESync::getInstance().feedInjectBytes((const uint8_t*)val.data(), val.length());
+        StickS3BLESync::getInstance().queueIncomingBytes((const uint8_t*)val.data(), val.length());
     }
 }
 
