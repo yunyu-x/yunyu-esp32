@@ -56,6 +56,10 @@ def test_scheme2_platformio_config():
 def test_scheme2_cxx_driver_suite():
     """验证方案 2：StickS3 HAL 驱动、按键防抖状态机、M5PM1 电源门控原生 C++ SIL 测试"""
     exe_path = os.path.join(FW_TESTS_DIR, "test_sticks3_hal.exe")
+    if not os.path.exists(exe_path):
+        build_script = os.path.join(FW_TESTS_DIR, "build_test_binaries.py")
+        if os.path.exists(build_script):
+            subprocess.run([os.sys.executable, build_script], check=True)
     assert os.path.exists(exe_path), f"Binary not found: {exe_path}"
 
     res = subprocess.run([exe_path], capture_output=True, text=True)
@@ -73,6 +77,10 @@ def test_scheme2_cxx_driver_suite():
 def test_scheme3_cxx_protocol_engine():
     """验证方案 3：Claude Desktop Buddy C++ 协议引擎单元测试"""
     exe_path = os.path.join(FW_TESTS_DIR, "test_buddy_protocol.exe")
+    if not os.path.exists(exe_path):
+        build_script = os.path.join(FW_TESTS_DIR, "build_test_binaries.py")
+        if os.path.exists(build_script):
+            subprocess.run([os.sys.executable, build_script], check=True)
     assert os.path.exists(exe_path), f"Binary not found: {exe_path}"
 
     res = subprocess.run([exe_path], capture_output=True, text=True)

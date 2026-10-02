@@ -21,6 +21,10 @@ FW_TEST_DIR = os.path.join(TEST_DIR, "firmware_drivers")
 
 def run_binary(exe_name: str):
     exe_path = os.path.join(FW_TEST_DIR, exe_name)
+    if not os.path.exists(exe_path):
+        build_script = os.path.join(FW_TEST_DIR, "build_test_binaries.py")
+        if os.path.exists(build_script):
+            subprocess.run([os.sys.executable, build_script], check=True)
     assert os.path.exists(exe_path), f"Test executable not found: {exe_path}"
     res = subprocess.run([exe_path], capture_output=True, text=True)
     assert res.returncode == 0, f"{exe_name} failed with code {res.returncode}:\n{res.stdout}\n{res.stderr}"
