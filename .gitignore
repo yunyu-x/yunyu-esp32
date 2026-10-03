@@ -63,5 +63,9 @@ scripts/*.pcm
 scripts/*.wav
 *.log
 
-
-
+# Vendor tools & external repositories
+tools/bin/
+external_repos/
+node_modules/
+*.exe
+dist/public_preview_url.*

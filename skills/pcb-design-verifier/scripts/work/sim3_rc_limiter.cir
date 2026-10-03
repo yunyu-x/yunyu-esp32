@@ -1,0 +1,15 @@
+* Deck 3: Hardware RC Monostable Limiter
+Vin in 0 PULSE(0 3.3 0.1m 1u 1u 50m 100m)
+C8 in gate_diff 100n
+R6 gate_diff 0 47k
+R1 gate_diff gate_mos 330
+C_gate gate_mos 0 650p
+D4 0 gate_diff D_1N4148
+.MODEL D_1N4148 D (IS=2.5e-9 RS=0.5 N=1.75 CJO=4p)
+Vbus bus 0 3.8
+R_epm bus drain 0.65
+M1 drain gate_mos 0 0 NMOS_AO3400
+.MODEL NMOS_AO3400 NMOS (VTO=1.05 KP=35 RS=0.015 RD=0.015)
+.tran 20u 15m
+.meas tran t_cutoff TRIG v(in) VAL=1.65 RISE=1 TARG v(gate_mos) VAL=1.05 FALL=1
+.end

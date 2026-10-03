@@ -1,0 +1,400 @@
+{
+  "repository_name": "sample_input_repo",
+  "root_path": "D:/workspace/code/microUnit/skills/open-source-repo-analyzer/examples/sample_input_repo",
+  "module_count": 8,
+  "external_dependencies": [
+    "argparse",
+    "dataclasses",
+    "math",
+    "pathlib",
+    "sys",
+    "typing",
+    "unittest"
+  ],
+  "dependency_graph": {
+    "cli.py": [
+      "spatial_core/models.py",
+      "spatial_core/transform.py"
+    ],
+    "native/kinematics.go": [],
+    "spatial_core/__init__.py": [
+      "spatial_core/models.py",
+      "spatial_core/transform.py"
+    ],
+    "spatial_core/models.py": [],
+    "spatial_core/transform.py": [
+      "spatial_core/models.py"
+    ],
+    "tests/__init__.py": [],
+    "tests/test_transform.py": [
+      "spatial_core/models.py",
+      "spatial_core/transform.py"
+    ],
+    "web/viewer.ts": [
+      "spatial_core/models.py"
+    ]
+  },
+  "learning_roadmap": [
+    {
+      "tier": "Stage 1: Core Primitives & Foundation Models (核心实体与基础数据模型)",
+      "description": "Start here to understand data schemas, interfaces, and atomic utilities.",
+      "modules": [
+        "spatial_core/__init__.py",
+        "tests/__init__.py"
+      ]
+    },
+    {
+      "tier": "Stage 2: Business Logic & Processing Pipelines (核心算法与逻辑处理)",
+      "description": "Understand core domain state machines, algorithms, and orchestration logic.",
+      "modules": [
+        "cli.py",
+        "native/kinematics.go",
+        "web/viewer.ts"
+      ]
+    },
+    {
+      "tier": "Stage 3: Entrypoints & Client Interfaces (系统入口与外部接口)",
+      "description": "Trace main application lifecycles, CLI runners, and consumer API surfaces.",
+      "modules": [
+        "tests/test_transform.py",
+        "spatial_core/transform.py",
+        "spatial_core/models.py"
+      ]
+    }
+  ],
+  "malformed_modules": [],
+  "modules": [
+    {
+      "file": "cli.py",
+      "language": "Python",
+      "error": null,
+      "symbols": [
+        {
+          "name": "main",
+          "kind": "FUNCTION",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 15,
+          "args": [],
+          "docstring": null
+        }
+      ],
+      "internal_deps": [
+        "spatial_core.models",
+        "spatial_core.transform"
+      ],
+      "external_deps": [
+        "argparse",
+        "pathlib",
+        "sys"
+      ]
+    },
+    {
+      "file": "native/kinematics.go",
+      "language": "Go",
+      "error": null,
+      "symbols": [
+        {
+          "name": "SpatialVector",
+          "kind": "STRUCT",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 1,
+          "args": [],
+          "docstring": null
+        },
+        {
+          "name": "Magnitude",
+          "kind": "FUNCTION",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 1,
+          "args": [],
+          "docstring": null
+        },
+        {
+          "name": "ComputeForwardKinematics",
+          "kind": "FUNCTION",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 1,
+          "args": [],
+          "docstring": null
+        }
+      ],
+      "internal_deps": [],
+      "external_deps": [
+        "math"
+      ]
+    },
+    {
+      "file": "spatial_core/__init__.py",
+      "language": "Python",
+      "error": null,
+      "symbols": [],
+      "internal_deps": [
+        "models",
+        "transform"
+      ],
+      "external_deps": []
+    },
+    {
+      "file": "spatial_core/models.py",
+      "language": "Python",
+      "error": null,
+      "symbols": [
+        {
+          "name": "Point3D",
+          "kind": "CLASS",
+          "visibility": "PUBLIC",
+          "complexity": 2,
+          "line": 8,
+          "args": [],
+          "docstring": null
+        },
+        {
+          "name": "Point3D.magnitude",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 13,
+          "args": [
+            "self"
+          ],
+          "docstring": "Computes Euclidean distance from origin."
+        },
+        {
+          "name": "Point3D.normalize",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 2,
+          "line": 17,
+          "args": [
+            "self"
+          ],
+          "docstring": null
+        },
+        {
+          "name": "Quaternion",
+          "kind": "CLASS",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 25,
+          "args": [],
+          "docstring": null
+        },
+        {
+          "name": "Quaternion.is_unit",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 31,
+          "args": [
+            "self",
+            "tolerance"
+          ],
+          "docstring": null
+        }
+      ],
+      "internal_deps": [],
+      "external_deps": [
+        "dataclasses",
+        "math"
+      ]
+    },
+    {
+      "file": "spatial_core/transform.py",
+      "language": "Python",
+      "error": null,
+      "symbols": [
+        {
+          "name": "KinematicsTransformer",
+          "kind": "CLASS",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 8,
+          "args": [],
+          "docstring": "Solves rigid-body translation, Euler rotation, and point transformation."
+        },
+        {
+          "name": "KinematicsTransformer.__init__",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 12,
+          "args": [
+            "self",
+            "roll",
+            "pitch",
+            "yaw"
+          ],
+          "docstring": null
+        },
+        {
+          "name": "KinematicsTransformer.set_euler_angles",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 17,
+          "args": [
+            "self",
+            "roll",
+            "pitch",
+            "yaw"
+          ],
+          "docstring": null
+        },
+        {
+          "name": "KinematicsTransformer.rotate_point",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 22,
+          "args": [
+            "self",
+            "point"
+          ],
+          "docstring": "Applies Z-Y-X Tait-Bryan rotation sequence."
+        },
+        {
+          "name": "KinematicsTransformer.translate_point",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 50,
+          "args": [
+            "self",
+            "point",
+            "offset"
+          ],
+          "docstring": null
+        },
+        {
+          "name": "KinematicsTransformer.transform_full",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 54,
+          "args": [
+            "self",
+            "point",
+            "offset"
+          ],
+          "docstring": null
+        }
+      ],
+      "internal_deps": [
+        "models"
+      ],
+      "external_deps": [
+        "math",
+        "typing"
+      ]
+    },
+    {
+      "file": "tests/__init__.py",
+      "language": "Python",
+      "error": null,
+      "symbols": [],
+      "internal_deps": [],
+      "external_deps": []
+    },
+    {
+      "file": "tests/test_transform.py",
+      "language": "Python",
+      "error": null,
+      "symbols": [
+        {
+          "name": "TestKinematics",
+          "kind": "CLASS",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 8,
+          "args": [],
+          "docstring": null
+        },
+        {
+          "name": "TestKinematics.test_point_magnitude",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 9,
+          "args": [
+            "self"
+          ],
+          "docstring": null
+        },
+        {
+          "name": "TestKinematics.test_translation",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 13,
+          "args": [
+            "self"
+          ],
+          "docstring": null
+        },
+        {
+          "name": "TestKinematics.test_rotation_yaw_90",
+          "kind": "METHOD",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 21,
+          "args": [
+            "self"
+          ],
+          "docstring": null
+        }
+      ],
+      "internal_deps": [
+        "spatial_core.models",
+        "spatial_core.transform"
+      ],
+      "external_deps": [
+        "math",
+        "unittest"
+      ]
+    },
+    {
+      "file": "web/viewer.ts",
+      "language": "TypeScript/JavaScript",
+      "error": null,
+      "symbols": [
+        {
+          "name": "ViewerOptions",
+          "kind": "INTERFACE",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 1,
+          "args": [],
+          "docstring": null
+        },
+        {
+          "name": "PoseViewer",
+          "kind": "CLASS",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 1,
+          "args": [],
+          "docstring": null
+        },
+        {
+          "name": "createDefaultViewer",
+          "kind": "FUNCTION",
+          "visibility": "PUBLIC",
+          "complexity": 1,
+          "line": 1,
+          "args": [
+            "canvasId"
+          ],
+          "docstring": null
+        }
+      ],
+      "internal_deps": [
+        "../spatial_core/models"
+      ],
+      "external_deps": []
+    }
+  ]
+}

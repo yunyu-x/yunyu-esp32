@@ -1,0 +1,16 @@
+* Deck 4: FMEA PPTC Trip Dynamics
+Vbat 1 0 3.8
+Vmeas 1 1a 0
+S_fuse 1a 2 t_rise 0 SW_PPTC
+.MODEL SW_PPTC SW (RON=15k ROFF=0.06 VT=1.0 VH=0.1)
+B_heat 0 t_rise I=I(Vmeas)*I(Vmeas)*0.06
+C_th t_rise 0 0.75 IC=0
+R_th t_rise 0 100
+S_fault 2 3 fault_ctrl 0 SW_FAULT
+.MODEL SW_FAULT SW (RON=0.05 ROFF=1Meg VT=1.5 VH=0.2)
+Vfault fault_ctrl 0 PULSE(0 3.3 10m 10u 10u 2 5)
+R_coil 3 0 0.65
+.tran 5m 1.2s UIC
+.meas tran t_trip TRIG v(fault_ctrl) VAL=1.65 RISE=1 TARG v(2) VAL=1.0 FALL=1
+.meas tran i_post FIND i(Vmeas) AT=1.1s
+.end

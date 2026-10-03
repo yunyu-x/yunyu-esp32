@@ -1,0 +1,7 @@
+[project]
+name = "spatial-kinematics-mini"
+version = "0.1.0"
+description = "Miniature spatial kinematics and coordinate transformation toolkit"
+authors = [{ name = "YunYu", email = "yunyu@example.com" }]
+dependencies = []
+requires-python = ">=3.10"

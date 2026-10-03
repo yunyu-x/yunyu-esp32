@@ -1,0 +1,21 @@
+{
+  "project_name": "microUnit",
+  "default_tool": "auto",
+  "port": 8000,
+  "companion_cmd": "python simulation/server.py",
+  "tools_dir": "tools/bin",
+  "ngrok": {
+    "authtoken": "YOUR_NGROK_AUTHTOKEN_HERE",
+    "region": "auto",
+    "pooling_enabled": false
+  },
+  "cloudflare": {
+    "quick_tunnel": true,
+    "metrics_port": 0
+  },
+  "routes": {
+    "root": "/",
+    "exploded_view": "/exploded_view.html",
+    "api_docs": "/docs"
+  }
+}

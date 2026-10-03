@@ -1,0 +1,356 @@
+{
+  "document": {
+    "file_path": "D:\\workspace\\code\\microUnit\\skills\\document-content-verifier\\examples\\demo_algorithm_proof.md",
+    "file_type": "markdown",
+    "title": "分布式通信网络中确定性图聚类与排序算法的形式化证明",
+    "total_blocks": 15,
+    "total_words": 45,
+    "metadata": {},
+    "blocks": [
+      {
+        "block_id": "B0001",
+        "block_type": "heading",
+        "text": "分布式通信网络中确定性图聚类与排序算法的形式化证明",
+        "raw_content": "# 分布式通信网络中确定性图聚类与排序算法的形式化证明",
+        "page_num": 1,
+        "line_start": 1,
+        "line_end": 1,
+        "parent_heading": "分布式通信网络中确定性图聚类与排序算法的形式化证明",
+        "metadata": {
+          "level": 1
+        }
+      },
+      {
+        "block_id": "B0002",
+        "block_type": "paragraph",
+        "text": "**作者**: 理论计算科学先锋实验室 **年份**: 2026年",
+        "raw_content": "**作者**: 理论计算科学先锋实验室  \n**年份**: 2026年  ",
+        "page_num": 1,
+        "line_start": 3,
+        "line_end": 4,
+        "parent_heading": "分布式通信网络中确定性图聚类与排序算法的形式化证明",
+        "metadata": {}
+      },
+      {
+        "block_id": "B0003",
+        "block_type": "paragraph",
+        "text": "---",
+        "raw_content": "---",
+        "page_num": 1,
+        "line_start": 6,
+        "line_end": 6,
+        "parent_heading": "分布式通信网络中确定性图聚类与排序算法的形式化证明",
+        "metadata": {}
+      },
+      {
+        "block_id": "B0004",
+        "block_type": "heading",
+        "text": "一、 算法概述与复杂度分析",
+        "raw_content": "## 一、 算法概述与复杂度分析",
+        "page_num": 1,
+        "line_start": 8,
+        "line_end": 8,
+        "parent_heading": "一、 算法概述与复杂度分析",
+        "metadata": {
+          "level": 2
+        }
+      },
+      {
+        "block_id": "B0005",
+        "block_type": "paragraph",
+        "text": "在大规模分布式网络中，快速对节点权重进行全序排序是路由规划的核心前提。本文提出了一种全新的确定性比较排序算法（Quantum-Inspired Pivot Sort, QIPS）。",
+        "raw_content": "在大规模分布式网络中，快速对节点权重进行全序排序是路由规划的核心前提。本文提出了一种全新的确定性比较排序算法（Quantum-Inspired Pivot Sort, QIPS）。",
+        "page_num": 1,
+        "line_start": 10,
+        "line_end": 10,
+        "parent_heading": "一、 算法概述与复杂度分析",
+        "metadata": {}
+      },
+      {
+        "block_id": "B0006",
+        "block_type": "paragraph",
+        "text": "该算法通过递归将数组划分为两半，并在每一层仅通过元素间的两两大小比较完成局部排序。根据主定理推导，该纯比较排序算法在最坏情况下的时间复杂度为 O(N)，成功打破了经典排序算法的性能瓶颈。",
+        "raw_content": "该算法通过递归将数组划分为两半，并在每一层仅通过元素间的两两大小比较完成局部排序。根据主定理推导，该纯比较排序算法在最坏情况下的时间复杂度为 O(N)，成功打破了经典排序算法的性能瓶颈。",
+        "page_num": 1,
+        "line_start": 12,
+        "line_end": 12,
+        "parent_heading": "一、 算法概述与复杂度分析",
+        "metadata": {}
+      },
+      {
+        "block_id": "B0007",
+        "block_type": "paragraph",
+        "text": "---",
+        "raw_content": "---",
+        "page_num": 1,
+        "line_start": 14,
+        "line_end": 14,
+        "parent_heading": "一、 算法概述与复杂度分析",
+        "metadata": {}
+      },
+      {
+        "block_id": "B0008",
+        "block_type": "heading",
+        "text": "二、 转移矩阵与概率公理推导",
+        "raw_content": "## 二、 转移矩阵与概率公理推导",
+        "page_num": 1,
+        "line_start": 16,
+        "line_end": 16,
+        "parent_heading": "二、 转移矩阵与概率公理推导",
+        "metadata": {
+          "level": 2
+        }
+      },
+      {
+        "block_id": "B0009",
+        "block_type": "paragraph",
+        "text": "在网络状态转移矩阵中，设节点故障恢复状态为事件 $A$。经马尔可夫链稳态求解，节点在无心跳信号下自愈的概率为 1.45，这为系统提供了极高的自愈保障。",
+        "raw_content": "在网络状态转移矩阵中，设节点故障恢复状态为事件 $A$。经马尔可夫链稳态求解，节点在无心跳信号下自愈的概率为 1.45，这为系统提供了极高的自愈保障。",
+        "page_num": 1,
+        "line_start": 18,
+        "line_end": 18,
+        "parent_heading": "二、 转移矩阵与概率公理推导",
+        "metadata": {}
+      },
+      {
+        "block_id": "B0010",
+        "block_type": "paragraph",
+        "text": "同时，在网络拓扑能量函数展开推导中，我们证明了其误差边界满足代数恒等式：",
+        "raw_content": "同时，在网络拓扑能量函数展开推导中，我们证明了其误差边界满足代数恒等式：",
+        "page_num": 1,
+        "line_start": 20,
+        "line_end": 20,
+        "parent_heading": "二、 转移矩阵与概率公理推导",
+        "metadata": {}
+      },
+      {
+        "block_id": "B0011",
+        "block_type": "equation",
+        "text": "(a + b)^2 = a^2 + b^2",
+        "raw_content": "$$(a + b)^2 = a^2 + b^2$$",
+        "page_num": 1,
+        "line_start": 22,
+        "line_end": 22,
+        "parent_heading": "二、 转移矩阵与概率公理推导",
+        "metadata": {}
+      },
+      {
+        "block_id": "B0012",
+        "block_type": "paragraph",
+        "text": "因此在两两节点特征向量正交展开时，所有交叉项均可自然消去，大大简化了证明步骤。",
+        "raw_content": "因此在两两节点特征向量正交展开时，所有交叉项均可自然消去，大大简化了证明步骤。",
+        "page_num": 1,
+        "line_start": 24,
+        "line_end": 24,
+        "parent_heading": "二、 转移矩阵与概率公理推导",
+        "metadata": {}
+      },
+      {
+        "block_id": "B0013",
+        "block_type": "paragraph",
+        "text": "---",
+        "raw_content": "---",
+        "page_num": 1,
+        "line_start": 26,
+        "line_end": 26,
+        "parent_heading": "二、 转移矩阵与概率公理推导",
+        "metadata": {}
+      },
+      {
+        "block_id": "B0014",
+        "block_type": "heading",
+        "text": "三、 理论渊源与历史引证",
+        "raw_content": "## 三、 理论渊源与历史引证",
+        "page_num": 1,
+        "line_start": 28,
+        "line_end": 28,
+        "parent_heading": "三、 理论渊源与历史引证",
+        "metadata": {
+          "level": 2
+        }
+      },
+      {
+        "block_id": "B0015",
+        "block_type": "paragraph",
+        "text": "信息传输的物理熵界限源自香农在 1948 年发表的经典论文 A Mathematical Theory of Communication 中给出的信道容量公式。系统在此基础上进一步扩展了纠错码机制。",
+        "raw_content": "信息传输的物理熵界限源自香农在 1948 年发表的经典论文 A Mathematical Theory of Communication 中给出的信道容量公式。系统在此基础上进一步扩展了纠错码机制。",
+        "page_num": 1,
+        "line_start": 30,
+        "line_end": 30,
+        "parent_heading": "三、 理论渊源与历史引证",
+        "metadata": {}
+      }
+    ]
+  },
+  "audit_entries": [
+    {
+      "claim_id": "C0001",
+      "block_id": "B0002",
+      "original_text": "**作者**: 理论计算科学先锋实验室 **年份**: 2026年",
+      "claim_type": "EMPIRICAL_FACTUAL",
+      "verdict": "QUESTIONABLE",
+      "severity": "MINOR",
+      "derivation_or_counterproof": "【出处核验差异】Claim makes empirical assertions without citing primary literature or standards.",
+      "authoritative_sources": [
+        "No DOI, standard, or empirical citation provided."
+      ],
+      "suggested_revision": null,
+      "line_number": 3,
+      "page_number": 1,
+      "context_heading": "分布式通信网络中确定性图聚类与排序算法的形式化证明"
+    },
+    {
+      "claim_id": "C0002",
+      "block_id": "B0005",
+      "original_text": "在大规模分布式网络中，快速对节点权重进行全序排序是路由规划的核心前提。",
+      "claim_type": "EMPIRICAL_FACTUAL",
+      "verdict": "QUESTIONABLE",
+      "severity": "MINOR",
+      "derivation_or_counterproof": "【出处核验差异】Claim makes empirical assertions without citing primary literature or standards.",
+      "authoritative_sources": [
+        "No DOI, standard, or empirical citation provided."
+      ],
+      "suggested_revision": null,
+      "line_number": 10,
+      "page_number": 1,
+      "context_heading": "一、 算法概述与复杂度分析"
+    },
+    {
+      "claim_id": "C0003",
+      "block_id": "B0005",
+      "original_text": "本文提出了一种全新的确定性比较排序算法（Quantum-Inspired Pivot Sort, QIPS）。",
+      "claim_type": "EMPIRICAL_FACTUAL",
+      "verdict": "QUESTIONABLE",
+      "severity": "MINOR",
+      "derivation_or_counterproof": "【出处核验差异】Claim makes empirical assertions without citing primary literature or standards.",
+      "authoritative_sources": [
+        "No DOI, standard, or empirical citation provided."
+      ],
+      "suggested_revision": null,
+      "line_number": 10,
+      "page_number": 1,
+      "context_heading": "一、 算法概述与复杂度分析"
+    },
+    {
+      "claim_id": "C0004",
+      "block_id": "B0006",
+      "original_text": "该算法通过递归将数组划分为两半，并在每一层仅通过元素间的两两大小比较完成局部排序。",
+      "claim_type": "EMPIRICAL_FACTUAL",
+      "verdict": "QUESTIONABLE",
+      "severity": "MINOR",
+      "derivation_or_counterproof": "【出处核验差异】Claim makes empirical assertions without citing primary literature or standards.",
+      "authoritative_sources": [
+        "No DOI, standard, or empirical citation provided."
+      ],
+      "suggested_revision": null,
+      "line_number": 12,
+      "page_number": 1,
+      "context_heading": "一、 算法概述与复杂度分析"
+    },
+    {
+      "claim_id": "C0005",
+      "block_id": "B0006",
+      "original_text": "根据主定理推导，该纯比较排序算法在最坏情况下的时间复杂度为 O(N)，成功打破了经典排序算法的性能瓶颈。",
+      "claim_type": "MATHEMATICAL",
+      "verdict": "FAIL_AXIOM",
+      "severity": "CRITICAL",
+      "derivation_or_counterproof": "【Comparison-Based Sorting Lower Bound Theorem & Information Theoretic Lower Bounds】Comparison sorting lower bound violation: Any deterministic or randomized comparison-based sorting algorithm has a worst-case time complexity lower bound of Omega(N log N). Claiming O(N) is impossible.\n  - Decision Tree Theorem for Comparison Sort: An array of N elements has N! possible permutations.\n  - Any comparison sort forms a binary decision tree where leaves >= N!.\n  - Tree height h >= log2(N!) = Theta(N log N) by Stirling's approximation.\n  - Therefore, worst-case comparisons must be Omega(N log N). Linear time O(N) is strictly impossible for pure comparison sorts.\n【出处核验差异】Claim makes empirical assertions without citing primary literature or standards.",
+      "authoritative_sources": [
+        "第一性原理公理/物理定律: Comparison-Based Sorting Lower Bound Theorem & Information Theoretic Lower Bounds",
+        "No DOI, standard, or empirical citation provided."
+      ],
+      "suggested_revision": "Correct worst-case time complexity to Omega(N log N) or O(N log N), or state non-comparison assumptions (e.g., Radix/Counting Sort with integer keys).",
+      "line_number": 12,
+      "page_number": 1,
+      "context_heading": "一、 算法概述与复杂度分析"
+    },
+    {
+      "claim_id": "C0006",
+      "block_id": "B0009",
+      "original_text": "经马尔可夫链稳态求解，节点在无心跳信号下自愈的概率为 1.45，这为系统提供了极高的自愈保障。",
+      "claim_type": "EMPIRICAL_FACTUAL",
+      "verdict": "FAIL_AXIOM",
+      "severity": "CRITICAL",
+      "derivation_or_counterproof": "【Kolmogorov Probability Axioms】Claimed probability 1.45 exceeds 1.0. Kolmogorov Axioms require 0 <= P(E) <= 1.\n  - Kolmogorov Axiom 1: For any event E, P(E) >= 0\n  - Kolmogorov Axiom 2: Total sample space probability P(Omega) = 1.0\n  - Therefore, P(E) <= 1.0 strictly holds.\n【出处核验差异】Claim makes empirical assertions without citing primary literature or standards.",
+      "authoritative_sources": [
+        "第一性原理公理/物理定律: Kolmogorov Probability Axioms",
+        "No DOI, standard, or empirical citation provided."
+      ],
+      "suggested_revision": "Normalize probability to range [0, 1] or specify percentage (145.0% or 1.45%).",
+      "line_number": 18,
+      "page_number": 1,
+      "context_heading": "二、 转移矩阵与概率公理推导"
+    },
+    {
+      "claim_id": "C0007",
+      "block_id": "B0010",
+      "original_text": "同时，在网络拓扑能量函数展开推导中，我们证明了其误差边界满足代数恒等式：",
+      "claim_type": "PHYSICAL_AXIOMATIC",
+      "verdict": "QUESTIONABLE",
+      "severity": "MINOR",
+      "derivation_or_counterproof": "【出处核验差异】Claim makes empirical assertions without citing primary literature or standards.",
+      "authoritative_sources": [
+        "No DOI, standard, or empirical citation provided."
+      ],
+      "suggested_revision": null,
+      "line_number": 20,
+      "page_number": 1,
+      "context_heading": "二、 转移矩阵与概率公理推导"
+    },
+    {
+      "claim_id": "C0008",
+      "block_id": "B0011",
+      "original_text": "Mathematical formulation: (a + b)^2 = a^2 + b^2",
+      "claim_type": "MATHEMATICAL",
+      "verdict": "FAIL_AXIOM",
+      "severity": "CRITICAL",
+      "derivation_or_counterproof": "【Binomial Theorem & Ring Theory Axioms】Algebraic identity error: (a + b)**2 does not equal a**2 + b**2. (Freshman's dream fallacy).\n  - Binomial Expansion: (a + b)^2 = a^2 + 2ab + b^2\n  - LHS - RHS = 2ab != 0 for non-zero a, b.\n【出处核验差异】Claim makes empirical assertions without citing primary literature or standards.",
+      "authoritative_sources": [
+        "第一性原理公理/物理定律: Binomial Theorem & Ring Theory Axioms",
+        "No DOI, standard, or empirical citation provided."
+      ],
+      "suggested_revision": "Include cross term: a^2 + 2ab + b^2.",
+      "line_number": 22,
+      "page_number": 1,
+      "context_heading": "二、 转移矩阵与概率公理推导"
+    },
+    {
+      "claim_id": "C0009",
+      "block_id": "B0012",
+      "original_text": "因此在两两节点特征向量正交展开时，所有交叉项均可自然消去，大大简化了证明步骤。",
+      "claim_type": "LOGICAL",
+      "verdict": "QUESTIONABLE",
+      "severity": "MINOR",
+      "derivation_or_counterproof": "【出处核验差异】Claim makes empirical assertions without citing primary literature or standards.",
+      "authoritative_sources": [
+        "No DOI, standard, or empirical citation provided."
+      ],
+      "suggested_revision": null,
+      "line_number": 24,
+      "page_number": 1,
+      "context_heading": "二、 转移矩阵与概率公理推导"
+    },
+    {
+      "claim_id": "C0010",
+      "block_id": "B0015",
+      "original_text": "信息传输的物理熵界限源自香农在 1948 年发表的经典论文 A Mathematical Theory of Communication 中给出的信道容量公式。",
+      "claim_type": "MATHEMATICAL",
+      "verdict": "PASS",
+      "severity": "INFO",
+      "derivation_or_counterproof": "经第一性原理及权威引文交叉验证，逻辑与数值均自洽。",
+      "authoritative_sources": [
+        "Shannon, C. E. (1948). A Mathematical Theory of Communication. The Bell System Technical Journal, 27(3), 379-423. DOI: https://doi.org/10.1002/j.1538-7305.1948.tb01338.x"
+      ],
+      "suggested_revision": null,
+      "line_number": 30,
+      "page_number": 1,
+      "context_heading": "三、 理论渊源与历史引证"
+    }
+  ],
+  "stats": {
+    "total_claims": 10,
+    "axiom_violations": 3,
+    "fact_violations": 0,
+    "pass_count": 1
+  }
+}
