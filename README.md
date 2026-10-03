@@ -1,17 +1,18 @@
-# yunyu-esp32
+# yunyu-esp32: 灵伴·悄悄 (LingBuddy) 物理具身智能伴侣与 ESP32 开源硬件套件
 
 <div align="center">
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-ESP32--S3-orange.svg)](https://platformio.org/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-green.svg)](https://www.python.org/)
-[![Hardware](https://img.shields.io/badge/Hardware-Open%20Source-brightgreen.svg)](./hardware/)
-[![CI](https://img.shields.io/badge/CI-Passing-success.svg)](./.github/workflows/ci.yml)
+[![WeChat](https://img.shields.io/badge/WeChat-MiniProgram-brightgreen.svg)](./wechat_miniprogram/)
+[![Tests](https://img.shields.io/badge/Tests-80%20Passed-success.svg)](./tests/)
+[![Axioms](https://img.shields.io/badge/Axioms-6%20Invariants-purple.svg)](./docs/30_PROJECT_AXIOMS_AND_HANDOVER.md)
 
-**灵方 (LingCube) 微型自重构机器人生态官方开源硬件、嵌入式固件与地面调测终端套件**  
-*Official Open-Source Hardware, Firmware & Ground HIL Terminal for the LingCube Robotics Ecosystem*
+**全栈独立、开箱即用的随身/桌面具身 AI 伴侣、微信小程序终端、Meta Muse Gadgets 生态与开源机器人硬件基座**  
+*Full-Stack Independent Physical AI Voice Companion, WeChat Mini-Program Suite, Meta Muse Gadgets & Embedded Robotics*
 
-[English](#english-summary) | [简体中文](#核心特性) | [快速起步](#快速起步-quick-start) | [硬件引脚](#硬件定义与引脚映射) | [文档目录](#文档与开发指南)
+[English](#english-summary) | [核心特性](#-核心特性-key-features) | [系统架构](#-系统架构-architecture) | [六大公理](#-不可违背的六大工程公理-the-6-constitutional-axioms) | [工程知识库](#-项目工程知识库-project-engineering-documentation) | [技能扩展](#-标准化技能扩展-standardized-skills) | [快速起步](#-快速起步-quick-start)
 
 </div>
 
@@ -19,36 +20,47 @@
 
 ## 📖 项目简介 (Overview)
 
-`yunyu-esp32` 是灵方微型自重构机器人生态系统的核心物理中枢与固件基座。本项目深度整合了：
-1. **M5Stack StickS3 物理伴侣与双模调测终端 (`firmware/m5sticks3_buddy`)**：
-   基于 ESP32-S3-PICO-1（8MB Flash + 8MB PSRAM），集成了 BLE Nordic UART 物理网关、2.4GHz Wi-Fi (SoftAP/Web/TCP/UDP) 全互通、10 秒 16kHz WAV 双向音频流互传与高保真回放、全集 23,940 条目 GBK-to-Unicode Flash 字库、BMI270 六轴姿态水准仪。
-2. **灵方微型机器人主控 PCBA v2.0 (`hardware/`)**：
-   包含 4 层沉金工业级 PCB 原理图与版图（KiCad）、量产 Gerber 光绘、SMT 表面贴装坐标 (CPL)、物料清单 (BOM)、3D CAD 装配模型（OpenSCAD）及 6 回路 SPICE 严苛仿真引擎。
-3. **自主点亮与回归验证流水线 (`scripts/` & `tests/`)**：
-   提供 6 步骤全自主芯片握手、1.5MBaud 极速固件写入与引导自愈代理、端到端 Wi-Fi 音频流全自动化验收套件与 27 项工程级测试。
+`yunyu-esp32` 是一个**完全独立自洽的物理具身 AI 伴侣与开源硬件生态工程**。本项目将前沿大语言模型与多模态情感计算深度融入嵌入式物理实体，构建了涵盖**嵌入式固件、微信小程序客户端、桌面 Web 伴侣、Meta Muse 具身代理接入、开源机器人机电控制及严格工程测试**的全栈闭环：
+
+1. **灵伴·悄悄 (LingBuddy / Qiaoqiao) 嵌入式固件 (`firmware/m5sticks3_buddy`)**：
+   运行在 M5Stack StickS3（ESP32-S3-PICO-1，8MB Flash + 8MB PSRAM）硬件底座上。内置离线声学唤醒词「悄悄」匹配引擎、阿里云百炼实时语音大模型全双工流式问答、正面按键 A 毫秒级物理打断（Barge-In）、12 种迪士尼拟态矢量微表情与 Tamagotchi 亲密度系统、8 轮长程记忆滑动压缩与 NVS 持久化、PSRAM 135×240 零撕裂双缓冲显存、异步 BLE 指令队列以及网络多态徽章。
+2. **微信小程序端产品套件 (`wechat_miniprogram/`)**：
+   秉持 Apple Human Interface Guidelines (HIG) 原生极简美学打造。涵盖 4 大核心 Tab（首页动态表情与心声、投喂互动中心、心声日记流、设置与配网面板）；支持蓝牙 BLE NUS 多包流式组包通讯、双通道配网（常规宽带 Wi-Fi 与手机共享移动热点自适应切换）、热点流量配额监控与超额自动熔断防护、DPR 自适应 `<avatar-canvas>` 动态微表情渲染、Taptic 触觉反馈震动以及离线优先本地存储。
+3. **桌面与 Web 伴侣控制台 (`web/` & `scripts/`)**：
+   提供基于 Web Bluetooth API 的隔空投喂中心 (`web/lingbuddy_companion.html`)、双向音频测试网关、以及两级语义向量检索记忆知识库 (`scripts/lingbuddy_vector_store.py`)。
+4. **Meta Muse Gadgets 生态原生接入 (`external_repos/muse-gadget-sdk`, `include/muse_gadget_client.h`, Doc 31)**：
+   深度研学并接入 Meta 官方开源的 Muse Gadgets 框架。通过 Noise_XX 全双工加密隧道和 Home Link 建立与云端 Muse Secure VM 的持久连接，支持 Push-to-Talk 24kHz 流式交互与本地具身 RPC 控制。
+5. **开源机器人硬件扩展 (`microduck/` & `hardware/`)**：
+   包含 MicroDuck 双足走路鸭机器人（基于 ESP32 的 CPG 步态引擎与舵机标定系统）、以及灵方微型机器人主控 PCBA v2.0（4层沉金 PCB、SPICE 多回路严苛仿真验证）。
+6. **自动化工程测试与持续集成 (`tests/`)**：
+   内置 80 项覆盖声学唤醒、音频管道、微表情动力学、BLE NUS 分包重组、热点配额熔断、驱动 Hub、硬件自测的自动化回归测试，100% 绿色通过。
 
 ---
 
 ## 🚀 核心特性 (Key Features)
 
-### 1. 双向低延迟音频流互传 (Bidirectional Audio Stream)
-- **设备端 16kHz 录音**：按压正面按键 A 触发 10 秒 16kHz 16-bit 单声道录音（板载 MEMS 硅麦 + ES8311 Codec），数据存入 8MB PSRAM 缓冲（320KB），自动封装标准 44 字节 RIFF WAV 标头；
-- **网页端原生无缝回放**：手机接入免密热点 `StickS3-Buddy` 访问 `http://192.168.4.1`，通过标准流式 HTTP GET 直接拉取设备端 WAV 文件并播放，解决冲突标头与解码报错；
-- **移动端 (iOS Safari / Android) 音频下发**：针对 iOS Safari 纯 HTTP 禁用 `getUserMedia` 的安全限制，采用原生音频与语音备忘录选取通道（彻底规避相机调用误触），前端自动重采样至 16kHz 并 POST 上传，驱动 StickS3 AW8737 功放与板载喇叭高保真回放。
+### 1. 全双工大模型语音交互与离线唤醒
+- **离线声学唤醒词「悄悄」**：基于板载 MEMS 硅麦 + ES8311 音频前端，毫秒级快速声学特征匹配，抗噪免疫；
+- **阿里云百炼实时大模型 (DashScope Realtime WSS)**：16kHz 16-bit Mono PCM 双向双工流式传输，低延迟语音合成回放（AW8737 功放驱动）；
+- **物理打断 (Barge-In)**：语音回放过程中随时按下正面按键 A，瞬时中断服务端合成与硬件回放，即刻重置拾音。
 
-### 2. 多通道全互联无线通信 (Tri-Mode Wireless)
-- **BLE Nordic UART Service (NUS)**：广播包严控在 30 字节合规尺寸内（UUID `6e400001-...`），可与 Claude Desktop 上位机无缝建立物理安全审批长连接；
-- **2.4GHz Wi-Fi SoftAP**：默认热点 SSID=`StickS3-Buddy`，IP=`192.168.4.1`，支持手机免密秒连；
-- **局域网多协议并发**：TCP Server (Port 8080)、UDP Server (Port 8080) 与 HTTP Web Server (Port 80) 并行工作，支持微信小程序“WiFi调试助手”与网页端即连即显。
+### 2. 迪士尼拟态微表情与情感动力学系统 (Tamagotchi Engine)
+- **12 种拟态微表情**：涵盖开心、好奇、思考、眨眼、睡觉、惊讶、撒娇等细腻情感，具备凝视追踪与眨眼物理衰减阻尼；
+- **Tamagotchi 亲密度系统**：记录投喂、抚摸与对话频次，数值随时间平滑演化，驱动微表情与交互心声动态进阶；
+- **PSRAM 显存零撕裂双缓冲 (Axiom 3)**：开辟 135×240 @ 16-bit RGB565 精灵显存画布（仅占 64.8KB PSRAM），离线合成后经 SPI DMA 单次原子性推送，彻底根除 15Hz 物理闪烁与背光撕裂。
 
-### 3. 全编码中文字符排版与字库自愈 (GBK-Unicode Engine)
-- 提取全集 23,940 条目国标汉字与常用标点 Flash 映射表；
-- 支持微信端 GBK、网页端 UTF-8 与 Python 字节序无感透传，彻底杜绝汉字方格子乱码。
+### 3. 跨端自适应通讯与双通道安全配网
+- **BLE Nordic UART Service (NUS)**：广播合规 30 字节，特征值支持高速无应答写入；
+- **双通道智能配网**：
+  - **常规宽带 Wi-Fi 模式**：局域网高速通道，设备徽章亮绿底 **"WiFi"**；
+  - **手机共享热点模式**：顶部与设备端徽章显示暖橙底 **"HOT"**，小程序实时统计已用流量 MB，支持配额设定与超额硬件级断网熔断保护；
+  - **断网警示**：网络异常时设备显示亮红底 **"!NET"**。
+- **防截断多包分片流 (Axiom 6)**：长文本与记忆 JSON 经自适应分片流传输，内置 `safeTruncateUtf8` 字符级边界保护器，杜绝非法字节导致的 WebSocket 1007 协议违规或解析异常。
 
-### 4. 工业级 4 层 PCBA 与 SPICE 严苛仿真
-- 4 层板叠层拓扑（Sig - GND - Power - Sig），高低压走线完全电气隔离；
-- EPM 双稳态电磁铁 15A 瞬态放电退耦与 TVS 钳位保护；
-- 6 回路 SPICE 仿真：电源跌落、退磁反向感应电动势、RC 硬件看门狗、PPTC 自恢复保险丝、地弹抑制与 IMU PMOS 冷启动隔离。
+### 4. Apple HIG 人文美学微信小程序
+- **iOS 原生质感**：纯黑背景 (`#000000`)、层级卡片 (`#1C1C1E` / `#2C2C2E`)、SF Pro / PingFang 规范排版、0.5px 极细微边框；
+- **四 Tab 完整产品布局**：首页微表情、隔空投喂甜品货架、Notes 风格心声随笔、iOS 设置分组配网；
+- **微信上线保障**：内置离线仿真模式（Demo Mode）与硬件视频指引，轻松应对微信平台审核。
 
 ---
 
@@ -56,104 +68,178 @@
 
 ```mermaid
 flowchart TD
-    subgraph Clients["调测客户端 (Clients)"]
-        iOS["iPhone / Android 移动端<br/>(iOS Safari / Chrome)"]
-        PC["PC 桌面开发终端<br/>(Claude Desktop / Python)"]
-        WeChat["微信小程序<br/>(WiFi调试助手 / TCP UDP)"]
+    subgraph Clients["调测与交互客户端 (Clients)"]
+        WeChat["微信小程序 (WeChat Mini-Program)<br/>Apple HIG 美学 / 4-Tab / 热点流量监控"]
+        WebDash["Web 蓝牙/局域网伴侣控制台<br/>隔空投喂 / 向量检索 / 音频调试"]
+        MetaMuse["Meta Muse 代理大脑<br/>Muse Secure VM / Noise_XX Home Link"]
+        Desktop["PC 桌面开发终端<br/>PlatformIO / 串口 COM3 诊断 / Pytest"]
     end
 
-    subgraph StickS3["StickS3 物理伴侣与双模调测台"]
-        WebSrv["HTTP Web 控制台 (Port 80)<br/>双向音频流 / 实时遥测"]
-        BLE_NUS["BLE Nordic UART (Port 4096)<br/>安全审批 / 汉字透传"]
-        TCP_UDP["TCP & UDP Server (Port 8080)<br/>局域网调试报文收发"]
-        AudioSub["音频子系统 (PSRAM 320KB)<br/>MEMS Mic + ES8311 + AW8737"]
-        DisplaySub["ST7789v2 1.14' 屏幕<br/>GBK/Unicode 汉字排版 + 姿态水准球"]
+    subgraph StickS3["StickS3 物理伴侣 (代号「悄悄」) 核心中枢"]
+        direction TB
+        subgraph NetLayer["通信与协议解耦层 (Axiom 2 & 6)"]
+            BLE_NUS["BLE NUS (0xFFB0)<br/>自旋锁 micro-queue 入队"]
+            WiFi_Hotspot["双通道网络引擎<br/>宽带 WiFi / 手机热点 HOT / 流量熔断"]
+            MuseClient["Meta Muse Gadget 客户端<br/>Noise_XX 隧道 / 串口 Hatch"]
+            HttpServer["轻量级 REST API<br/>/api/pet/status /api/wifi/config"]
+        end
+        
+        subgraph CoreTasks["FreeRTOS 核心任务调度"]
+            LoopTask["主循环 loopTask (16KB+ 栈)<br/>StickS3BLESync::update() 消费指令"]
+            AudioTask["双工音频任务 audioTask (6KB 栈)<br/>离线唤醒 + DashScope PCM 流"]
+            AvatarTask["微表情与亲密度计算<br/>12 种拟态动作 + 物理水准仪"]
+        end
+
+        subgraph DisplaySub["显存渲染子系统 (Axiom 3)"]
+            Canvas["PSRAM 双缓冲显存画布<br/>LGFX_Sprite (135x240 @ 16-bit RGB565)"]
+            LCD["ST7789v2 1.14' 物理屏幕<br/>SPI DMA 单次原子推送 (零撕裂)"]
+            Canvas -->|DMA Push| LCD
+        end
+
+        AudioSub["音频子系统 (PSRAM 320KB)<br/>MEMS 硅麦 + ES8311 + AW8737 功放"]
+        MemoryStore["长程记忆引擎<br/>8 轮两级窗口压缩 + NVS 持久化"]
     end
 
-    subgraph Robot["灵方微型机器人主控 PCBA v2.0"]
-        ESP32Core["ESP32-S3 / ESP32 双核主控"]
-        EPM["EPM 双稳态电磁吸附机构"]
-        Motor["DRV8833 电机驱动 (MCPWM)"]
-        Optical["6 面红外光通信 Mesh"]
+    subgraph HardwareExt["具身与硬件扩展 (Embodied Hardware)"]
+        MicroDuck["MicroDuck 双足走路鸭机器人<br/>ESP32 CPG 步态引擎 / 舵机校准"]
+        LingCube["灵方微型机器人主控 PCBA v2.0<br/>4层沉金板 / DRV8833 / EPM 磁吸"]
     end
 
-    iOS -->|Wi-Fi SoftAP / HTTP| WebSrv
-    PC -->|BLE NUS / 串口 COM3| BLE_NUS
-    WeChat -->|TCP/UDP 8080| TCP_UDP
-    
-    WebSrv <--> AudioSub
-    WebSrv --> DisplaySub
-    BLE_NUS --> DisplaySub
-    
-    StickS3 -.->|HIL 地面遥控 / 调试| Robot
+    WeChat -->|BLE NUS 0xFFB4 / 手机热点| BLE_NUS
+    WebDash -->|Web Bluetooth / HTTP| BLE_NUS
+    WebDash -->|Wi-Fi SoftAP / HTTP 80| HttpServer
+    MetaMuse -->|Home Link / HTTP RPC| MuseClient
+    Desktop -->|串口 COM3 / 烧录| StickS3
+
+    NetLayer -->|微栈入队| CoreTasks
+    CoreTasks --> DisplaySub
+    CoreTasks <--> AudioSub
+    CoreTasks <--> MemoryStore
+
+    StickS3 -.->|HIL 步态遥控| MicroDuck
+    StickS3 -.->|HIL 地面调测| LingCube
 ```
+
+---
+
+## ⚖️ 不可违背的六大工程公理 (The 6 Constitutional Axioms)
+
+依据 [`docs/30_PROJECT_AXIOMS_AND_HANDOVER.md`](./docs/30_PROJECT_AXIOMS_AND_HANDOVER.md)，在 `yunyu-esp32` 的持续演进中，**以下六大公理为不可违背的最高工程基石**：
+
+1. **【公理一：真实硬件烧录验证公理】(Strict Hardware Verification Law)**  
+   固件改动绝不能停留在“代码编写完成”或“本地编译通过”，必须经由 PlatformIO 烧录至真实连接的物理硬件（`COM3`），触发 RTS/DTR 硬件级硬重启，实测阅读 10~15 秒串口日志确认自检全项通过。
+2. **【公理二：中断与通讯协议栈异步解耦公理】(Interrupt & Protocol Task Decoupling Law)**  
+   在 ESP-IDF 底层任务（特别是堆栈仅 3KB 的 `BTC_TASK`）中严禁执行 NVS 读写、Wi-Fi 切换或阻塞计算；所有下发指令仅在自旋锁临界区向微栈队列入队，并在拥有 16KB+ 栈空间的 `loopTask` 中异步消费。
+3. **【公理三：显存零撕裂双缓冲物理公理】(Zero-Tear Double-Buffering Law)**  
+   杜绝物理屏直写清屏。必须利用 8MB PSRAM 开辟 135×240 精灵画布（`LGFX_Sprite`），所有汉字、微表情与水准仪在显存中无缝合成后经 SPI DMA 单次原子推送，彻底消除频闪。
+4. **【公理四：网络模式显式区分与端到端一致性公理】(Explicit Network Mode & Coherence Law)**  
+   严格区分手机热点（橙色 "HOT" / 流量监控看板与熔断保护）与常规宽带（绿色 "WiFi"），断网亮红底 "!NET"；小程序主页与设置页数据源 100% 一致。
+5. **【公理五：零功能回退与渐进加固公理】(Non-Regression & Progressive Hardening Law)**  
+   任何新增功能不得导致已有基线特性（离线唤醒词「悄悄」、阿里百炼流式语音、按键打断、12种微表情、8轮记忆压缩、I2C互斥锁）发生任何劣化。
+6. **【公理六：跨端自适应协议与防截断编码公理】(Adaptive Multi-Chunk & Robust Encoding Law)**  
+   跨端通信长文本必须支持多包分片流与接收端组包拼帧；文本截断必须使用字符级算法（`safeTruncateUtf8`），严禁跨字节撕裂导致解析崩溃或 WebSocket 1007 协议违规。
 
 ---
 
 ## ⚡ 硬件定义与引脚映射 (Pinout Specifications)
 
-### M5Stack StickS3 板载外设电气配置
+### M5Stack StickS3 板载核心外设映射
 
 | 外设模块 | 核心芯片 / 组件 | ESP32-S3 GPIO 引脚 | 驱动方式与通信协议 | 说明 |
 | :--- | :--- | :--- | :--- | :--- |
 | **电源门控** | M5PM1 PMIC | I2C (SDA: G10, SCL: G9) | I2C Addr `0x6E` | GPIO2: LCD 3.3V, GPIO3: 功放使能 |
-| **正面按键 A** | 主功能按键 | **GPIO 11** | 内部上拉输入 | 单击录音 10 秒 / 再次单击停止 |
-| **侧面按键 B** | 辅助控制按键 | **GPIO 12** | 内部上拉输入 | 切换显示看板与辅助控制 |
-| **彩色屏幕** | ST7789v2 1.14" LCD | SPI3 (SCLK: G17, MOSI: G18, DC: G15, CS: G14, RST: G21) | SPI (27MHz DMA) | 135 × 240 分辨率，全色彩虹与中文渲染 |
-| **6轴姿态计** | Bosch BMI270 | I2C (SDA: G10, SCL: G9) | I2C Addr `0x69` | 8KB 微码自愈，动态水准平衡算法 |
-| **音频编解码** | ES8311 + AW8737 PA | I2S0 (LRCK: G7, BCLK: G8, DOUT: G6, DIN: G5) | I2S (16kHz 16bit Mono) | 板载 MEMS 硅麦采集 + 扬声器回放 |
-| **外扩动力接口** | Grove 4-Pin 接口 | GPIO 1 / GPIO 2, 5V, GND | M5PM1 门控 5V | 驱动外部伺服与灵方单体 |
+| **正面按键 A** | 主功能实体按键 | **GPIO 11** | 内部上拉输入 | 语音物理打断 (Barge-In) / 录音触发 |
+| **侧面按键 B** | 辅助控制实体按键 | **GPIO 12** | 内部上拉输入 | 页面轮换与辅助功能切换 |
+| **彩色屏幕** | ST7789v2 1.14" LCD | SPI3 (SCLK: G17, MOSI: G18, DC: G15, CS: G14, RST: G21) | SPI (27MHz DMA) | 135 × 240 分辨率，PSRAM 双缓冲显存 |
+| **6轴姿态计** | Bosch BMI270 | I2C (SDA: G10, SCL: G9) | I2C Addr `0x69` | 姿态角感应与动态水准球平衡算法 |
+| **音频前端** | ES8311 + AW8737 PA | I2S0 (LRCK: G7, BCLK: G8, DOUT: G6, DIN: G5) | I2S (16kHz 16bit Mono) | 板载 MEMS 硅麦采集 + 喇叭流式回放 |
+| **外扩动力接口** | Grove 4-Pin 接口 | GPIO 1 / GPIO 2, 5V, GND | M5PM1 门控 5V | 外接 MicroDuck 舵机或机器人 HIL 调测 |
+
+---
+
+## 📚 项目工程知识库 (Project Engineering Documentation)
+
+本项目建立了完备、专业的技术文档体系，全部文档归档于 [`docs/`](./docs/)：
+
+| 专案分类 | 文档名称与索引 | 核心论证与工程规范 |
+| :--- | :--- | :--- |
+| **最高工程基石** | [**30_PROJECT_AXIOMS_AND_HANDOVER.md**](./docs/30_PROJECT_AXIOMS_AND_HANDOVER.md) | 六大不可违背工程公理、实机监控基线、全套工具链验证命令与会话交接指南 |
+| **提示词标准库** | [**AGENT_CONTINUATION_PROMPTS.md**](./docs/AGENT_CONTINUATION_PROMPTS.md) | 跨生命周期 AI Agent 通用母版、细分研发方向（审批终端/地面台/菜单）提示词模板 |
+| **微信小程序端** | [**28_M5StickS3微信小程序对接架构与通信协议工程指南.md**](./docs/28_M5StickS3微信小程序对接架构与通信协议工程指南.md)<br/>[**29_微信小程序与移动端研发交接指南_HANDOVER_MOBILE.md**](./docs/29_微信小程序与移动端研发交接指南_HANDOVER_MOBILE.md) | 小程序 4-Tab 完整架构、BLE NUS 分包重组、热点配额监控熔断、上线审核攻略 |
+| **Meta Muse 接入** | [**31_Meta_Muse_Gadgets微型自重构机器人与物理伴侣全栈接入方案与工程实施详案.md**](./docs/31_Meta_Muse_Gadgets微型自重构机器人与物理伴侣全栈接入方案与工程实施详案.md) | Meta 2026-10-02 开源 `muse-gadget-sdk` 研学、Noise_XX 隧道、具身技能标准与实施详案 |
+| **伴侣与表情架构** | [**27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md**](./docs/27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md)<br/>[**27_StickS3物理伴侣全流程对话开发实录与教学手册.md**](./docs/27_StickS3物理伴侣全流程对话开发实录与教学手册.md) | 迪士尼微表情动力学、Tamagotchi 亲密度系统、长程记忆压缩与对话实录教程 |
+| **硬件与调测基线** | [**01_StickS3_Hardware_and_Bringup_Guide.md**](./docs/01_StickS3_Hardware_and_Bringup_Guide.md)<br/>[**03_StickS3_Three_Schemes_Verification.md**](./docs/03_StickS3_Three_Schemes_Verification.md)<br/>[**25_M5Stack_StickS3物理伴侣与地面调测终端开发全流程及三方案验证详案.md**](./docs/25_M5Stack_StickS3物理伴侣与地面调测终端开发全流程及三方案验证详案.md) | M5StickS3 硬件上电流程、三大方案（M5Burner / PlatformIO / Claude Buddy）全面验证 |
+| **双向语音与资源** | [**HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md**](./docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md)<br/>[**RELEASE_NOTES_v1.0.0.md**](./docs/RELEASE_NOTES_v1.0.0.md) | 百炼实时语音流、双向音频协议、内存防溢出与 v1.0.0 稳定生产基线发布记录 |
+
+---
+
+## 🛠️ 标准化技能扩展 (Standardized Skills)
+
+项目所有专属专业技能均统一梳理并保存在根目录 `skills/` 下，已配置 `.agents/skills.json` 支持 Antigravity 全自动化识别与调度：
+
+1. **[skills/lingbuddy-firmware-ops/](./skills/lingbuddy-firmware-ops/SKILL.md)**：  
+   StickS3 嵌入式固件编译、极速烧录（`COM3`）、硬重启检验与六大公理违规审计技能；
+2. **[skills/wechat-miniprogram-companion/](./skills/wechat-miniprogram-companion/SKILL.md)**：  
+   微信小程序伴侣研发、Apple HIG 视觉规范审查、BLE NUS 多包通信协议、双通道配网与发布上线技能；
+3. **[skills/muse-gadget-companion/](./skills/muse-gadget-companion/SKILL.md)**：  
+   Meta Muse Gadgets 接入与具身技能管理（Noise_XX 隧道、Home Link 穿透、Push-to-Talk 24kHz 流）；
+4. **[skills/public-service-tunnel/](./skills/public-service-tunnel/SKILL.md)**：  
+   本地伴侣控制台与 Web 预览在线穿透管理技能（ngrok、Cloudflare Quick Tunnel 自适应容灾切换）；
+5. **[skills/document-content-verifier/](./skills/document-content-verifier/SKILL.md)**：  
+   第一性原理与公理化文档内容交叉复核技能（自然科学公理、量纲齐次性、多模态交付）；
+6. **[skills/open-source-repo-analyzer/](./skills/open-source-repo-analyzer/SKILL.md)**：  
+   自主开源项目研学、AST 源码分析与跨项目接口适配器生成技能；
+7. **[skills/pcb-design-verifier/](./skills/pcb-design-verifier/SKILL.md)**：  
+   KiCad 原理图/PCB 审查与多回路 SPICE 瞬态电路仿真技能；
+8. **[skills/gadget-lingcube-msrr/](./skills/gadget-lingcube-msrr/SKILL.md)** & **[skills/gadget-lingmatrix-sim/](./skills/gadget-lingmatrix-sim/SKILL.md)**：  
+   Meta Muse 具身物理机器人控制与数字孪生仿真技能。
 
 ---
 
 ## 🛠️ 快速起步 (Quick Start)
 
-### 1. 环境准备 (Prerequisites)
-- Python 3.10+ 环境；
-- [PlatformIO Core (CLI)](https://platformio.org/)；
-- 安装项目依赖：
-  ```bash
-  pip install -r requirements.txt
-  ```
-
-### 2. 固件本地编译 (Local Build)
-编译 M5Stack StickS3 固件：
+### 1. 环境准备与依赖安装
 ```bash
-python -m platformio run -d firmware/m5sticks3_buddy
+# 1. 安装 Python 核心依赖 (包含 platformio, pytest, bleak, numpy 等)
+pip install -r requirements.txt
+
+# 2. 安装小程序端构建依赖 (若需运行微信开发者工具自动化)
+npm install
 ```
 
-### 3. 一键全自主烧录与硬件点亮 (Autonomous Bring-Up)
-将 StickS3 插入电脑 USB 口（如 `COM3`），执行全自主极速烧录代理：
+### 2. 固件编译与真实硬件烧录 (践行公理一)
 ```bash
-python scripts/autonomous_bringup_agent.py
-```
-*代理将自动检测端口、嗅探 ESP32-S3-PICO-1 芯片特征、调用 PlatformIO 构建镜像、以 1,500,000 Baud 写入 Flash，并监听重启引导日志。*
+# 本地编译固件
+python -m platformio run -e m5sticks3_buddy
 
-### 4. 双向音频流与硬件端到端自测 (E2E Verification)
-电脑 Wi-Fi 连接 `StickS3-Buddy` 热点后，运行全自动端到端验收脚本：
-```bash
-python scripts/verify_audio_e2e_hardware.py
+# 烧录固件至物理硬件 (本地串口 COM3)
+python -m platformio run -e m5sticks3_buddy -t upload
+
+# 触发 RTS/DTR 硬件级硬重启并读取实时串口自检日志 (运行 10~15 秒)
+python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"
 ```
 
-### 5. 执行单元与集成测试套件 (Pytest Suite)
+### 3. 执行全套 80 项自动化回归测试
 ```bash
 pytest tests/ -v
 ```
-*(27 项工程单测全绿通过，包括 WAV 头对齐、重采样算法、驱动回归、DRC与电路仿真)*
+*(80 项声学唤醒、百炼双工、微表情动力学、BLE多包拼帧、热点配额熔断、驱动 Hub、硬件自测全部通过)*
 
----
+### 4. 微信小程序开发与预览
+1. 打开**微信开发者工具**；
+2. 导入项目目录：`D:\workspace\code\yunyu-esp32\wechat_miniprogram`；
+3. 输入测试 AppID 或使用已有的小程序账号；
+4. 即可在模拟器中体验暗黑 Apple HIG 美学界面、4 大 Tab、微表情渲染与仿真交互模式；连接真实 StickS3 时自动开启 BLE NUS 双向通信。
 
-## 📱 手机端控制台交互指南 (Mobile Web Console)
+### 5. 桌面 Web 蓝牙伴侣与向量知识库
+```bash
+# 启动本地伴侣控制台 Web 服务
+python scripts/lingbuddy_companion.py
+# 浏览器访问: http://127.0.0.1:8000 (支持 Chrome / Edge Web Bluetooth 直连)
 
-1. **连接热点**：打开手机 Wi-Fi，搜索并连接 `StickS3-Buddy`（开放式免密热点）；
-2. **访问控制台**：使用手机浏览器访问 `http://192.168.4.1`；
-3. **播放设备端录音**：
-   - 在 StickS3 上按下正面按键 A（或网页端点击【🔴 远程控制录音】）；
-   - 设备屏幕显示红色 `● 正在录音 (REC)` 与倒计时；
-   - 录制完毕后，网页端自动同步最新录音信息，点击【▶ 播放 StickS3 录音】即可直接聆听；
-4. **网页端给 StickS3 发声**：
-   - **极速试听**：点击【🎵 生成 16kHz 和弦测试音下发】，无需任何授权，StickS3 喇叭即刻响铃；
-   - **手机传语音**：点击【📁 选取音频文件 / 语音备忘录上传】，调起系统语音备忘录或本地音频，网页自动重采样至 16kHz 上传，StickS3 喇叭即刻发声回放。
+# 启动向量记忆知识库查询
+python scripts/lingbuddy_vector_store.py
+```
 
 ---
 
@@ -161,44 +247,41 @@ pytest tests/ -v
 
 ```
 yunyu-esp32/
-├── .github/workflows/ci.yml       # GitHub Actions 自动化 CI 脚本
+├── .agents/                       # Antigravity Agent 技能索引配置 (skills.json)
+├── .github/                       # GitHub Actions CI 流水线
+├── docs/                          # 项目最高公理、工程交接、提示词库与全套技术详案 (Docs 01~31)
 ├── firmware/
-│   ├── m5sticks3_buddy/           # StickS3 物理伴侣与双模地面调测台工程 (PlatformIO)
-│   │   ├── include/               # 音频流、Wi-Fi、BLE、GBK字库、HAL 驱动头文件
-│   │   ├── src/                   # main.cpp, sticks3_hal.cpp, buddy_protocol.cpp
-│   │   └── platformio.ini         # PlatformIO 编译构建配置
-│   └── esp32_msrr_firmware/       # 灵方微型机器人主控嵌入式微内核工程
-├── hardware/
-│   ├── kicad/                     # KiCad 原理图与 4 层 PCB 版图源文件
-│   ├── gerber/                    # 工业级量产 Gerber 光绘与钻孔文件
-│   ├── bom/                       # 元器件采购选型与 BOM 清单
-│   ├── cpl/                       # SMT 表面贴装贴片坐标清单
-│   ├── cad/                       # OpenSCAD 3D 机械装配模型
-│   └── scripts/                   # SPICE 电路仿真、热分布与容灾检验脚本
-├── scripts/
-│   ├── autonomous_bringup_agent.py# 6 步骤全自主硬件点亮与高速烧录代理
-│   ├── verify_audio_e2e_hardware.py# Wi-Fi SoftAP 双向音频流硬件端到端自测套件
-│   ├── sticks3_bringup_manager.py # 方案 1/2/3 综合 CLI 调测管理工具
-│   ├── test_ble_encoding.py       # 蓝牙 NUS 多编码汉字收发测试脚本
-│   └── gen_gbk_header.py          # 23,940 条目 GBK-Unicode Flash 映射生成器
-├── tests/
-│   ├── test_audio_stream_pipeline.py # 16kHz WAV 头部与重采样测试
-│   ├── test_sticks3_three_schemes.py # 三方案自动化验证
-│   ├── test_firmware_driver_suite.py # 嵌入式全驱动回归套件
-│   └── test_pcb_design_and_verification.py # 电路网表与 SPICE 仿真验证
-├── docs/                          # 硬件规格、引脚图谱与交接提示词标准库
-├── CONTRIBUTING.md                # 开源项目代码贡献准则
-├── LICENSE                        # Apache License 2.0 开源许可协议
-├── README.md                      # 本文档
-├── pyproject.toml                 # 现代化 Python 包元数据
-└── requirements.txt               # Python 运行与构建依赖
+│   └── m5sticks3_buddy/           # StickS3 物理伴侣与双模地面调测台工程 (PlatformIO)
+│       ├── include/               # 离线唤醒、音频驱动、微表情、BLE同步、百炼Client、MuseClient
+│       ├── src/                   # main.cpp, sticks3_hal.cpp, buddy_protocol.cpp
+│       └── platformio.ini         # PlatformIO 编译构建配置
+├── wechat_miniprogram/            # 微信小程序端 4-Tab 完整产品套件
+│   ├── pages/                     # index (首页), feed (投喂), diary (日记), settings (设置配网)
+│   ├── components/avatar-canvas/  # DPR 自适应矢量微表情渲染组件
+│   ├── utils/                     # BLE 通信、Wi-Fi/热点管理、触觉反馈、离线存储、加密防护
+│   └── assets/tabbar/             # 苹果暗黑高保真 TabBar 图标资产
+├── web/
+│   └── lingbuddy_companion.html   # Web Bluetooth / Wi-Fi 隔空投喂伴侣控制台
+├── external_repos/
+│   └── muse-gadget-sdk/           # Meta Muse Gadgets 官方开源硬件与通信 SDK
+├── microduck/                     # MicroDuck 双足走路鸭机器人机电步态工程
+├── hardware/                      # 灵方微型机器人主控 PCBA v2.0 与硬件设计资产
+├── scripts/                       # 自动化点亮代理、向量检索、对话压测、音频自测脚本
+├── skills/                        # 8 项标准化 Antigravity 专属技能扩展
+├── tests/                         # 80 项全自动化回归测试套件 (Pytest)
+├── package.json                   # 小程序与前端构建工具链配置
+├── pyproject.toml                 # 现代化 Python 包元数据与 pytest 配置
+├── requirements.txt               # Python 运行与构建依赖
+├── CONTRIBUTING.md                # 代码贡献与工程准则
+├── LICENSE                        # Apache License 2.0 开源协议
+└── README.md                      # 本文档
 ```
 
 ---
 
 ## 📄 开源许可证 (License)
 
-本项目遵循 [Apache License 2.0](./LICENSE) 协议开源。无论是软件代码、硬件设计（原理图/PCB/CAD），均保障商业友好与学术研究自由。
+本项目遵循 [Apache License 2.0](./LICENSE) 协议开源。软件源码、固件代码、微信小程序套件及硬件工程设计均保障商业友好与学术研究自由。
 
 ---
 
@@ -206,11 +289,13 @@ yunyu-esp32/
 
 ### English Summary
 
-`yunyu-esp32` is the open-source hardware, firmware, and Ground Hardware-in-the-Loop (HIL) terminal ecosystem for the **LingCube (灵方) modular self-reconfigurable robot (MSRR)**.
+`yunyu-esp32` is a fully decoupled, standalone open-source physical AI voice companion and embodied robotics hardware ecosystem.
 
-**Key Highlights**:
-- **M5Stack StickS3 Companion Terminal**: ESP32-S3-PICO-1 with 8MB Flash + 8MB PSRAM, Bluetooth Low Energy Nordic UART Service (30B compliant advertising), 2.4GHz Wi-Fi (SoftAP `StickS3-Buddy` 192.168.4.1 / Web / TCP / UDP 8080), 10s 16kHz 16-bit mono bidirectional audio streaming with AW8737 PA & ES8311 Codec, 23,940-glyph GBK-Unicode Flash font engine, and BMI270 dynamic attitude leveling bubble.
-- **Robot Controller PCBA v2.0**: 4-layer industrial KiCad schematic and PCB layout, production Gerber deliverables, CPL pick-and-place, BOM, OpenSCAD CAD models, and 6-loop ngspice circuit simulations.
-- **Autonomous Bring-up Pipeline**: 6-step zero-friction agent for flashing at 1.5MBaud, hardware self-healing reset, and automated end-to-end Python hardware test suite.
+**Core Highlights**:
+- **LingBuddy (悄悄) Companion Firmware**: Running on M5Stack StickS3 (ESP32-S3), featuring offline acoustic wakeword "悄悄", Alibaba Bailian DashScope Realtime full-duplex voice streaming, physical button barge-in, 12 Disney-inspired parametric avatar emotions, Tamagotchi intimacy engine, 8-turn long-horizon memory compaction, zero-tear PSRAM double-buffering (Axiom 3), and async spinlock BLE queue (Axiom 2).
+- **WeChat Mini-Program Product Suite**: Built with Apple Human Interface Guidelines (HIG) aesthetic, offering 4 primary tabs (Avatar & Thoughts, Feeding Center, Heartfelt Diary, and Network Settings), BLE Nordic UART Service multi-chunk streaming, dual-channel network provisioning (broadband Wi-Fi + mobile hotspot with quota cutoff protection), DPR-aware `<avatar-canvas>`, and haptic feedback.
+- **Meta Muse Gadgets Ecosystem Integration**: Native compliance with Meta's open-source Muse Gadget SDK, supporting Noise_XX encrypted Home Link tunneling, Push-to-Talk 24kHz audio, and embodied robotics skill dispatching.
+- **MicroDuck Bipedal Robotics**: CPG locomotion gait controller, servo calibration, and hardware kinematics.
+- **6 Constitutional Axioms**: Strict adherence to hardware-verified releases, task decoupling, anti-flicker double-buffering, network coherence, non-regression, and safe Unicode-boundary encoding.
 
 </div>
