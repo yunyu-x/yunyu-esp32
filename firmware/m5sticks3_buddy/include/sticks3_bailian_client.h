@@ -422,8 +422,8 @@ static const char* DASHSCOPE_ROOT_CA =
         // 3. 在线且处于 LISTENING 模式时，流式读取麦克风并推流到百炼
         if (isConnected() && _session_initialized) {
             if (_state == BL_STATE_LISTENING) {
-                // 每隔 50ms 轮询并推流 (平滑网络压力且防止 DMA 积压)
-                if (millis() - _last_mic_read_time >= 50) {
+                // 每隔 20ms 高频轮询并推流 (极大压缩上行传输抖动延迟，同时保持单包 < 1KB MTU)
+                if (millis() - _last_mic_read_time >= 20) {
                     _last_mic_read_time = millis();
                     streamMicUpstream();
                 }
@@ -652,6 +652,10 @@ private:
         if (new_state == BL_STATE_LISTENING || new_state == BL_STATE_CONNECTED_IDLE) {
             _last_error = "";
         }
+        if (new_state == BL_STATE_THINKING) {
+            // 预热功放与 Codec 全双工通道，消除首包到达时的 I2C 阻塞与功放起振延迟
+            StickS3Audio::getInstance().primePlaybackHardware();
+        }
         if (_state != new_state) {
             BailianAgentState old = _state;
             _state = new_state;
@@ -710,9 +714,9 @@ private:
 
         JsonObject turn = session["turn_detection"].to<JsonObject>();
         turn["type"] = "server_vad";
-        turn["threshold"] = 0.50; // 优化为 0.50 平衡点，室内人声敏感触发且抗环境噪
-        turn["prefix_padding_ms"] = 300;
-        turn["silence_duration_ms"] = 450;
+        turn["threshold"] = 0.48; // 敏锐人声检测门限 (兼顾抗噪与开口低延迟触发)
+        turn["prefix_padding_ms"] = 200; // 优化前导音频填充为 200ms
+        turn["silence_duration_ms"] = 300; // 优化静音判定尾长为 300ms (大幅降低停顿等待延迟)
         turn["create_response"] = true;
         turn["interrupt_response"] = true;
 
@@ -748,10 +752,10 @@ private:
         if (!s_samples || !s_preroll_buf || !s_b64_buf || !s_payload_buf) return;
 
         size_t samples_read = 0;
-        if (!StickS3Audio::getInstance().readMicSamples(s_samples, 1024, samples_read)) {
+        if (!StickS3Audio::getInstance().readMicSamples(s_samples, 512, samples_read)) {
             return;
         }
-        if (samples_read < 256) return;
+        if (samples_read < 160) return;
 
         // 1. 将麦克风采样送入离线唤醒词引擎持续分析
         if (StickS3WakeWordEngine::getInstance().isEnabled()) {
@@ -821,8 +825,8 @@ private:
         } else {
             // 当前非人声发音区间
             if (s_is_actively_streaming) {
-                // 维持 1200ms 静音尾窗或正在服务端发言，持续向云端输送静音，以满足 Server-VAD silence_duration_ms 裁决
-                if ((millis() - s_last_voice_tick <= 1200) || _server_in_speech) {
+                // 维持 400ms 静音尾窗或正在服务端发言，持续向云端输送静音，以满足 Server-VAD 300ms 裁决
+                if ((millis() - s_last_voice_tick <= 400) || _server_in_speech) {
                     sendPcmFrame(s_samples, samples_read);
                 } else {
                     s_is_actively_streaming = false;
@@ -837,10 +841,10 @@ private:
             }
         }
 
-        // 关键兜底保障：若服务端 Server-VAD 在用户声音停止超过 1600ms 后仍未触发 speech_stopped，
+        // 关键兜底保障：若服务端 Server-VAD 在用户声音停止超过 800ms 后仍未触发 speech_stopped，
         // 客户端主动发送 input_audio_buffer.commit 强制提交本轮对话，杜绝云端 VAD 挂起卡住！
-        if (_server_in_speech && (millis() - s_last_voice_tick > 1600)) {
-            Serial.println("[BAILIAN-VAD] Local silence timeout (>1.6s). Actively committing audio buffer...");
+        if (_server_in_speech && (millis() - s_last_voice_tick > 800)) {
+            Serial.println("[BAILIAN-VAD] Local silence timeout (>800ms). Actively committing audio buffer...");
             const char* commit_payload = "{\"type\":\"input_audio_buffer.commit\"}";
             esp_websocket_client_send_text(_ws_client, commit_payload, strlen(commit_payload), pdMS_TO_TICKS(35));
             _server_in_speech = false;

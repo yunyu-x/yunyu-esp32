@@ -140,7 +140,7 @@ public:
           _is_playing_stream(false), _playback_progress(0.0f),
           _stream_ring_buf(nullptr), _is_streaming_llm(false),
           _audio_task_handle(nullptr), _speaker_ref_rms(0.0f),
-          _voice_consecutive_frames(0) {}
+          _voice_consecutive_frames(0), _codec_full_duplex(false) {}
 
     static StickS3Audio& getInstance() {
         static StickS3Audio instance;
@@ -212,7 +212,7 @@ public:
             .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT, // ES8311 Mono
             .communication_format = I2S_COMM_FORMAT_STAND_I2S,
             .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-            .dma_buf_count = 8,
+            .dma_buf_count = 6, // 优化 DMA 缓冲为 6x256 (96ms)，兼顾零欠载与极低放音前滚延迟
             .dma_buf_len = 256,
             .use_apll = false,
             .tx_desc_auto_clear = true,
@@ -610,6 +610,15 @@ public:
     // 大模型实时下行流式音频播放与毫秒级中途打断
     // ==========================================
 
+    // 预热/预初始化放音硬件 (在进入 THINKING 状态时调用，消除 I2C 阻塞与功放起振延迟)
+    void primePlaybackHardware() {
+        if (!_initialized) return;
+        if (!_speaker_powered) {
+            enablePA(true);
+        }
+        setCodecFullDuplexMode();
+    }
+
     // 压入来自 WebSocket response.audio.delta 的 PCM 数据 (支持 16kHz 与 24kHz 自适应下采样)
     void feedStreamPCM(const uint8_t* pcm_data, size_t len, uint32_t src_sample_rate = 16000) {
         if (!_initialized || !pcm_data || len == 0 || !_stream_ring_buf) return;
@@ -648,8 +657,10 @@ public:
             _playing_sound = true;
             _speaker_ref_rms = 0.0f;
             _voice_consecutive_frames = 0;
-            enablePA(true);
-            setCodecFullDuplexMode(); // 全双工时钟保活，保证麦克风在放音时持续采集
+            if (!_speaker_powered) {
+                enablePA(true);
+            }
+            setCodecFullDuplexMode(); // 若已在 THINKING 预热，直接 0ms 跳过冗余 I2C 操作
             Serial.printf("[AUDIO] >>> LLM Full-Duplex Stream Playback STARTED (Src: %uHz, Buffered %u bytes) <<<\n",
                           (unsigned)src_sample_rate, (unsigned)_stream_ring_buf->available());
         }
@@ -942,6 +953,7 @@ private:
     bool _is_streaming_llm;
     volatile float _speaker_ref_rms;
     volatile uint8_t _voice_consecutive_frames;
+    bool _codec_full_duplex;
 
     void ensureRecordBuffer() {
         if (!_record_buf) {
@@ -982,9 +994,11 @@ private:
         writeESReg(0x1C, 0x6A); // ADC Equalizer Bypass & DC Offset Cancel
         writeESReg(0x32, 0xBF); // DAC Volume (0dB)
         writeESReg(0x37, 0x08); // Bypass DAC Equalizer
+        _codec_full_duplex = false;
     }
 
     void setCodecFullDuplexMode() {
+        if (_codec_full_duplex) return; // 已处于全双工预热就绪态，0ms 跳过冗余 I2C 操作
         // 全双工模式：同时开启 ADC 拾音与 DAC 放音，保证麦克风硬件时钟与放大器持续工作
         writeESReg(0x01, 0xBF); // CLKADC_ON=1 & CLKDAC_ON=1 (同时保持 ADC 和 DAC 时钟)
         writeESReg(0x0E, 0x02); // Enable Analog PGA & ADC Modulator
@@ -996,9 +1010,11 @@ private:
         writeESReg(0x13, 0x10); // Enable Output to HP/PA
         writeESReg(0x32, 0xBF); // DAC Volume (0dB)
         writeESReg(0x37, 0x08); // Bypass DAC Equalizer
+        _codec_full_duplex = true;
     }
 
     void setCodecSpeakerMode() {
+        _codec_full_duplex = false;
         // 优化 DAC 放音时钟与通道
         writeESReg(0x01, 0xB5);
         writeESReg(0x12, 0x00);
@@ -1007,6 +1023,7 @@ private:
     }
 
     void setCodecMicMode() {
+        _codec_full_duplex = false;
         // 切回 ADC 录音拾音时钟与增益
         writeESReg(0x01, 0xBA);
         writeESReg(0x0E, 0x02);
