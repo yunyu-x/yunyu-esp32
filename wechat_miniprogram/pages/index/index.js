@@ -69,6 +69,8 @@ Page({
       this.syncFromService(evt);
       if (evt.type === "memory") {
         this.refreshMemories();
+      } else if (evt.type === "diary") {
+        this.refreshDiaryStats();
       }
     };
     this.buddyService.subscribe(this.stateListener);

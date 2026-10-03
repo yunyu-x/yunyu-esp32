@@ -72,12 +72,12 @@ Page({
   onLoad() {
     this.buddyService = buddyService;
 
+    const isFoodText = (t) => t && ["喂", "吃", "大福", "蛋糕", "曲奇", "甜甜圈", "爆米花", "冰淇淋", "美食", "吧唧"].some(k => t.includes(k));
+
     this.stateListener = (evt) => {
       const st = evt.petState || this.buddyService.petState;
-      this.setData({
-        petState: st
-      });
-      if (st.diary && (st.diary.includes("喂") || st.diary.includes("吃") || st.diary.includes("大福") || st.diary.includes("蛋糕"))) {
+      this.setData({ petState: st });
+      if (st.diary && isFoodText(st.diary)) {
         this.setData({ latestFoodDiary: st.diary });
       }
     };
@@ -88,8 +88,9 @@ Page({
   onShow() {
     if (this.buddyService) {
       const st = this.buddyService.petState;
+      const isFoodText = (t) => t && ["喂", "吃", "大福", "蛋糕", "曲奇", "甜甜圈", "爆米花", "冰淇淋", "美食", "吧唧"].some(k => t.includes(k));
       this.setData({ petState: st });
-      if (st.diary && (st.diary.includes("喂") || st.diary.includes("吃") || st.diary.includes("大福") || st.diary.includes("蛋糕"))) {
+      if (st.diary && isFoodText(st.diary)) {
         this.setData({ latestFoodDiary: st.diary });
       }
     }
