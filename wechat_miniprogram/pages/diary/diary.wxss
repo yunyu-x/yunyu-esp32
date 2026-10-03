@@ -1,21 +1,76 @@
-/* pages/diary/diary.wxss */
+/* pages/diary/diary.wxss - Apple HIG Dark Mode Aesthetic */
 .container {
   padding: 24rpx;
   display: flex;
   flex-direction: column;
   gap: 20rpx;
-  padding-bottom: 50rpx;
+  padding-bottom: 60rpx;
+  background-color: var(--ios-bg, #000000);
 }
 
-/* 顶部概览 */
+/* ================= 顶部 Tab 分段器 (Apple HIG Segmented Control) ================= */
+.section-tab-bar {
+  display: flex;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999rpx;
+  padding: 6rpx;
+  gap: 8rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.3);
+}
+
+.tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  padding: 14rpx 0;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--ios-label-secondary, #8E8E93);
+  transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1);
+}
+
+.tab-icon {
+  font-size: 26rpx;
+}
+
+.tab-count-badge {
+  font-size: 20rpx;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ios-label-secondary, #8E8E93);
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
+}
+
+.tab-btn-active {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  color: #FFFFFF;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.4);
+}
+
+.tab-dialogue-active {
+  color: #64D2FF;
+}
+
+.badge-cyan {
+  background: rgba(100, 210, 255, 0.15);
+  color: #64D2FF;
+}
+
+/* ================= 头部概览卡片 (Apple Notes Style) ================= */
 .diary-stats-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #121929;
-  border: 1px solid rgba(246, 211, 101, 0.25);
-  border-radius: 20rpx;
-  padding: 20rpx 24rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
+  padding: 22rpx 26rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.25);
 }
 
 .stats-left {
@@ -27,12 +82,12 @@
 .stats-title {
   font-size: 28rpx;
   font-weight: 700;
-  color: #f6d365;
+  color: #FFFFFF;
 }
 
 .stats-subtitle {
   font-size: 20rpx;
-  color: #94a3b8;
+  color: var(--ios-label-secondary, #8E8E93);
 }
 
 .stats-right {
@@ -41,31 +96,31 @@
 }
 
 .stat-pill {
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  border-radius: 16rpx;
-  padding: 8rpx 16rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20rpx;
+  padding: 8rpx 18rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
 .stat-num {
-  font-size: 28rpx;
-  font-weight: 800;
-  color: #38bdf8;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #64D2FF;
 }
 
 .stat-lbl {
   font-size: 18rpx;
-  color: #64748b;
+  color: var(--ios-label-tertiary, #636366);
 }
 
 .fav-pill .stat-num {
-  color: #f472b6;
+  color: #FF375F;
 }
 
-/* 筛选器滚动区 */
+/* ================= 筛选器滚动区 (Apple Capsule Filters) ================= */
 .filter-scroll {
   white-space: nowrap;
   width: 100%;
@@ -73,24 +128,26 @@
 
 .filter-chip {
   display: inline-block;
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  color: #94a3b8;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  color: var(--ios-label-secondary, #8E8E93);
   font-size: 22rpx;
-  padding: 10rpx 24rpx;
-  border-radius: 30rpx;
+  padding: 10rpx 26rpx;
+  border-radius: 999rpx;
   margin-right: 12rpx;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  font-weight: 500;
 }
 
 .filter-active {
-  background: linear-gradient(135deg, #0284c7, #2563eb);
-  border-color: #38bdf8;
-  color: #ffffff;
+  background: var(--ios-blue, #0A84FF);
+  border-color: transparent;
+  color: #FFFFFF;
   font-weight: 600;
+  box-shadow: 0 4rpx 14rpx rgba(10, 132, 255, 0.35);
 }
 
-/* 日记卡片列表 */
+/* ================= 日记卡片列表 (Apple Journal Cards) ================= */
 .diary-list {
   display: flex;
   flex-direction: column;
@@ -102,39 +159,40 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80rpx 20rpx;
-  background: #121929;
-  border: 1px dashed #334155;
-  border-radius: 20rpx;
+  padding: 80rpx 24rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 28rpx;
 }
 
 .empty-icon {
   font-size: 64rpx;
-  margin-bottom: 12rpx;
+  margin-bottom: 14rpx;
 }
 
 .empty-title {
   font-size: 28rpx;
   font-weight: 700;
-  color: #cbd5e1;
+  color: #FFFFFF;
 }
 
 .empty-desc {
   font-size: 22rpx;
-  color: #64748b;
+  color: var(--ios-label-secondary, #8E8E93);
   margin-top: 8rpx;
   text-align: center;
+  line-height: 1.5;
 }
 
 .diary-card-item {
-  background: #121929;
-  border: 1px solid #1e293b;
-  border-radius: 20rpx;
-  padding: 20rpx 24rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
+  padding: 22rpx 26rpx;
   display: flex;
   flex-direction: column;
   gap: 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.25);
 }
 
 .card-header {
@@ -151,41 +209,47 @@
 
 .mood-tag-badge {
   font-size: 20rpx;
-  color: #f6d365;
-  background: rgba(246, 211, 101, 0.15);
+  color: #FFD60A;
+  background: rgba(255, 214, 10, 0.12);
   padding: 4rpx 14rpx;
-  border-radius: 12rpx;
-  border: 1px solid rgba(246, 211, 101, 0.3);
+  border-radius: 999rpx;
+  border: 0.5px solid rgba(255, 214, 10, 0.3);
+  font-weight: 600;
 }
 
 .time-label {
   font-size: 20rpx;
-  color: #64748b;
+  color: var(--ios-label-tertiary, #636366);
 }
 
 .fav-action-btn {
-  font-size: 32rpx;
+  font-size: 30rpx;
   padding: 6rpx;
+  transition: transform 0.12s ease;
+}
+
+.fav-action-btn:active {
+  transform: scale(1.2);
 }
 
 .card-body {
-  background: #020617;
-  border: 1px solid #1e293b;
-  border-radius: 14rpx;
-  padding: 16rpx 20rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20rpx;
+  padding: 18rpx 22rpx;
   line-height: 1.6;
 }
 
 .quote-mark {
-  color: #38bdf8;
-  font-family: Georgia, serif;
-  font-size: 30rpx;
+  color: #64D2FF;
+  font-family: Georgia, -apple-system, serif;
+  font-size: 28rpx;
   font-weight: bold;
 }
 
 .quote-content {
   font-size: 24rpx;
-  color: #e2e8f0;
+  color: #FFFFFF;
 }
 
 .card-footer {
@@ -196,11 +260,11 @@
 
 .footer-btn {
   font-size: 22rpx;
-  color: #94a3b8;
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 12rpx;
-  padding: 0 20rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14rpx;
+  padding: 0 22rpx;
   height: 56rpx;
   min-height: 56rpx;
   display: flex;
@@ -208,26 +272,231 @@
   justify-content: center;
   width: auto !important;
   margin: 0;
+  transition: all 0.12s ease;
+}
+
+.footer-btn:active {
+  background: var(--ios-quaternary-bg, #3A3A3C);
+  color: #FFFFFF;
 }
 
 .btn-share {
-  color: #38bdf8;
-  border-color: rgba(56, 189, 248, 0.4);
+  color: #64D2FF;
+  border-color: rgba(100, 210, 255, 0.3);
 }
 
 .btn-del {
-  padding: 0 16rpx;
+  padding: 0 18rpx;
+  color: #FF453A;
 }
 
-/* 分享弹窗 Modal */
+/* ================= 历史对话概览与工具栏 ================= */
+.memory-stats-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
+  padding: 22rpx 26rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.25);
+}
+
+.dialogue-pill .stat-num {
+  color: #64D2FF;
+}
+
+.memory-toolbar {
+  display: flex;
+  gap: 14rpx;
+  align-items: center;
+}
+
+.toolbar-btn {
+  flex: 1;
+  height: 72rpx;
+  min-height: 72rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  margin: 0;
+  width: auto !important;
+}
+
+.btn-sync-mem {
+  background: var(--ios-blue, #0A84FF);
+  color: #FFFFFF;
+  box-shadow: 0 4rpx 14rpx rgba(10, 132, 255, 0.35);
+}
+
+.btn-clear-mem {
+  background: rgba(255, 69, 58, 0.15);
+  color: #FF453A;
+  border: 0.5px solid rgba(255, 69, 58, 0.35);
+  flex: 0.5;
+}
+
+.btn-empty-action {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  color: #64D2FF;
+  font-size: 22rpx;
+  border: 0.5px solid rgba(100, 210, 255, 0.4);
+  border-radius: 16rpx;
+  padding: 10rpx 32rpx;
+  margin-top: 20rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ================= 对话多轮卡片与气泡流 (iMessage Style) ================= */
+.memory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.dialogue-card {
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
+  padding: 22rpx 26rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.25);
+}
+
+.dialogue-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12rpx;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
+}
+
+.dialogue-badge {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.turn-idx {
+  background: rgba(100, 210, 255, 0.15);
+  border: 0.5px solid rgba(100, 210, 255, 0.35);
+  color: #64D2FF;
+  font-size: 20rpx;
+  font-weight: 700;
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
+}
+
+.turn-title {
+  font-size: 22rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.dialogue-copy-btn {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  color: var(--ios-label-secondary, #8E8E93);
+  font-size: 20rpx;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12rpx;
+  padding: 6rpx 18rpx;
+  height: 48rpx;
+  min-height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  width: auto !important;
+}
+
+.chat-bubble-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+}
+
+.bubble-avatar-box {
+  width: 58rpx;
+  height: 58rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+
+.user-avatar {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+}
+
+.ai-avatar {
+  background: linear-gradient(135deg, rgba(255, 55, 95, 0.25), rgba(255, 159, 10, 0.25));
+  border: 0.5px solid rgba(255, 55, 95, 0.4);
+}
+
+.bubble-content-box {
+  flex: 1;
+  padding: 16rpx 20rpx;
+  border-radius: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.bubble-user {
+  background: var(--ios-blue, #0A84FF);
+  color: #FFFFFF;
+}
+
+.bubble-user .bubble-sender {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bubble-user .bubble-text {
+  color: #FFFFFF;
+}
+
+.bubble-ai {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+.bubble-sender {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.sender-pet {
+  color: #64D2FF;
+}
+
+.bubble-text {
+  font-size: 24rpx;
+  color: #FFFFFF;
+  line-height: 1.6;
+}
+
+/* ================= 分享海报预览弹窗 Modal (Apple HIG Sheet) ================= */
 .share-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -238,13 +507,14 @@
 .share-card-container {
   width: 100%;
   max-width: 600rpx;
-  background: #121929;
-  border: 1px solid #38bdf8;
-  border-radius: 28rpx;
-  padding: 30rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 36rpx;
+  padding: 32rpx;
   display: flex;
   flex-direction: column;
   gap: 24rpx;
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.6);
 }
 
 .share-header {
@@ -256,19 +526,19 @@
 .share-title {
   font-size: 30rpx;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
 }
 
 .share-close {
-  font-size: 36rpx;
-  color: #64748b;
+  font-size: 32rpx;
+  color: var(--ios-label-secondary, #8E8E93);
   padding: 6rpx 14rpx;
 }
 
 .share-poster-box {
-  background: linear-gradient(135deg, #090e1a, #020617);
-  border: 2rpx solid rgba(56, 189, 248, 0.3);
-  border-radius: 20rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24rpx;
   padding: 30rpx;
   display: flex;
   flex-direction: column;
@@ -292,32 +562,33 @@
 
 .poster-pet-name {
   font-size: 30rpx;
-  font-weight: 800;
-  color: #00f2fe;
+  font-weight: 700;
+  color: #FFFFFF;
 }
 
 .poster-pet-lvl {
   font-size: 20rpx;
-  color: #94a3b8;
+  color: var(--ios-label-secondary, #8E8E93);
 }
 
 .poster-quote-box {
-  background: rgba(15, 23, 42, 0.8);
-  border-radius: 14rpx;
-  padding: 20rpx;
-  border-left: 6rpx solid #f472b6;
+  background: var(--ios-quaternary-bg, #3A3A3C);
+  border-radius: 16rpx;
+  padding: 22rpx;
+  border-left: 6rpx solid #FF375F;
 }
 
 .poster-quote {
   font-size: 26rpx;
-  color: #f8fafc;
+  color: #FFFFFF;
   line-height: 1.6;
   display: block;
+  font-style: italic;
 }
 
 .poster-time {
   font-size: 18rpx;
-  color: #64748b;
+  color: var(--ios-label-secondary, #8E8E93);
   display: block;
   margin-top: 12rpx;
   text-align: right;
@@ -325,13 +596,13 @@
 
 .poster-footer {
   text-align: center;
-  border-top: 1px solid #1e293b;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
   padding-top: 14rpx;
 }
 
 .poster-branding {
   font-size: 18rpx;
-  color: #475569;
+  color: var(--ios-label-tertiary, #636366);
 }
 
 .modal-btn-row {
@@ -341,262 +612,23 @@
 
 .btn-modal-action {
   flex: 1;
-  background: #1e293b;
-  color: #cbd5e1;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  color: #FFFFFF;
   font-size: 24rpx;
-  border-radius: 16rpx;
+  font-weight: 600;
+  border-radius: 20rpx;
   height: 80rpx;
   min-height: 80rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
   width: auto !important;
   margin: 0;
 }
 
 .btn-modal-primary {
-  background: linear-gradient(135deg, #0284c7, #2563eb);
-  color: #ffffff;
-  font-weight: 700;
-}
-
-/* ==================== 顶部 Tab 分段器 ==================== */
-.section-tab-bar {
-  display: flex;
-  background: #0b1120;
-  border: 1px solid #1e293b;
-  border-radius: 20rpx;
-  padding: 8rpx;
-  gap: 12rpx;
-}
-
-.tab-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10rpx;
-  padding: 16rpx 0;
-  border-radius: 14rpx;
-  font-size: 24rpx;
-  font-weight: 600;
-  color: #64748b;
-  transition: all 0.2s ease;
-}
-
-.tab-icon {
-  font-size: 26rpx;
-}
-
-.tab-count-badge {
-  font-size: 20rpx;
-  background: #1e293b;
-  color: #94a3b8;
-  padding: 2rpx 12rpx;
-  border-radius: 20rpx;
-}
-
-.tab-btn-active {
-  background: #1e293b;
-  color: #f6d365;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.4);
-}
-
-.tab-dialogue-active {
-  color: #38bdf8;
-}
-
-.badge-cyan {
-  background: rgba(56, 189, 248, 0.2);
-  color: #38bdf8;
-}
-
-/* ==================== 历史对话概览与工具栏 ==================== */
-.memory-stats-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #121929;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 20rpx;
-  padding: 20rpx 24rpx;
-}
-
-.dialogue-pill .stat-num {
-  color: #00f2fe;
-}
-
-.memory-toolbar {
-  display: flex;
-  gap: 14rpx;
-  align-items: center;
-}
-
-.toolbar-btn {
-  flex: 1;
-  height: 68rpx;
-  min-height: 68rpx;
-  border-radius: 14rpx;
-  font-size: 24rpx;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: var(--ios-blue, #0A84FF);
   border: none;
-  margin: 0;
-  width: auto !important;
+  color: #FFFFFF;
 }
-
-.btn-sync-mem {
-  background: linear-gradient(135deg, #0284c7, #2563eb);
-  color: #ffffff;
-  box-shadow: 0 4rpx 12rpx rgba(2, 132, 199, 0.3);
-}
-
-.btn-clear-mem {
-  background: #1e293b;
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  flex: 0.5;
-}
-
-.btn-empty-action {
-  background: #1e293b;
-  color: #38bdf8;
-  font-size: 22rpx;
-  border: 1px solid #38bdf8;
-  border-radius: 12rpx;
-  padding: 10rpx 28rpx;
-  margin-top: 16rpx;
-  height: 64rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ==================== 对话多轮卡片与气泡流 ==================== */
-.memory-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-}
-
-.dialogue-card {
-  background: #121929;
-  border: 1px solid #1e293b;
-  border-radius: 20rpx;
-  padding: 20rpx 24rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.3);
-}
-
-.dialogue-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 12rpx;
-  border-bottom: 1px dashed #1e293b;
-}
-
-.dialogue-badge {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-}
-
-.turn-idx {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid #38bdf8;
-  color: #38bdf8;
-  font-size: 20rpx;
-  font-weight: 700;
-  padding: 2rpx 12rpx;
-  border-radius: 10rpx;
-}
-
-.turn-title {
-  font-size: 22rpx;
-  color: #64748b;
-}
-
-.dialogue-copy-btn {
-  background: #0f172a;
-  color: #94a3b8;
-  font-size: 20rpx;
-  border: 1px solid #334155;
-  border-radius: 10rpx;
-  padding: 6rpx 16rpx;
-  height: 48rpx;
-  min-height: 48rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  width: auto !important;
-}
-
-.chat-bubble-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 14rpx;
-}
-
-.bubble-avatar-box {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28rpx;
-  flex-shrink: 0;
-}
-
-.user-avatar {
-  background: #1e293b;
-  border: 1px solid #334155;
-}
-
-.ai-avatar {
-  background: rgba(0, 242, 254, 0.15);
-  border: 1px solid #00f2fe;
-}
-
-.bubble-content-box {
-  flex: 1;
-  padding: 14rpx 18rpx;
-  border-radius: 16rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
-}
-
-.bubble-user {
-  background: #0f172a;
-  border: 1px solid #1e293b;
-}
-
-.bubble-ai {
-  background: rgba(14, 165, 233, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-}
-
-.bubble-sender {
-  font-size: 20rpx;
-  font-weight: 700;
-  color: #94a3b8;
-}
-
-.sender-pet {
-  color: #00f2fe;
-}
-
-.bubble-text {
-  font-size: 24rpx;
-  color: #f1f5f9;
-  line-height: 1.6;
-}
-

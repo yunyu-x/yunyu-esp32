@@ -1,21 +1,23 @@
-/* pages/settings/settings.wxss */
+/* pages/settings/settings.wxss - Apple HIG Dark Mode Grouped Settings Aesthetic */
 .container {
   padding: 24rpx;
   display: flex;
   flex-direction: column;
   gap: 24rpx;
-  padding-bottom: 50rpx;
+  padding-bottom: 60rpx;
+  background-color: var(--ios-bg, #000000);
 }
 
-/* 顶部状态卡片 */
+/* ================= 1. 顶部当前连接状态概览 (Apple Status Widget) ================= */
 .status-card {
-  background: #121929;
-  border: 1px solid rgba(0, 242, 254, 0.2);
-  border-radius: 20rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
   padding: 24rpx;
   display: flex;
   flex-direction: column;
   gap: 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.25);
 }
 
 .status-top {
@@ -37,106 +39,87 @@
   display: flex;
   align-items: center;
   gap: 10rpx;
-  padding: 8rpx 18rpx;
-  border-radius: 30rpx;
-  font-size: 22rpx;
-  font-weight: 700;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
 .badge-online {
-  background: rgba(0, 230, 118, 0.15);
-  border: 1px solid #00e676;
-  color: #00e676;
+  background: rgba(48, 209, 88, 0.15);
+  border: 0.5px solid rgba(48, 209, 88, 0.4);
+  color: #30D158;
 }
 
 .badge-offline {
-  background: rgba(148, 163, 184, 0.15);
-  border: 1px solid #64748b;
-  color: #94a3b8;
+  background: rgba(142, 142, 147, 0.12);
+  border: 0.5px solid rgba(142, 142, 147, 0.25);
+  color: #8E8E93;
 }
 
 .badge-ble-connected {
-  background: rgba(0, 242, 254, 0.15);
-  border: 1px solid #00f2fe;
-  color: #00f2fe;
-  box-shadow: 0 0 10rpx rgba(0, 242, 254, 0.25);
+  background: rgba(10, 132, 255, 0.15);
+  border: 0.5px solid rgba(10, 132, 255, 0.4);
+  color: #0A84FF;
 }
 
 .badge-ble-disconnected {
-  background: rgba(148, 163, 184, 0.15);
-  border: 1px solid #64748b;
-  color: #94a3b8;
+  background: rgba(142, 142, 147, 0.12);
+  border: 0.5px solid rgba(142, 142, 147, 0.25);
+  color: #8E8E93;
 }
 
 .badge-wifi-connected {
-  background: rgba(0, 230, 118, 0.15);
-  border: 1px solid #00e676;
-  color: #00e676;
+  background: rgba(48, 209, 88, 0.15);
+  border: 0.5px solid rgba(48, 209, 88, 0.4);
+  color: #30D158;
 }
 
 .badge-wifi-offline {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid #ef4444;
-  color: #f87171;
-  animation: pulse-offline-border 2s infinite ease-in-out;
-}
-
-@keyframes pulse-offline-border {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 12rpx 2rpx rgba(239, 68, 68, 0.6);
-  }
-}
-
-.net-alert-banner {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.45);
-  border-radius: 12rpx;
-  padding: 14rpx 18rpx;
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.alert-icon {
-  font-size: 26rpx;
-  flex-shrink: 0;
-}
-
-.alert-msg {
-  font-size: 20rpx;
-  color: #fca5a5;
-  line-height: 1.4;
-}
-
-.text-offline {
-  color: #f87171;
-  font-weight: 700;
-}
-
-.highlight-cyan {
-  color: #00f2fe;
+  background: rgba(255, 69, 58, 0.15);
+  border: 0.5px solid rgba(255, 69, 58, 0.4);
+  color: #FF453A;
 }
 
 .dot {
-  width: 14rpx;
-  height: 14rpx;
+  width: 12rpx;
+  height: 12rpx;
   border-radius: 50%;
   background: currentColor;
 }
 
 .device-tag {
   font-size: 20rpx;
-  color: #64748b;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.net-alert-banner {
+  background: rgba(255, 69, 58, 0.12);
+  border: 0.5px solid rgba(255, 69, 58, 0.35);
+  border-radius: 18rpx;
+  padding: 16rpx 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.alert-icon {
+  font-size: 24rpx;
+  flex-shrink: 0;
+}
+
+.alert-msg {
+  font-size: 20rpx;
+  color: #FFFFFF;
+  line-height: 1.45;
 }
 
 .status-details {
   display: flex;
   justify-content: space-around;
-  border-top: 1px solid #1e293b;
-  padding-top: 16rpx;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+  padding-top: 18rpx;
 }
 
 .detail-col {
@@ -148,50 +131,95 @@
 
 .detail-label {
   font-size: 20rpx;
-  color: #64748b;
+  color: var(--ios-label-secondary, #8E8E93);
 }
 
 .detail-val {
   font-size: 24rpx;
   font-weight: 700;
-  color: #cbd5e1;
+  color: #FFFFFF;
+}
+
+.text-offline {
+  color: #FF453A;
+  font-weight: 600;
+}
+
+.highlight-cyan {
+  color: #64D2FF;
 }
 
 .highlight-pink {
-  color: #f472b6;
+  color: #FF375F;
 }
 
-/* 通用面板卡片 */
+.highlight-green {
+  color: #30D158;
+}
+
+.text-red {
+  color: #FF453A;
+}
+
+/* ================= 通用面板卡片 (Apple Inset Grouped) ================= */
 .panel-card {
-  background: #121929;
-  border: 1px solid #1e293b;
-  border-radius: 20rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
   padding: 24rpx;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 18rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.25);
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  border-bottom: 1px solid #1e293b;
-  padding-bottom: 12rpx;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 14rpx;
+}
+
+.panel-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
 }
 
 .panel-title {
   font-size: 28rpx;
   font-weight: 700;
-  color: #00f2fe;
+  color: #FFFFFF;
+  letter-spacing: -0.3rpx;
 }
 
 .panel-subtitle {
   font-size: 20rpx;
-  color: #64748b;
+  color: var(--ios-label-secondary, #8E8E93);
 }
 
-/* BLE 扫描 */
+.badge-conn-pill {
+  background: rgba(48, 209, 88, 0.15);
+  border: 0.5px solid rgba(48, 209, 88, 0.4);
+  color: #30D158;
+  font-size: 18rpx;
+  padding: 2rpx 14rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
+}
+
+.badge-hotspot-tag {
+  background: rgba(255, 159, 10, 0.15);
+  border: 0.5px solid rgba(255, 159, 10, 0.4);
+  color: #FF9F0A;
+  font-size: 18rpx;
+  padding: 2rpx 14rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
+}
+
+/* ================= 2. BLE 蓝牙连接管理 ================= */
 .ble-action-row {
   display: flex;
   gap: 14rpx;
@@ -199,40 +227,33 @@
 
 .btn-primary {
   flex: 1;
-  background: linear-gradient(135deg, #0284c7, #2563eb);
-  color: #ffffff;
-  font-size: 24rpx;
-  font-weight: 700;
-  border-radius: 14rpx;
+  background: var(--ios-blue, #0A84FF);
+  color: #FFFFFF;
+  font-size: 26rpx;
+  font-weight: 600;
+  border-radius: 20rpx;
   border: none;
-  padding: 16rpx 0;
+  height: 80rpx;
+  min-height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: normal;
+  box-shadow: 0 4rpx 16rpx rgba(10, 132, 255, 0.35);
 }
 
 .btn-scanning {
-  opacity: 0.8;
+  opacity: 0.75;
 }
 
-.badge-conn-pill {
-  background: rgba(0, 230, 118, 0.15);
-  border: 1px solid #00e676;
-  color: #00e676;
-  font-size: 18rpx;
-  padding: 2rpx 12rpx;
-  border-radius: 20rpx;
-  font-weight: 600;
-}
-
-/* 蓝牙已连接摘要条 */
 .ble-connected-summary {
-  background: rgba(0, 242, 254, 0.08);
-  border: 1px solid rgba(0, 242, 254, 0.35);
-  border-radius: 16rpx;
-  padding: 18rpx 22rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 0 16rpx rgba(0, 242, 254, 0.1);
 }
 
 .ble-summary-left {
@@ -256,12 +277,12 @@
 .ble-summary-name {
   font-size: 26rpx;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
 }
 
 .ble-summary-status {
   font-size: 20rpx;
-  color: #38bdf8;
+  color: #64D2FF;
 }
 
 .ble-summary-actions {
@@ -270,12 +291,13 @@
 }
 
 .btn-disconnect-sub {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  color: #f87171;
+  background: rgba(255, 69, 58, 0.15);
+  border: 0.5px solid rgba(255, 69, 58, 0.35);
+  color: #FF453A;
   font-size: 22rpx;
-  border-radius: 10rpx;
-  padding: 10rpx 24rpx;
+  font-weight: 600;
+  border-radius: 14rpx;
+  padding: 10rpx 26rpx;
   line-height: normal;
   width: auto !important;
   margin: 0;
@@ -285,7 +307,7 @@
   display: flex;
   flex-direction: column;
   gap: 12rpx;
-  margin-top: 10rpx;
+  margin-top: 8rpx;
 }
 
 .device-list-header {
@@ -297,52 +319,40 @@
 
 .device-list-count {
   font-size: 22rpx;
-  color: #94a3b8;
+  color: var(--ios-label-secondary, #8E8E93);
   font-weight: 500;
 }
 
 .toggle-expand-btn {
   font-size: 22rpx;
-  color: #00f2fe;
+  color: var(--ios-blue, #0A84FF);
   padding: 6rpx 16rpx;
-  background: rgba(0, 242, 254, 0.1);
-  border: 1px solid rgba(0, 242, 254, 0.25);
-  border-radius: 10rpx;
+  background: rgba(10, 132, 255, 0.12);
+  border-radius: 12rpx;
   cursor: pointer;
-}
-
-.btn-outline {
-  background: #1e293b;
-  border: 1px solid #475569;
-  color: #f87171;
-  font-size: 24rpx;
-  border-radius: 14rpx;
-  padding: 16rpx 28rpx;
-  line-height: normal;
 }
 
 .device-list {
   display: flex;
   flex-direction: column;
   gap: 12rpx;
-  margin-top: 8rpx;
+  margin-top: 6rpx;
 }
 
 .device-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #020617;
-  border: 1px solid #334155;
-  border-radius: 14rpx;
-  padding: 16rpx 20rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20rpx;
+  padding: 18rpx 22rpx;
   gap: 16rpx;
 }
 
 .device-item-target {
-  border-color: rgba(0, 242, 254, 0.4);
-  background: rgba(2, 6, 23, 0.95);
-  box-shadow: 0 0 14rpx rgba(0, 242, 254, 0.15);
+  border-color: rgba(10, 132, 255, 0.4);
+  background: rgba(44, 44, 46, 0.95);
 }
 
 .device-info {
@@ -362,40 +372,40 @@
 .device-name {
   font-size: 26rpx;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
 }
 
 .badge-target-dev {
-  background: rgba(0, 242, 254, 0.15);
-  border: 1px solid #00f2fe;
-  color: #00f2fe;
+  background: rgba(10, 132, 255, 0.15);
+  border: 0.5px solid rgba(10, 132, 255, 0.35);
+  color: #0A84FF;
   font-size: 18rpx;
   font-weight: 600;
-  padding: 2rpx 10rpx;
-  border-radius: 8rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
 }
 
 .device-id {
   font-size: 20rpx;
-  color: #64748b;
+  color: var(--ios-label-tertiary, #636366);
   word-break: break-all;
 }
 
 .device-rssi {
   font-size: 20rpx;
-  color: #38bdf8;
+  color: #64D2FF;
   font-weight: 500;
 }
 
 .btn-connect-item {
-  background: linear-gradient(135deg, #0284c7, #2563eb);
-  color: white;
-  font-size: 22rpx;
+  background: var(--ios-blue, #0A84FF);
+  color: #FFFFFF;
+  font-size: 24rpx;
   font-weight: 600;
   height: 64rpx;
   min-height: 64rpx;
-  padding: 0 28rpx;
-  border-radius: 12rpx;
+  padding: 0 30rpx;
+  border-radius: 999rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -405,7 +415,128 @@
   flex-shrink: 0;
 }
 
-/* 表单输入组件 */
+/* ================= 3. 配网向导与参数输入 (Apple HIG Form) ================= */
+.wizard-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 14rpx;
+}
+
+.wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  flex: 1;
+  min-width: 0;
+}
+
+.step-num {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.step-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.step-title {
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.step-desc {
+  font-size: 16rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.step-done .step-num {
+  background: #30D158;
+  color: #000000;
+}
+
+.step-done .step-title {
+  color: #30D158;
+}
+
+.step-current .step-num {
+  background: var(--ios-blue, #0A84FF);
+  color: #FFFFFF;
+}
+
+.step-current .step-title {
+  color: var(--ios-blue, #0A84FF);
+}
+
+.step-pending .step-num {
+  background: var(--ios-quaternary-bg, #3A3A3C);
+  color: var(--ios-label-tertiary, #636366);
+}
+
+.step-pending .step-title {
+  color: var(--ios-label-tertiary, #636366);
+}
+
+.step-divider {
+  height: 2rpx;
+  background: var(--ios-quaternary-bg, #3A3A3C);
+  flex: 0.35;
+  margin: 0 8rpx;
+}
+
+.divider-active {
+  background: #30D158;
+}
+
+/* 分段网络模式切换器 (Apple HIG Segmented Control) */
+.segmented-control {
+  display: flex;
+  background: #000000;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999rpx;
+  padding: 6rpx;
+  gap: 8rpx;
+  margin-bottom: 12rpx;
+}
+
+.segment-item {
+  flex: 1;
+  text-align: center;
+  padding: 14rpx 0;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--ios-label-secondary, #8E8E93);
+  border-radius: 999rpx;
+  transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1);
+}
+
+.segment-active {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  color: #FFFFFF;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.3);
+}
+
+.segment-hotspot {
+  color: #FF9F0A;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -419,22 +550,34 @@
   width: 100%;
 }
 
+.label-with-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pwd-toggle {
+  font-size: 22rpx;
+  color: var(--ios-blue, #0A84FF);
+  cursor: pointer;
+}
+
 .input-label {
   font-size: 24rpx;
-  color: #94a3b8;
+  color: var(--ios-label-secondary, #8E8E93);
   font-weight: 500;
 }
 
 .form-input {
-  background: #020617;
-  border: 1px solid #334155;
-  border-radius: 14rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18rpx;
   padding: 0 24rpx;
   height: 80rpx;
   min-height: 80rpx;
   line-height: 80rpx;
   font-size: 26rpx;
-  color: #f8fafc;
+  color: #FFFFFF;
   width: 100%;
   box-sizing: border-box;
 }
@@ -452,13 +595,13 @@
 }
 
 .btn-get-wifi {
-  background: #1e293b;
-  border: 1px solid #475569;
-  color: #38bdf8;
-  font-size: 22rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  color: var(--ios-blue, #0A84FF);
+  font-size: 24rpx;
   font-weight: 600;
-  border-radius: 14rpx;
-  padding: 0 26rpx;
+  border-radius: 18rpx;
+  padding: 0 28rpx;
   height: 80rpx;
   min-height: 80rpx;
   line-height: 80rpx;
@@ -471,19 +614,204 @@
   margin: 0;
 }
 
-.form-tip {
-  font-size: 22rpx;
-  color: #94a3b8;
-  line-height: 1.5;
-  margin-top: 6rpx;
+/* ================= 手机热点专属流量保护配置区 ================= */
+.hotspot-config-box {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24rpx;
+  padding: 22rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
 }
 
-.btn-provision {
-  background: linear-gradient(135deg, #ec4899, #d946ef);
-  color: white;
-  font-size: 28rpx;
+.hotspot-box-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.hotspot-box-title {
+  font-size: 26rpx;
   font-weight: 700;
+  color: #FF9F0A;
+}
+
+.hotspot-box-sub {
+  font-size: 20rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.quota-presets-row {
+  display: flex;
+  gap: 10rpx;
+}
+
+.quota-chip {
+  flex: 1;
+  background: var(--ios-quaternary-bg, #3A3A3C);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
   border-radius: 16rpx;
+  padding: 12rpx 6rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+  transition: all 0.15s ease;
+}
+
+.chip-val {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.chip-desc {
+  font-size: 16rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.quota-chip-active {
+  background: var(--ios-blue, #0A84FF);
+  border-color: transparent;
+  box-shadow: 0 4rpx 14rpx rgba(10, 132, 255, 0.35);
+}
+
+.quota-chip-active .chip-desc {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.custom-limit-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.custom-limit-label {
+  font-size: 22rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.custom-limit-input {
+  flex: 1;
+  background: #000000;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14rpx;
+  padding: 0 18rpx;
+  height: 64rpx;
+  min-height: 64rpx;
+  font-size: 24rpx;
+  color: #FFFFFF;
+}
+
+.custom-limit-unit {
+  font-size: 22rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.current-limit-hint {
+  display: flex;
+  align-items: center;
+  font-size: 22rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+  gap: 6rpx;
+}
+
+.limit-highlight {
+  color: #FF9F0A;
+  font-weight: 700;
+}
+
+.policy-switch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10rpx 0;
+}
+
+.policy-switch-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  flex: 1;
+  padding-right: 16rpx;
+}
+
+.policy-switch-title {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.policy-switch-desc {
+  font-size: 20rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+/* ================= FAQ 折叠指引 ================= */
+.faq-card {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20rpx;
+  padding: 18rpx 22rpx;
+}
+
+.faq-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.faq-icon {
+  font-size: 28rpx;
+}
+
+.faq-title {
+  flex: 1;
+}
+
+.faq-arrow {
+  font-size: 22rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.faq-body {
+  margin-top: 14rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+  padding-top: 14rpx;
+}
+
+.faq-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.faq-q {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #64D2FF;
+}
+
+.faq-a {
+  font-size: 20rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+  line-height: 1.45;
+}
+
+/* 配网注入大按钮 */
+.btn-provision {
+  background: var(--ios-blue, #0A84FF);
+  color: #FFFFFF;
+  font-size: 28rpx;
+  font-weight: 600;
+  border-radius: 22rpx;
   border: none;
   height: 88rpx;
   min-height: 88rpx;
@@ -492,44 +820,147 @@
   justify-content: center;
   width: 100% !important;
   margin: 0;
-  box-shadow: 0 6rpx 20rpx rgba(236, 72, 153, 0.35);
+  box-shadow: 0 4rpx 16rpx rgba(10, 132, 255, 0.35);
 }
 
-/* Wi-Fi 动作格 */
-.wifi-action-grid {
+.btn-provision-hotspot {
+  background: linear-gradient(135deg, #FF9F0A, #FF375F);
+  box-shadow: 0 4rpx 16rpx rgba(255, 159, 10, 0.35);
+}
+
+.btn-provision-disabled {
+  opacity: 0.45;
+}
+
+/* 验证中状态卡片 */
+.verify-network-box {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20rpx;
+  padding: 20rpx;
   display: flex;
-  gap: 14rpx;
-  margin-top: 8rpx;
+  flex-direction: column;
+  gap: 10rpx;
 }
 
-.btn-wifi-test, .btn-wifi-connect {
-  flex: 1;
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #cbd5e1;
-  font-size: 24rpx;
-  font-weight: 600;
-  border-radius: 14rpx;
-  height: 80rpx;
-  min-height: 80rpx;
+.verify-progress-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 12rpx;
+}
+
+.verify-spinner {
+  width: 28rpx;
+  height: 28rpx;
+  border: 4rpx solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--ios-blue, #0A84FF);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.verify-progress-text {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.verify-hint {
+  font-size: 20rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+/* 设备联网状态结果卡片 */
+.device-network-status-card {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20rpx;
+  padding: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.net-status-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.net-status-icon {
+  font-size: 32rpx;
+}
+
+.net-status-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+}
+
+.net-status-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.net-status-ssid {
+  font-size: 20rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.btn-refresh-net-status {
+  background: var(--ios-quaternary-bg, #3A3A3C);
+  color: #FFFFFF;
+  font-size: 22rpx;
+  border-radius: 12rpx;
+  padding: 8rpx 20rpx;
   width: auto !important;
   margin: 0;
 }
 
-.btn-active-wifi {
-  background: linear-gradient(135deg, #0284c7, #2563eb);
-  color: white;
-  border: none;
+.net-status-details {
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+  padding-top: 10rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
 }
 
-/* 连续性动作 第 4 步：局域网直连框 */
-.lan-direct-flow-box {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px dashed rgba(56, 189, 248, 0.4);
-  border-radius: 16rpx;
+.net-detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 22rpx;
+}
+
+.net-detail-label {
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.net-detail-value {
+  font-weight: 600;
+}
+
+.net-fail-tips {
+  background: rgba(255, 69, 58, 0.12);
+  border-radius: 12rpx;
+  padding: 12rpx;
+}
+
+.net-fail-tip {
+  font-size: 20rpx;
+  color: #FF453A;
+  line-height: 1.4;
+}
+
+/* ================= 通道就绪框 (第 4 步) ================= */
+.hotspot-ready-flow-box, .lan-direct-flow-box {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20rpx;
   padding: 20rpx;
   margin-top: 14rpx;
   display: flex;
@@ -550,10 +981,10 @@
 }
 
 .lan-step-pill {
-  background: #38bdf8;
-  color: #020617;
+  background: var(--ios-blue, #0A84FF);
+  color: #FFFFFF;
   font-size: 18rpx;
-  font-weight: 800;
+  font-weight: 700;
   padding: 2rpx 10rpx;
   border-radius: 8rpx;
 }
@@ -561,7 +992,7 @@
 .lan-flow-title {
   font-size: 24rpx;
   font-weight: 700;
-  color: #38bdf8;
+  color: #FFFFFF;
 }
 
 .lan-flow-status {
@@ -569,26 +1000,259 @@
 }
 
 .status-connected {
-  color: #00e676;
+  color: #30D158;
 }
 
 .status-waiting {
-  color: #94a3b8;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.hotspot-ready-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.ready-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.ready-chip {
+  background: var(--ios-quaternary-bg, #3A3A3C);
+  color: #FFFFFF;
+  font-size: 20rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-weight: 500;
+}
+
+.ready-explain-text {
+  font-size: 20rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+  line-height: 1.45;
+}
+
+.ready-device-info-bar {
+  display: flex;
+  gap: 20rpx;
+  font-size: 20rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+  padding-top: 10rpx;
 }
 
 .lan-flow-desc {
   font-size: 20rpx;
-  color: #64748b;
+  color: var(--ios-label-secondary, #8E8E93);
   line-height: 1.4;
 }
 
-/* 系统偏好行 */
+.wifi-action-grid {
+  display: flex;
+  gap: 14rpx;
+  margin-top: 8rpx;
+}
+
+.btn-wifi-test, .btn-wifi-connect {
+  flex: 1;
+  background: var(--ios-quaternary-bg, #3A3A3C);
+  color: #FFFFFF;
+  font-size: 24rpx;
+  font-weight: 600;
+  border-radius: 18rpx;
+  height: 80rpx;
+  min-height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto !important;
+  margin: 0;
+  border: none;
+}
+
+.btn-active-wifi {
+  background: var(--ios-blue, #0A84FF);
+  color: #FFFFFF;
+}
+
+/* ================= 4. 手机热点实时流量遥测 (Apple Battery/Screen Time Style) ================= */
+.traffic-panel {
+  background: var(--ios-secondary-bg, #1C1C1E);
+}
+
+.traffic-status-badge {
+  font-size: 18rpx;
+  padding: 2rpx 14rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
+}
+
+.status-cutoff {
+  background: rgba(255, 69, 58, 0.15);
+  color: #FF453A;
+  border: 0.5px solid rgba(255, 69, 58, 0.4);
+}
+
+.status-warn {
+  background: rgba(255, 159, 10, 0.15);
+  color: #FF9F0A;
+  border: 0.5px solid rgba(255, 159, 10, 0.4);
+}
+
+.status-normal {
+  background: rgba(48, 209, 88, 0.15);
+  color: #30D158;
+  border: 0.5px solid rgba(48, 209, 88, 0.4);
+}
+
+.traffic-gauge-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.gauge-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 22rpx;
+}
+
+.gauge-label {
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.gauge-percent {
+  font-weight: 700;
+}
+
+.text-amber { color: #FF9F0A; }
+
+.gauge-bar-bg {
+  width: 100%;
+  height: 12rpx;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+
+.gauge-bar-fill {
+  height: 100%;
+  border-radius: 999rpx;
+  transition: width 0.35s ease;
+}
+
+.bar-red { background: #FF453A; }
+.bar-amber { background: #FF9F0A; }
+.bar-cyan { background: #64D2FF; }
+
+.traffic-metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12rpx;
+}
+
+.metric-card {
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18rpx;
+  padding: 16rpx 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.metric-card .metric-label {
+  font-size: 18rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+}
+
+.metric-card .metric-val {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.metric-unit {
+  font-size: 16rpx;
+  color: var(--ios-label-tertiary, #636366);
+  font-weight: 400;
+}
+
+.cutoff-notice-box {
+  background: rgba(255, 69, 58, 0.12);
+  border: 0.5px solid rgba(255, 69, 58, 0.35);
+  border-radius: 18rpx;
+  padding: 16rpx 20rpx;
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+
+.notice-icon {
+  font-size: 26rpx;
+  flex-shrink: 0;
+}
+
+.notice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.notice-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #FF453A;
+}
+
+.notice-sub {
+  font-size: 20rpx;
+  color: #FFFFFF;
+  line-height: 1.4;
+}
+
+.traffic-actions-row {
+  display: flex;
+  gap: 12rpx;
+}
+
+.btn-traffic-action {
+  flex: 1;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  color: #FFFFFF;
+  font-size: 22rpx;
+  font-weight: 600;
+  border-radius: 16rpx;
+  height: 68rpx;
+  min-height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  width: auto !important;
+  margin: 0;
+}
+
+.btn-add-quota {
+  background: var(--ios-blue, #0A84FF);
+  border: none;
+}
+
+.btn-reset {
+  color: #FF453A;
+}
+
+/* ================= 5. 系统偏好设置 (Apple Settings Grouped Rows) ================= */
 .setting-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12rpx 0;
-  border-bottom: 1px solid #1a2234;
+  padding: 14rpx 0;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
 }
 
 .setting-row:last-child {
@@ -606,59 +1270,61 @@
 .setting-title {
   font-size: 24rpx;
   font-weight: 600;
-  color: #f8fafc;
+  color: #FFFFFF;
 }
 
 .setting-desc {
   font-size: 20rpx;
-  color: #64748b;
+  color: var(--ios-label-secondary, #8E8E93);
 }
 
 .btn-ctrl-sub {
-  background: #1e293b;
-  color: #38bdf8;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  color: var(--ios-blue, #0A84FF);
   font-size: 22rpx;
-  border-radius: 12rpx;
+  font-weight: 600;
+  border-radius: 14rpx;
   padding: 0 24rpx;
   height: 60rpx;
   min-height: 60rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  border: 0.5px solid rgba(10, 132, 255, 0.35);
   width: auto !important;
   margin: 0;
   flex-shrink: 0;
 }
 
 .btn-danger-sub {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
+  background: rgba(255, 69, 58, 0.15);
+  color: #FF453A;
   font-size: 22rpx;
-  border-radius: 12rpx;
+  font-weight: 600;
+  border-radius: 14rpx;
   padding: 0 24rpx;
   height: 60rpx;
   min-height: 60rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  border: 0.5px solid rgba(255, 69, 58, 0.35);
   width: auto !important;
   margin: 0;
   flex-shrink: 0;
 }
 
-/* 诊断信息卡片 */
+/* ================= 6. 固件契约与版本诊断 (Apple Inset Subcard) ================= */
 .info-card {
-  background: #090e1a;
-  border: 1px solid #1e293b;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
   font-size: 20rpx;
 }
 
 .info-title {
   font-size: 22rpx;
   font-weight: 700;
-  color: #94a3b8;
+  color: #FFFFFF;
   margin-bottom: 8rpx;
 }
 
@@ -669,796 +1335,12 @@
 }
 
 .info-lbl {
-  color: #64748b;
+  color: var(--ios-label-secondary, #8E8E93);
   width: 140rpx;
   flex-shrink: 0;
 }
 
 .info-val {
-  color: #94a3b8;
+  color: #FFFFFF;
   word-break: break-all;
-}
-
-/* ===================================================
- * 手机热点与流量保护新增样式 (Glassmorphism & Cyberpunk)
- * =================================================== */
-
-.panel-title-group {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.badge-hotspot-tag {
-  background: rgba(236, 72, 153, 0.15);
-  border: 1px solid #ec4899;
-  color: #f472b6;
-  font-size: 18rpx;
-  padding: 4rpx 12rpx;
-  border-radius: 20rpx;
-  font-weight: 600;
-}
-
-/* 配网指引步骤向导 (Step-by-Step Wizard) */
-.wizard-stepper {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #020617;
-  border: 1px solid #1e293b;
-  border-radius: 16rpx;
-  padding: 18rpx 20rpx;
-  margin-bottom: 14rpx;
-}
-
-.wizard-step {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-  flex: 1;
-  min-width: 0;
-}
-
-.step-num {
-  width: 38rpx;
-  height: 38rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20rpx;
-  font-weight: 800;
-  flex-shrink: 0;
-}
-
-.step-content {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.step-title {
-  font-size: 22rpx;
-  font-weight: 700;
-}
-
-.step-desc {
-  font-size: 16rpx;
-  color: #64748b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.step-done .step-num {
-  background: #00e676;
-  color: #020617;
-}
-
-.step-done .step-title {
-  color: #00e676;
-}
-
-.step-current .step-num {
-  background: #00f2fe;
-  color: #020617;
-  box-shadow: 0 0 10rpx rgba(0, 242, 254, 0.6);
-}
-
-.step-current .step-title {
-  color: #00f2fe;
-}
-
-.step-pending .step-num {
-  background: #1e293b;
-  color: #64748b;
-}
-
-.step-pending .step-title {
-  color: #64748b;
-}
-
-.step-divider {
-  height: 2rpx;
-  background: #1e293b;
-  flex: 0.4;
-  margin: 0 10rpx;
-}
-
-.divider-active {
-  background: #00e676;
-}
-
-/* 分段网络切换器 */
-.segmented-control {
-  display: flex;
-  background: #020617;
-  border: 1px solid #1e293b;
-  border-radius: 16rpx;
-  padding: 6rpx;
-  gap: 8rpx;
-  margin-bottom: 8rpx;
-}
-
-.segment-item {
-  flex: 1;
-  text-align: center;
-  padding: 14rpx 0;
-  font-size: 22rpx;
-  font-weight: 600;
-  color: #64748b;
-  border-radius: 12rpx;
-  transition: all 0.2s ease;
-}
-
-.segment-active {
-  background: #1e293b;
-  color: #38bdf8;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.3);
-}
-
-.segment-hotspot {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(168, 85, 247, 0.25));
-  color: #f472b6;
-  border: 1px solid rgba(236, 72, 153, 0.4);
-}
-
-.label-with-action {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pwd-toggle {
-  font-size: 20rpx;
-  color: #38bdf8;
-  cursor: pointer;
-}
-
-/* 手机热点配额设置框 */
-.hotspot-config-box {
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(236, 72, 153, 0.3);
-  border-radius: 16rpx;
-  padding: 20rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-  margin-top: 6rpx;
-}
-
-.hotspot-box-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.hotspot-box-title {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #f472b6;
-}
-
-.hotspot-box-sub {
-  font-size: 18rpx;
-  color: #94a3b8;
-}
-
-/* 配额预设芯片网格 */
-.quota-presets-row {
-  display: flex;
-  gap: 10rpx;
-}
-
-.quota-chip {
-  flex: 1;
-  background: #020617;
-  border: 1px solid #334155;
-  border-radius: 12rpx;
-  padding: 12rpx 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4rpx;
-  transition: all 0.2s ease;
-}
-
-.quota-chip-active {
-  background: rgba(236, 72, 153, 0.2);
-  border-color: #ec4899;
-}
-
-.chip-val {
-  font-size: 22rpx;
-  font-weight: 700;
-  color: #f8fafc;
-}
-
-.quota-chip-active .chip-val {
-  color: #f472b6;
-}
-
-.chip-desc {
-  font-size: 16rpx;
-  color: #64748b;
-}
-
-.custom-limit-row {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  background: #020617;
-  border: 1px solid #334155;
-  border-radius: 14rpx;
-  padding: 0 24rpx;
-  height: 80rpx;
-  min-height: 80rpx;
-}
-
-.custom-limit-label {
-  font-size: 24rpx;
-  color: #94a3b8;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.custom-limit-input {
-  flex: 1;
-  min-width: 0;
-  color: #f8fafc;
-  font-size: 26rpx;
-  height: 80rpx;
-  min-height: 80rpx;
-  line-height: 80rpx;
-  padding: 0 10rpx;
-}
-
-.custom-limit-unit {
-  font-size: 24rpx;
-  color: #f472b6;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.current-limit-hint {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 6rpx;
-  font-size: 20rpx;
-  color: #94a3b8;
-}
-
-.limit-highlight {
-  font-weight: 700;
-  color: #f472b6;
-}
-
-/* 策略开关行 */
-.policy-switch-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.policy-switch-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-  flex: 1;
-  padding-right: 16rpx;
-}
-
-.policy-switch-title {
-  font-size: 22rpx;
-  font-weight: 600;
-  color: #f8fafc;
-}
-
-.policy-switch-desc {
-  font-size: 18rpx;
-  color: #64748b;
-}
-
-.btn-provision-hotspot {
-  background: linear-gradient(135deg, #ec4899, #8b5cf6);
-  box-shadow: 0 4rpx 14rpx rgba(236, 72, 153, 0.4);
-}
-
-.btn-provision-disabled {
-  opacity: 0.6;
-  background: #334155 !important;
-  color: #94a3b8 !important;
-  box-shadow: none !important;
-}
-
-/* 配网 FAQ 避坑卡片 */
-.faq-card {
-  background: #090e17;
-  border: 1px solid #1e293b;
-  border-radius: 14rpx;
-  padding: 18rpx 20rpx;
-  margin-top: 10rpx;
-}
-
-.faq-header {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.faq-icon {
-  font-size: 26rpx;
-}
-
-.faq-title {
-  font-size: 22rpx;
-  font-weight: 600;
-  color: #94a3b8;
-  flex: 1;
-}
-
-.faq-arrow {
-  font-size: 20rpx;
-  color: #64748b;
-}
-
-.faq-body {
-  margin-top: 14rpx;
-  padding-top: 14rpx;
-  border-top: 1px dashed #1e293b;
-  display: flex;
-  flex-direction: column;
-  gap: 14rpx;
-}
-
-.faq-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
-}
-
-.faq-q {
-  font-size: 20rpx;
-  font-weight: 700;
-  color: #38bdf8;
-}
-
-.faq-a {
-  font-size: 19rpx;
-  color: #94a3b8;
-  line-height: 1.5;
-}
-
-/* 流量监控看板卡片 */
-.traffic-panel {
-  border: 1px solid rgba(236, 72, 153, 0.35);
-  background: #0d1527;
-}
-
-.traffic-status-badge {
-  font-size: 18rpx;
-  padding: 4rpx 14rpx;
-  border-radius: 20rpx;
-  font-weight: 700;
-}
-
-.status-normal {
-  background: rgba(0, 230, 118, 0.15);
-  color: #00e676;
-  border: 1px solid rgba(0, 230, 118, 0.4);
-}
-
-.status-warn {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
-  border: 1px solid rgba(245, 158, 11, 0.4);
-}
-
-.status-cutoff {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  animation: pulse-border 1.5s infinite;
-}
-
-@keyframes pulse-border {
-  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  70% { box-shadow: 0 0 0 10rpx rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
-
-/* 进度条 */
-.traffic-gauge-box {
-  background: #020617;
-  border: 1px solid #1e293b;
-  border-radius: 14rpx;
-  padding: 16rpx 20rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-}
-
-.gauge-top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.gauge-label {
-  font-size: 20rpx;
-  color: #94a3b8;
-}
-
-.gauge-percent {
-  font-size: 28rpx;
-  font-weight: 800;
-}
-
-.gauge-bar-bg {
-  width: 100%;
-  height: 14rpx;
-  background: #1e293b;
-  border-radius: 7rpx;
-  overflow: hidden;
-}
-
-.gauge-bar-fill {
-  height: 100%;
-  border-radius: 7rpx;
-  transition: width 0.4s ease;
-}
-
-.bar-cyan {
-  background: linear-gradient(90deg, #00f2fe, #4facfe);
-}
-
-.bar-amber {
-  background: linear-gradient(90deg, #fbbf24, #f59e0b);
-}
-
-.bar-red {
-  background: linear-gradient(90deg, #f87171, #ef4444);
-}
-
-.text-cyan { color: #00f2fe; }
-.text-amber { color: #f59e0b; }
-.text-red { color: #ef4444; }
-.highlight-green { color: #00e676; }
-
-/* 遥测三联格 */
-.traffic-metrics-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12rpx;
-}
-
-.metric-card {
-  background: #020617;
-  border: 1px solid #1e293b;
-  border-radius: 12rpx;
-  padding: 14rpx 10rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4rpx;
-}
-
-.metric-label {
-  font-size: 18rpx;
-  color: #64748b;
-}
-
-.metric-val {
-  font-size: 26rpx;
-  font-weight: 800;
-}
-
-.metric-unit {
-  font-size: 18rpx;
-  font-weight: 400;
-  color: #94a3b8;
-}
-
-/* 熔断告警卡 */
-.cutoff-notice-box {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  border-radius: 12rpx;
-  padding: 16rpx;
-  display: flex;
-  gap: 14rpx;
-  align-items: flex-start;
-}
-
-.notice-icon {
-  font-size: 32rpx;
-}
-
-.notice-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-  flex: 1;
-}
-
-.notice-title {
-  font-size: 22rpx;
-  font-weight: 700;
-  color: #f87171;
-}
-
-.notice-sub {
-  font-size: 18rpx;
-  color: #cbd5e1;
-  line-height: 1.4;
-}
-
-/* 快捷操作栏 */
-.traffic-actions-row {
-  display: flex;
-  gap: 12rpx;
-}
-
-.btn-traffic-action {
-  flex: 1;
-  font-size: 22rpx;
-  font-weight: 600;
-  border-radius: 12rpx;
-  height: 72rpx;
-  min-height: 72rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  width: auto !important;
-  margin: 0;
-}
-
-.btn-refresh {
-  background: #1e293b;
-  color: #cbd5e1;
-  border: 1px solid #334155;
-}
-
-.btn-add-quota {
-  background: linear-gradient(135deg, #0284c7, #2563eb);
-  color: white;
-}
-
-.btn-reset {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.35);
-}
-
-/* ========================================
-   配网后设备联网验证 UI 样式
-   ======================================== */
-
-/* 验证进度卡片 */
-.verify-network-box {
-  background: rgba(6, 182, 212, 0.08);
-  border: 1px solid rgba(6, 182, 212, 0.3);
-  border-radius: 14rpx;
-  padding: 20rpx 24rpx;
-  margin-top: 16rpx;
-}
-
-.verify-progress-row {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  margin-bottom: 10rpx;
-}
-
-.verify-spinner {
-  width: 28rpx;
-  height: 28rpx;
-  border: 3rpx solid rgba(6, 182, 212, 0.3);
-  border-top: 3rpx solid #06b6d4;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.verify-progress-text {
-  font-size: 24rpx;
-  font-weight: 600;
-  color: #06b6d4;
-}
-
-.verify-hint {
-  font-size: 22rpx;
-  color: #94a3b8;
-  line-height: 1.5;
-}
-
-/* 设备联网状态结果卡片 */
-.device-network-status-card {
-  background: #121929;
-  border: 1px solid rgba(100, 116, 139, 0.3);
-  border-radius: 14rpx;
-  padding: 20rpx 24rpx;
-  margin-top: 16rpx;
-}
-
-.net-status-header {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-}
-
-.net-status-icon {
-  font-size: 36rpx;
-  flex-shrink: 0;
-}
-
-.net-status-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-
-.net-status-title {
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #e2e8f0;
-}
-
-.net-status-ssid {
-  font-size: 22rpx;
-  color: #94a3b8;
-}
-
-.btn-refresh-net-status {
-  font-size: 22rpx;
-  height: 56rpx;
-  min-height: 56rpx;
-  line-height: 56rpx;
-  padding: 0 20rpx;
-  background: #1e293b;
-  color: #cbd5e1;
-  border: 1px solid #334155;
-  border-radius: 10rpx;
-  flex-shrink: 0;
-}
-
-/* 联网成功详情 */
-.net-status-details {
-  margin-top: 16rpx;
-  padding-top: 14rpx;
-  border-top: 1px dashed rgba(100, 116, 139, 0.3);
-  display: flex;
-  flex-direction: column;
-  gap: 10rpx;
-}
-
-.net-detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.net-detail-label {
-  font-size: 22rpx;
-  color: #94a3b8;
-}
-
-.net-detail-value {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #e2e8f0;
-}
-
-.highlight-green {
-  color: #4ade80;
-}
-
-/* 联网失败提示 */
-.net-fail-tips {
-  margin-top: 12rpx;
-  padding-top: 12rpx;
-  border-top: 1px dashed rgba(100, 116, 139, 0.3);
-}
-
-.net-fail-tip {
-  font-size: 22rpx;
-  color: #fbbf24;
-  line-height: 1.6;
-}
-
-/* 热点模式 LAN 提示 */
-.hotspot-lan-notice {
-  margin-top: 14rpx;
-  padding: 14rpx 18rpx;
-  background: rgba(251, 191, 36, 0.08);
-  border: 1px dashed rgba(251, 191, 36, 0.3);
-  border-radius: 10rpx;
-}
-
-.hotspot-lan-tip {
-  font-size: 21rpx;
-  color: #fbbf24;
-  line-height: 1.6;
-}
-
-/* 4A. 手机热点专属通道就绪卡片样式 */
-.hotspot-ready-flow-box {
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  border-radius: 14rpx;
-  padding: 22rpx 24rpx;
-  margin-top: 16rpx;
-}
-
-.hotspot-ready-body {
-  margin-top: 14rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-}
-
-.ready-badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
-}
-
-.ready-chip {
-  font-size: 20rpx;
-  padding: 6rpx 14rpx;
-  border-radius: 20rpx;
-  background: rgba(16, 185, 129, 0.18);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #34d399;
-  font-weight: 600;
-}
-
-.ready-explain-text {
-  font-size: 23rpx;
-  color: #cbd5e1;
-  line-height: 1.6;
-}
-
-.ready-device-info-bar {
-  margin-top: 8rpx;
-  padding: 12rpx 16rpx;
-  background: #0f172a;
-  border-radius: 10rpx;
-  border: 1px dashed rgba(100, 116, 139, 0.4);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10rpx;
-}
-
-.ready-info-item {
-  font-size: 22rpx;
-  color: #94a3b8;
 }

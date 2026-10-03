@@ -7,15 +7,15 @@
   ],
   "window": {
     "backgroundTextStyle": "dark",
-    "navigationBarBackgroundColor": "#080c16",
-    "navigationBarTitleText": "LingBuddy 灵宠伴侣",
+    "navigationBarBackgroundColor": "#000000",
+    "navigationBarTitleText": "悄悄 · 灵宠伴侣",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#080c16"
+    "backgroundColor": "#000000"
   },
   "tabBar": {
-    "color": "#64748b",
-    "selectedColor": "#00f2fe",
-    "backgroundColor": "#0c1322",
+    "color": "#8E8E93",
+    "selectedColor": "#0A84FF",
+    "backgroundColor": "#1C1C1E",
     "borderStyle": "black",
     "list": [
       {
@@ -47,6 +47,7 @@
   "usingComponents": {
     "avatar-canvas": "/components/avatar-canvas/avatar-canvas"
   },
+  "__usePrivacyCheck__": true,
   "requiredBackgroundModes": [],
   "sitemapLocation": "sitemap.json"
 }

@@ -13,26 +13,30 @@
 
 ```markdown
 你好！请接手并继续推进本项目开发。在开始编写代码前，请先完整阅读工作交接文档与核心源码：
-1. 项目最高公理与全栈交接：`docs/30_PROJECT_AXIOMS_AND_HANDOVER.md` (必读！严格遵守六大不可违背公理)
-2. 移动端与小程序交接：`docs/29_微信小程序与移动端研发交接指南_HANDOVER_MOBILE.md`
-3. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`
-4. 固件核心源码：`firmware/m5sticks3_buddy/src/main.cpp` 与 `include/sticks3_ble_sync.h`
-
-【本项目六大不可违背公理 (Project Constitutional Axioms)】：
-- 公理一【真实硬件烧录验证】：固件改动必须烧录真实硬件 (COM3) 并 RTS/DTR 硬重启，串口实测 10~15 秒验证通过，拒绝空谈。
-- 公理二【中断通讯异步解耦】：严禁在底层任务 (如 BTC_TASK) 中执行 Flash 读写或 WiFi 重连，必须经队列解耦至 loopTask。
-- 公理三【显存零撕裂双缓冲】：物理屏严禁直接擦写，必须经 PSRAM LGFX_Sprite (135x240) 离线合成后 DMA 原子推送，消灭频闪。
-- 公理四【网络显式区分一致】：手机热点 (橙色 HOT / 流量熔断) 与宽带 WiFi (绿色 WiFi) 强区分，小程序主页与设置页数据 100% 一致。
-- 公理五【零功能回退渐进加固】：离线唤醒词「悄悄」、阿里百炼流式语音、12种微表情、记忆存储与物理打断绝对不容劣化。
-- 公理六【自适应协议与防截断】：跨端分包重组，中文截断必须使用 safeTruncateUtf8 字符级保护器，杜绝非法字节崩溃。
+1. 核心交接文档：`docs/01_StickS3_Hardware_and_Bringup_Guide.md`
+2. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`
+3. 固件核心源码：`firmware/m5sticks3_buddy/src/main.cpp` 与 `include/sticks3_bailian_client.h`
 
 【当前硬件与工程基线】：
 - 硬件平台：M5Stack StickS3 (ESP32-S3-PICO-1, 8MB Flash, 8MB PSRAM)，已连接在本地串口 `COM3`，局域网 IP `192.168.110.67`。
-- 固件状态：Anti-Flicker Double-Buffer Canvas (135x240 in PSRAM) 稳定运行，主循环 FPS: 96.8 ~ 98.0，SRAM: 64KB free，PSRAM: 7.22MB free，I2C 零失败，长程运行零重启。
-- 自动化流水线：
-  - 编译固件：`python -m platformio run -e m5sticks3_buddy`
-  - 烧录固件：`python -m platformio run -e m5sticks3_buddy -t upload`
-  - 验证运行：`python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"`
+- 核心参考文档：
+  - `docs/01_StickS3_Hardware_and_Bringup_Guide.md` (全栈硬件与固件指南)
+  - `docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md` (全双工语音大模型与长程记忆压缩交接文档)
+- 底层已就绪：
+  - M5PM1 电源门控（GPIO2 点亮 LCD 3.3V 供电，GPIO3 开启功放）已标定。
+  - 按键引脚已修正为 G11 (Btn A) 与 G12 (Btn B)。
+  - BMI270 姿态传感器、ES8311 音频和弦与麦克风 VU、ST7789v2 1.14" 屏幕均已点亮。
+  - BLE Nordic UART (30字节广播合规包) 与 2.4GHz Wi-Fi (SoftAP/TCP/UDP/Web) 全互通。
+  - 全集 23,940 条目 GBK-to-Unicode Flash 映射表已落地，手机端发送汉字已无方格子。
+  - 智能 Web 配网：网页端 (`http://192.168.4.1`) 扫描周边 AP、填密入网并持久化存入 NVS，掉电开机秒级自连。
+  - 阿里云百炼大模型：DashScope Realtime WebSocket (WSS) 16kHz PCM 全双工流式对话已调通，网页端自由配置 API Key、音色与模型。
+  - **离线语音唤醒词「悄悄」(qiāo qiāo)**：时频 3 子带滤波 + ZCR + 叠词对称度综合评分声学引擎 (`sticks3_wakeword.h`)，零动态堆碎片，未唤醒时待命挂起推流省 Token，唤醒后即刻和弦播音并拉起 8~10 秒问答窗口；AI 发声时说「悄悄」可瞬间 Barge-In 物理打断。
+  - 毫秒级中途打断 (Barge-In)：支持服务端 VAD 识别、本地硅麦能量检测、唤醒词打断与正面主键 A 物理打断，瞬间静音并发送 `response.cancel` 终止服务端生成。
+  - **双级记忆压缩 (Two-Tier Compaction)**：PSRAM 平铺静态数组 (`MAX_TURNS_IN_MEMORY=8`)，零 Internal SRAM 碎片；第 9 轮触发滑动窗口自动提炼为 `[前期摘要]`；Flash NVS 持久化核心 5 轮。
+  - **Unicode 字符级安全截断 (`safeTruncateUtf8`)**：彻底杜绝 UTF-8 变长多字节中文字符截断撕裂导致的 RFC 6455 1007 协议违规断连。
+  - **I2C 全局互斥锁 (`g_i2c_mutex`)**：彻底隔离 BMI270/M5PM1 与 ES8311 跨核心并发冲突。
+- 自动化流水线：编译与烧录自愈请统一使用 `python scripts/autonomous_bringup_agent.py` 或 `python -m platformio run -d firmware/m5sticks3_buddy`。
+- 回归测试：全套 46 项自动化单元测试已就绪 (`pytest tests/ -v`)，实机 9 轮长程记忆压测使用 `python scripts/test_voice_dialogue_and_memory_compression.py`，唤醒词测试使用 `pytest tests/test_wakeword_engine.py -v`。
 
 【本次开发目标】：
 [在这里填入您的具体需求，可直接选用下方第二章节的细分方向]
@@ -174,72 +178,15 @@
    - 手机端承接无限容量的长期向量记忆图谱，彻底突破 ESP32 本地存储极限。
 ```
 
-### 方向 11：LingBuddy 跨平台 Web Bluetooth 伴侣中枢与长程知识库沉淀 (已落地就绪 Baseline)
+### 方向 11：LingBuddy 跨平台 Web Bluetooth 伴侣中枢与长程知识库沉淀
 
 ```markdown
-【已就绪伴侣中枢与知识库能力】：
-- 移动端响应式布局与 Web Bluetooth 自动重连：
-  - `web/lingbuddy_companion.html` 全面适配 iOS/Android 刘海屏、折叠屏与 Safe Area (`viewport-fit=cover`)，双栏自适应网格。
-  - 实现基于指数退避 (1s~16s) 的断线自动监听与静默重连机制，重连后自动恢复 GATT 通知与状态快照。
-  - 内置 Web Audio API 拟真 8-Bit/FM 和弦合成器，本地仿真与蓝牙联调均可享受清脆水滴音、咀嚼音与击掌音效。
-- 双轨长程对话向量知识库沉淀：
-  - 前端基于 IndexedDB 实现轻量语义向量化与余弦相似度 Top-K 检索 (`BrowserVectorKnowledgeBase`)，支持一键备份导出；
-  - Python 端落地产能级 SQLite 持久化向量知识库 (`scripts/lingbuddy_vector_store.py`)，支持 N-gram TF-IDF 嵌入与 RAG 上下文拼装。
-- 拓麻歌子具身互动与彩蛋全链路闭环：
-  - 设备固件新增投喂小点心 (`feed` -> `MOOD_EAT`)、梳理毛发 (`groom` -> `MOOD_GROOM`) 与默契击掌 (`play` -> `MOOD_WINK`)；
-  - 屏幕动态呈现节奏咀嚼开合、周身星芒浮动与眨眼放电虎牙笑，第一人称日记自动生成并推流至手机。
-```
-
----
-
-### 方向 12：灵宠主动搭话、端侧轻量意图路由与 PWA 桌面小组件 (Proactive Embodiment & Offline Intelligence)
-
-```markdown
-【本次开发目标】：灵宠主动搭话、端侧轻量意图路由与 PWA 桌面小组件
-基于已就绪的 12 种程序化微表情、全双工百炼语音交互、长程向量知识库与拓麻歌子互动体系：
-1. 晨起唤醒与主动搭话 (Proactive Wake & Greeting)：
-   - 利用 RTC 时钟与 BMI270 拿起事件，在早晨 7:00~9:00 第一次被主人拿起时，悄悄主动打哈欠 (`MOOD_SLEEP` -> `MOOD_LISTEN`) 并播放清晨问候和弦：“早安主人！今天也要元气满满哦！”；
-2. 离线意图离散匹配与本地生活管家：
-   - 在未联网或离线状态下，利用轻量级状态机匹配常用指令（如“倒计时 5 分钟”、“当前电量”、“现在几点”），无需连接百炼大模型即可离线应答与震动/和弦提醒；
-3. Web 伴侣 PWA 离线化与桌面安装：
-   - 为 `web/lingbuddy_companion.html` 添加 `manifest.json` 与 Service Worker 离线缓存，支持在 iOS Safari（添加到主屏幕）与 Android Chrome 上以全屏原生 App 形式运行；
-4. Grove 接口外设多模态扩展 (可选)：
-   - 通过 Grove (G1/G2) 接口接入 Unit-Cam 或 PIR 人体红外传感器，实现悄悄在感知到有人走近时好奇探头打量 (`MOOD_CURIOUS`)。
-```
-
----
-
-### 方向 13：微信小程序与移动端灵宠伴侣产品化演进 (已落地就绪 Baseline)
-
-```markdown
-【已就绪微信小程序移动端产品化能力】：
-- 全套 4-Tab 移动端原生交互架构：
-  - 伴侣主页 (`pages/index/`)：自适应 `<avatar-canvas>` 迪士尼灵动微表情、即时亲密/活力 HUD、手势解算、快捷互动网格与热点熔断脉冲告警；
-  - 隔空投喂屋 (`pages/feed/`)：精致甜点道具图鉴（草莓大福、舒芙蕾、比利时曲奇、熔岩甜甜圈、爆米花、抹茶冰淇淋），伴随微表情大口咀嚼与飞跃金屑；
-  - 心声日记本 (`pages/diary/`)：瀑布流心声日记卡片、8 种情绪分类标签筛选（全部/收藏/美食/抚摸/梳毛/击掌/调皮/晚安）、本地收藏与日记卡片朋友圈分享；
-  - 设备设置/BLE配网 (`pages/settings/`)：BLE 扫描连接、常规 Wi-Fi 与手机共享移动热点双模式配置、50MB/100MB/200MB/500MB/自定义多档配额设定、超额自动熔断保护开关、实时流量进度条看板、追加 50MB 与重置清零。
-- 触觉与视觉高保真联觉：
-  - `<avatar-canvas>` 自定义组件完美自适应各类 iPhone / Android 屏幕像素比 (DPR)，避免视网膜屏模糊；
-  - 轻触抚摸 (light)、隔空投喂 (medium)、默契击掌 (heavy) 具身触觉微震动反馈 (`utils/haptics.js`)；
-  - 离线持久化沉淀管理器 (`utils/storage_manager.js`) 与跨页面统一状态服务 (`utils/buddy_service.js`)。
-- 固件级流量保护与大模型熔断：
-  - 硬件级双向流量计量与 256KB 批量写盘防 Flash 磨损机制；
-  - 80% 临界预警（心声日记播报）与 100% 自动熔断保护（切断百炼 16kHz PCM 音频推流，保持 BLE 畅通）。
-```
-
----
-
-### 方向 14：微信运动步数联动、朋友圈回忆海报合成与云开发长程记忆同步 (WeRun & Cloud Moments)
-
-```markdown
-【本次开发目标】：微信运动步数联动、朋友圈回忆海报合成与云开发长程记忆同步
-基于已就绪的 4-Tab 小程序产品化架构与 20 字节安全 BLE 驱动：
-1. 微信运动步数兑换 (WeRun Steps Integration)：
-   - 接入微信运动开放接口，每日走满 6000 步自动解锁灵宠专属“限定甜点盲盒”；
-2. 朋友圈回忆海报 Canvas 合成与导出：
-   - 离线利用 Canvas 2D 动态生成 9:16 唯美《灵宠陪伴周报》，一键保存至手机系统相册或分享朋友圈；
-3. 微信云开发 (CloudBase) 或 SQLite 端云多端同步：
-   - 历史心声日记与重要记忆切片安全上传云端，支持多手机/多终端登录查看灵宠同一成长历程。
+【本次开发目标】：LingBuddy 跨平台 Web Bluetooth 伴侣中枢与长程知识库沉淀
+基于已就绪的 Web Bluetooth 仪表盘 (`web/lingbuddy_companion.html`) 与 Python 伴侣中枢 (`scripts/lingbuddy_companion.py`)：
+1. 移动端与 Web Bluetooth 离线同步适配：优化移动端 Chrome / Safari (WebBLE) 与微信环境连接握手，实现靠近 StickS3 自动静默配对；
+2. 长期记忆向量化归档 (Local Vector DB)：在手机端或电脑端引入轻量向量数据库 (如 SQLite-vss 或 ChromaDB)，自动将 0xFFB1 下发的分块对话转为向量切片，形成个人生活知识库；
+3. 双向日程与备忘注入：打通手机日历与待办事项，通过 0xFFB4 向设备下发定时提醒与日程卡片，设备在指定时间切换为 `MOOD_LISTEN` 并在屏幕弹出提醒和弦；
+4. 拓麻歌子投喂与彩蛋交互：手机端增加“投喂数字小点心”、“洗澡梳毛”虚拟互动，直接向 0xFFB4 发送指令增加亲密度 XP 并解锁专属彩蛋表情。
 ```
 
 ---
@@ -252,9 +199,9 @@
    - 稳定功能发布基线锁定在 `main`（打标 `v1.0.0-stable`，含 `dist/release_v1.0.0/` 独立免编译发布包）；
    - 灵宠伴侣与仿生微表情全部在 `feature/lingbuddy-companion` 分支进行研发，严禁未经全量测试将未经验证代码合并回 `main`。
 2. **自动化校验先行**：
-   - 运行灵宠表情、具身动力学与向量知识库测试：`pytest tests/test_avatar_and_empathy.py tests/test_vector_knowledge_base.py -v`（13 项全绿）。
-   - 运行核心全套回归测试：`pytest tests/test_avatar_and_empathy.py tests/test_vector_knowledge_base.py tests/test_wakeword_engine.py tests/test_wifi_and_bailian_pipeline.py tests/test_audio_stream_pipeline.py tests/test_firmware_driver_suite.py tests/test_sticks3_three_schemes.py -v`（51 项全绿）。
-   - 运行硬件在环与真机端到端验证：`python scripts/lingbuddy_companion.py` 与 PlatformIO 固件编译 (`python -m platformio run -d firmware/m5sticks3_buddy`)。
+   - 运行灵宠表情与具身动力学测试：`pytest tests/test_avatar_and_empathy.py -v`（9 项全绿）。
+   - 运行核心全套测试：`pytest tests/test_avatar_and_empathy.py tests/test_wakeword_engine.py tests/test_wifi_and_bailian_pipeline.py tests/test_audio_stream_pipeline.py tests/test_firmware_driver_suite.py tests/test_sticks3_three_schemes.py -v`（47 项全绿）。
+   - 运行硬件在环与真机端到端验证：`python scripts/test_avatar_hardware.py` 与 `python scripts/lingbuddy_companion.py`。
 3. **更新交接文档与续写提示词**：
    - 在对应模块的文档（如 `docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md` 与 `docs/27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md`）中记录最新演进、根因与方案。
    - 在本文件（`docs/AGENT_CONTINUATION_PROMPTS.md`）中登记新增功能方向的续写提示词。

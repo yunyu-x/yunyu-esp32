@@ -1,6 +1,6 @@
 <!-- pages/diary/diary.wxml -->
 <view class="container">
-  <!-- 顶部主分段切换器 (心声日记 vs 历史对话记忆) -->
+  <!-- 顶部主分段切换器 (Apple HIG Segmented Control: 心声日记 vs 对话回忆) -->
   <view class="section-tab-bar">
     <view 
       class="tab-btn {{activeSection === 'diary' ? 'tab-btn-active' : ''}}" 
@@ -8,7 +8,7 @@
       data-section="diary"
     >
       <text class="tab-icon">📖</text>
-      <text class="tab-label">灵宠心声日记</text>
+      <text class="tab-label">心声日记</text>
       <text class="tab-count-badge">{{diaries.length}}</text>
     </view>
     <view 
@@ -17,7 +17,7 @@
       data-section="dialogue"
     >
       <text class="tab-icon">💬</text>
-      <text class="tab-label">历史对话记忆</text>
+      <text class="tab-label">对话回忆</text>
       <text class="tab-count-badge badge-cyan">{{memories.length}}</text>
     </view>
   </view>
@@ -27,17 +27,17 @@
     <!-- 头部概览 -->
     <view class="diary-stats-card">
       <view class="stats-left">
-        <text class="stats-title">📖 {{petName}} 的第一人称心声日记</text>
-        <text class="stats-subtitle">硬件端离线记录 · 本地永久珍藏</text>
+        <text class="stats-title">📖 {{petName}} 的心声随笔</text>
+        <text class="stats-subtitle">硬件端离线心声 · 本地永久珍藏</text>
       </view>
       <view class="stats-right">
         <view class="stat-pill">
           <text class="stat-num">{{diaries.length}}</text>
-          <text class="stat-lbl">篇日记</text>
+          <text class="stat-lbl">篇随笔</text>
         </view>
         <view class="stat-pill fav-pill">
           <text class="stat-num">{{favoriteCount}}</text>
-          <text class="stat-lbl">收藏</text>
+          <text class="stat-lbl">已收藏</text>
         </view>
       </view>
     </view>
@@ -61,7 +61,7 @@
         <view class="empty-diary-box">
           <text class="empty-icon">🍃</text>
           <text class="empty-title">当前分类暂无日记</text>
-          <text class="empty-desc">在主页与小木进行投喂、抚摸互动，将自动生成专属心声</text>
+          <text class="empty-desc">在主页与悄悄进行投喂、抚摸互动，将自动生成专属心声</text>
         </view>
       </block>
 
@@ -154,7 +154,7 @@
           <button 
             class="dialogue-copy-btn" 
             bindtap="handleCopyMemory" 
-            data-text="我: {{item.user}}\n小木: {{item.ai}}"
+            data-text="我: {{item.user}}\n悄悄: {{item.ai}}"
           >
             <text>📋 复制整轮</text>
           </button>

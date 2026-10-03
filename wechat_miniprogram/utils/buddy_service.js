@@ -56,6 +56,27 @@ class BuddyService {
     this.listeners = [];
 
     this._setupBleHandlers();
+    this._autoProbeWifi();
+  }
+
+  _autoProbeWifi() {
+    if (this.httpClient && this.httpClient.host) {
+      this.httpClient.getPetStatus().then(st => {
+        if (st) {
+          this.isConnected = true;
+          this.isWifiMode = true;
+          this.connectionStatusText = "Wi-Fi 在线";
+          this.updatePetState(st);
+          this.notifyListeners("connection", {
+            isConnected: true,
+            isWifiMode: true,
+            statusText: "Wi-Fi 在线"
+          });
+        }
+      }).catch(() => {
+        // 静默探测
+      });
+    }
   }
 
   _setupBleHandlers() {
@@ -226,29 +247,39 @@ class BuddyService {
       default:      haptics.vibrate("medium"); break;
     }
 
-    // 1. BLE 模式
+    // 1. BLE 模式优先直连
     if (this.isBleMode && this.bleClient.isConnected) {
       try {
         await this.bleClient.injectAction(action, value);
         return { success: true, mode: "ble" };
       } catch (e) {
-        console.error("[BuddyService] BLE action error:", e);
-        throw e;
+        console.warn("[BuddyService] BLE action write error, fallback to HTTP:", e);
       }
     }
 
-    // 2. Wi-Fi 模式
-    if (this.isWifiMode) {
+    // 2. Wi-Fi RESTful 通道 (显式 Wi-Fi 模式或配置了局域网 Host 时自动发送)
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
       try {
         const res = await this.httpClient.sendPetAction(action, value);
-        this.updatePetState(res);
-        if (res.diary) {
-          this.handleIncomingDiary(res.diary, this.getActionMoodTag(action));
+        if (res) {
+          if (!this.isWifiMode) {
+            this.isWifiMode = true;
+            this.isConnected = true;
+            this.connectionStatusText = "Wi-Fi 在线";
+            this.notifyListeners("connection", {
+              isConnected: true,
+              isWifiMode: true,
+              statusText: "Wi-Fi 在线"
+            });
+          }
+          this.updatePetState(res);
+          if (res.diary) {
+            this.handleIncomingDiary(res.diary, this.getActionMoodTag(action));
+          }
+          return { success: true, mode: "wifi", data: res };
         }
-        return { success: true, mode: "wifi", data: res };
       } catch (e) {
-        console.error("[BuddyService] Wi-Fi action error:", e);
-        throw e;
+        console.warn("[BuddyService] Wi-Fi action request failed, fallback to sim:", e);
       }
     }
 
@@ -302,7 +333,7 @@ class BuddyService {
       diaryContent = "呼噜呼噜~ 灵宠进入梦乡打呼噜啦，晚安哦。";
     } else if (action === "wake") {
       st.mood = 1; // MOOD_LISTEN
-      diaryContent = "小木揉揉眼睛苏醒啦！今天也要元气满满哦！";
+      diaryContent = "悄悄揉揉眼睛苏醒啦！今天也要元气满满哦！";
     }
 
     // 等级成长与突破

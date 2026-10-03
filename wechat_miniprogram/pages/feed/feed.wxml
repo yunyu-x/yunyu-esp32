@@ -45,8 +45,8 @@
   <!-- 甜点货架菜单 -->
   <view class="shelf-card">
     <view class="shelf-title-row">
-      <text class="shelf-title">🍰 灵宠专属精致甜点图鉴</text>
-      <text class="shelf-subtitle">即点即喂 · 隔空传输</text>
+      <text class="shelf-title">🍰 灵宠专属精致甜点</text>
+      <text class="shelf-subtitle">轻触投喂 · 硬件实时咀嚼与和弦</text>
     </view>
 
     <view class="snack-grid">

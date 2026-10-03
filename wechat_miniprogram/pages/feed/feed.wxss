@@ -1,31 +1,33 @@
-/* pages/feed/feed.wxss */
+/* pages/feed/feed.wxss - Apple HIG Dark Mode Aesthetic */
 .container {
   padding: 24rpx;
   display: flex;
   flex-direction: column;
   gap: 24rpx;
-  padding-bottom: 40rpx;
+  padding-bottom: 50rpx;
+  background-color: var(--ios-bg, #000000);
 }
 
-/* 顶部状态与饱腹度 */
+/* ================= 顶部状态与饱腹度 (Apple Health Style Widget) ================= */
 .feed-header-card {
   display: flex;
   flex-direction: row;
-  background: #121929;
-  border: 1px solid rgba(236, 72, 153, 0.25);
-  border-radius: 24rpx;
-  padding: 20rpx;
-  gap: 20rpx;
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.4);
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 32rpx;
+  padding: 24rpx;
+  gap: 24rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.4);
 }
 
 .avatar-preview-box {
   width: 190rpx;
   height: 280rpx;
-  border-radius: 18rpx;
+  border-radius: 22rpx;
   overflow: hidden;
-  background: #000;
+  background: #000000;
   flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .feed-status-info {
@@ -43,19 +45,21 @@
 
 .pet-title {
   font-size: 28rpx;
-  font-weight: 800;
-  color: #f472b6;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: -0.3rpx;
 }
 
 .feed-count-badge {
   font-size: 20rpx;
-  color: #cbd5e1;
-  background: rgba(236, 72, 153, 0.15);
+  color: #FF375F;
+  background: rgba(255, 55, 95, 0.15);
   display: inline-block;
   align-self: flex-start;
-  padding: 4rpx 14rpx;
-  border-radius: 20rpx;
-  border: 1px solid rgba(236, 72, 153, 0.3);
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  border: 0.5px solid rgba(255, 55, 95, 0.35);
+  font-weight: 600;
 }
 
 .metric-block {
@@ -68,77 +72,77 @@
   justify-content: space-between;
   align-items: center;
   font-size: 22rpx;
-  margin-bottom: 4rpx;
+  margin-bottom: 6rpx;
 }
 
 .metric-label {
-  color: #94a3b8;
+  color: var(--ios-label-secondary, #8E8E93);
 }
 
 .highlight-pink {
-  color: #f472b6;
-  font-weight: 700;
+  color: #FF375F;
+  font-weight: 600;
 }
 
 .highlight-cyan {
-  color: #38bdf8;
-  font-weight: 700;
+  color: #64D2FF;
+  font-weight: 600;
 }
 
 .metric-bar-bg {
   width: 100%;
-  height: 14rpx;
-  background: #020617;
+  height: 12rpx;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 999rpx;
   overflow: hidden;
-  border: 1px solid #1e293b;
 }
 
 .metric-bar-fill {
   height: 100%;
   border-radius: 999rpx;
-  transition: width 0.3s ease;
+  transition: width 0.35s cubic-bezier(0.2, 0.9, 0.4, 1);
 }
 
 .energy-fill {
-  background: linear-gradient(90deg, #06b6d4, #3b82f6);
+  background: linear-gradient(90deg, #30D158, #64D2FF);
 }
 
 .xp-fill {
-  background: linear-gradient(90deg, #ec4899, #f43f5e);
+  background: linear-gradient(90deg, #FF375F, #FF758C);
 }
 
 .tip-pill {
   font-size: 18rpx;
-  color: #64748b;
-  line-height: 1.4;
+  color: var(--ios-label-tertiary, #636366);
+  line-height: 1.45;
   margin-top: 6rpx;
 }
 
-/* 甜点货架 */
+/* ================= 甜点货架 (App Store Card Aesthetic) ================= */
 .shelf-card {
-  background: #121929;
-  border: 1px solid #1e293b;
-  border-radius: 24rpx;
-  padding: 24rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 32rpx;
+  padding: 26rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.25);
 }
 
 .shelf-title-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 22rpx;
 }
 
 .shelf-title {
   font-size: 28rpx;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
 }
 
 .shelf-subtitle {
   font-size: 20rpx;
-  color: #f472b6;
+  color: var(--ios-label-secondary, #8E8E93);
 }
 
 .snack-grid {
@@ -150,33 +154,33 @@
 .snack-item {
   display: flex;
   align-items: center;
-  background: #0b1120;
-  border: 1px solid #1e293b;
-  border-radius: 18rpx;
-  padding: 16rpx 20rpx;
-  gap: 16rpx;
-  transition: all 0.2s ease;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 22rpx;
+  padding: 18rpx 22rpx;
+  gap: 18rpx;
+  transition: all 0.15s cubic-bezier(0.2, 0.9, 0.4, 1);
 }
 
 .snack-item:active {
-  background: #151e32;
-  border-color: #f472b6;
+  transform: scale(0.985);
+  background: var(--ios-quaternary-bg, #3A3A3C);
 }
 
 .snack-icon-wrap {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 16rpx;
-  background: #020617;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 20rpx;
+  background: #000000;
   display: flex;
   justify-content: center;
   align-items: center;
-  border: 1px solid #334155;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
 }
 
 .snack-icon {
-  font-size: 40rpx;
+  font-size: 42rpx;
 }
 
 .snack-content {
@@ -189,101 +193,109 @@
 .snack-name {
   font-size: 26rpx;
   font-weight: 700;
-  color: #f8fafc;
+  color: #FFFFFF;
 }
 
 .snack-desc {
   font-size: 20rpx;
-  color: #94a3b8;
+  color: var(--ios-label-secondary, #8E8E93);
 }
 
 .snack-buffs {
   display: flex;
   gap: 10rpx;
-  margin-top: 4rpx;
+  margin-top: 6rpx;
 }
 
 .buff-tag {
   font-size: 18rpx;
-  padding: 2rpx 10rpx;
-  border-radius: 8rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
 }
 
 .buff-energy {
-  background: rgba(6, 182, 212, 0.15);
-  color: #22d3ee;
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  background: rgba(48, 209, 88, 0.15);
+  color: #30D158;
+  border: 0.5px solid rgba(48, 209, 88, 0.35);
 }
 
 .buff-xp {
-  background: rgba(236, 72, 153, 0.15);
-  color: #f472b6;
-  border: 1px solid rgba(236, 72, 153, 0.3);
+  background: rgba(255, 55, 95, 0.15);
+  color: #FF375F;
+  border: 0.5px solid rgba(255, 55, 95, 0.35);
 }
 
+/* App Store 风格 "GET / 投喂" 胶囊按钮 */
 .btn-feed-snack {
-  background: linear-gradient(135deg, #ec4899, #d946ef);
-  color: #ffffff;
-  font-size: 22rpx;
+  background: rgba(255, 55, 95, 0.2);
+  color: #FF375F;
+  font-size: 24rpx;
   font-weight: 700;
-  padding: 0 28rpx;
+  padding: 0 32rpx;
   height: 60rpx;
   min-height: 60rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 30rpx;
-  border: none;
+  border-radius: 999rpx;
+  border: 0.5px solid rgba(255, 55, 95, 0.35);
   margin: 0;
   width: auto !important;
   flex-shrink: 0;
+  transition: all 0.12s ease;
 }
 
 .btn-feed-snack:active {
-  opacity: 0.85;
+  background: #FF375F;
+  color: #FFFFFF;
+  transform: scale(0.95);
 }
 
 .snack-disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   pointer-events: none;
 }
 
-/* 灵宠赏味日记 */
+/* ================= 灵宠赏味日记 (Apple Notes Card) ================= */
 .food-diary-card {
-  background: #121929;
-  border: 1px solid #1e293b;
-  border-radius: 20rpx;
-  padding: 20rpx 24rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
+  padding: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.25);
 }
 
 .food-diary-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12rpx;
+  margin-bottom: 14rpx;
 }
 
 .food-diary-title {
   font-size: 26rpx;
   font-weight: 700;
-  color: #f6d365;
+  color: #FFD60A;
 }
 
 .food-diary-tag {
   font-size: 20rpx;
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.15);
-  padding: 2rpx 12rpx;
-  border-radius: 10rpx;
-  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #30D158;
+  background: rgba(48, 209, 88, 0.15);
+  padding: 2rpx 14rpx;
+  border-radius: 999rpx;
+  border: 0.5px solid rgba(48, 209, 88, 0.35);
+  font-weight: 600;
 }
 
 .food-diary-bubble {
-  background: #020617;
-  border: 1px solid #334155;
-  border-radius: 14rpx;
-  padding: 16rpx 20rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20rpx;
+  padding: 18rpx 22rpx;
   font-size: 24rpx;
-  color: #e2e8f0;
+  color: #FFFFFF;
   line-height: 1.6;
+  font-style: italic;
 }

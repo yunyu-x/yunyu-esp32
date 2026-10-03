@@ -1,21 +1,23 @@
-/* pages/index/index.wxss */
+/* pages/index/index.wxss - Apple HIG Dark Mode Aesthetic */
 .container {
   padding: 24rpx;
   display: flex;
   flex-direction: column;
   gap: 20rpx;
-  padding-bottom: 40rpx;
+  padding-bottom: 50rpx;
+  background-color: var(--ios-bg, #000000);
 }
 
-/* 顶部状态栏 */
+/* ================= 顶部状态栏与硬件握手标识 ================= */
 .header-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #121929;
-  border: 1px solid rgba(0, 242, 254, 0.18);
-  border-radius: 20rpx;
-  padding: 20rpx 24rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
+  padding: 22rpx 26rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.3);
 }
 
 .header-left {
@@ -24,114 +26,38 @@
   gap: 16rpx;
 }
 
+.app-icon-wrap {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 16rpx;
+  background: linear-gradient(135deg, rgba(255, 55, 95, 0.2), rgba(255, 159, 10, 0.2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+}
+
 .app-icon {
-  font-size: 44rpx;
+  font-size: 32rpx;
+}
+
+.app-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
 }
 
 .app-title {
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 700;
-  color: #00f2fe;
-  display: block;
+  color: #FFFFFF;
+  letter-spacing: -0.3rpx;
 }
 
 .app-subtitle {
   font-size: 20rpx;
-  color: #8a99ad;
-  display: block;
-}
-
-.status-badge {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-  padding: 8rpx 18rpx;
-  border-radius: 40rpx;
-  font-size: 22rpx;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.status-online {
-  background: rgba(0, 230, 118, 0.15);
-  border: 1px solid #00e676;
-  color: #00e676;
-}
-
-.badge-hotspot-connected {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid #f59e0b;
-  color: #fbbf24;
-}
-
-.status-offline {
-  background: rgba(148, 163, 184, 0.15);
-  border: 1px solid #64748b;
-  color: #94a3b8;
-}
-
-.badge-ble-connected {
-  background: rgba(0, 242, 254, 0.15);
-  border: 1px solid #00f2fe;
-  color: #00f2fe;
-  box-shadow: 0 0 10rpx rgba(0, 242, 254, 0.25);
-}
-
-.badge-ble-disconnected {
-  background: rgba(148, 163, 184, 0.15);
-  border: 1px solid #64748b;
-  color: #94a3b8;
-}
-
-.status-offline-red {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid #ef4444;
-  color: #f87171;
-  animation: pulse-offline-border 2s infinite ease-in-out;
-}
-
-@keyframes pulse-offline-border {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 12rpx 2rpx rgba(239, 68, 68, 0.6);
-  }
-}
-
-.wifi-offline-banner {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  border-radius: 16rpx;
-  padding: 14rpx 20rpx;
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  animation: pulse-offline-banner 2.5s infinite;
-}
-
-@keyframes pulse-offline-banner {
-  0%, 100% {
-    opacity: 0.95;
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3);
-  }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 14rpx rgba(239, 68, 68, 0.5);
-  }
-}
-
-.status-dot {
-  width: 14rpx;
-  height: 14rpx;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.status-arrow {
-  font-size: 20rpx;
-  opacity: 0.8;
-  margin-left: 4rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+  letter-spacing: -0.2rpx;
 }
 
 .status-badge-group {
@@ -140,75 +66,134 @@
   gap: 12rpx;
 }
 
-.hotspot-badge {
-  background: rgba(236, 72, 153, 0.2);
-  border: 1px solid #ec4899;
-  color: #f472b6;
-  font-size: 20rpx;
-  font-weight: 700;
-  padding: 6rpx 14rpx;
-  border-radius: 30rpx;
-}
-
-/* 热点熔断与告警横幅 */
-.hotspot-alert-banner {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid #ef4444;
-  border-radius: 16rpx;
-  padding: 14rpx 20rpx;
+.status-badge {
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  animation: pulse-alert 2s infinite;
+  gap: 10rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-online {
+  background: rgba(48, 209, 88, 0.15);
+  border: 0.5px solid rgba(48, 209, 88, 0.4);
+  color: #30D158;
+}
+
+.badge-hotspot-connected {
+  background: rgba(255, 159, 10, 0.15);
+  border: 0.5px solid rgba(255, 159, 10, 0.4);
+  color: #FF9F0A;
+}
+
+.status-offline {
+  background: rgba(142, 142, 147, 0.15);
+  border: 0.5px solid rgba(142, 142, 147, 0.3);
+  color: #8E8E93;
+}
+
+.badge-ble-connected {
+  background: rgba(10, 132, 255, 0.15);
+  border: 0.5px solid rgba(10, 132, 255, 0.4);
+  color: #0A84FF;
+}
+
+.badge-ble-disconnected {
+  background: rgba(142, 142, 147, 0.12);
+  border: 0.5px solid rgba(142, 142, 147, 0.25);
+  color: #8E8E93;
+}
+
+.status-offline-red {
+  background: rgba(255, 69, 58, 0.15);
+  border: 0.5px solid rgba(255, 69, 58, 0.5);
+  color: #FF453A;
+}
+
+.hotspot-badge {
+  background: rgba(255, 55, 95, 0.15);
+  border: 0.5px solid rgba(255, 55, 95, 0.4);
+  color: #FF375F;
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+}
+
+.status-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ================= 提示与告警横幅 (Apple HIG Alert Pill) ================= */
+.wifi-offline-banner {
+  background: rgba(255, 69, 58, 0.12);
+  border: 0.5px solid rgba(255, 69, 58, 0.35);
+  border-radius: 20rpx;
+  padding: 16rpx 22rpx;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.hotspot-alert-banner {
+  background: rgba(255, 69, 58, 0.15);
+  border: 0.5px solid rgba(255, 69, 58, 0.4);
+  border-radius: 20rpx;
+  padding: 16rpx 22rpx;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
 }
 
 .hotspot-warn-banner {
-  background: rgba(245, 158, 11, 0.2);
-  border: 1px solid #f59e0b;
-  border-radius: 16rpx;
-  padding: 14rpx 20rpx;
+  background: rgba(255, 159, 10, 0.12);
+  border: 0.5px solid rgba(255, 159, 10, 0.35);
+  border-radius: 20rpx;
+  padding: 16rpx 22rpx;
   display: flex;
   align-items: center;
-  gap: 12rpx;
-}
-
-@keyframes pulse-alert {
-  0% { opacity: 0.9; }
-  50% { opacity: 1; box-shadow: 0 0 16rpx rgba(239, 68, 68, 0.4); }
-  100% { opacity: 0.9; }
+  gap: 14rpx;
 }
 
 .banner-icon {
-  font-size: 26rpx;
+  font-size: 24rpx;
   flex-shrink: 0;
 }
 
 .banner-text {
-  font-size: 20rpx;
-  color: #f8fafc;
-  line-height: 1.4;
+  font-size: 22rpx;
+  color: #FFFFFF;
+  line-height: 1.45;
   flex: 1;
 }
 
-/* 灵宠主画板区 */
+/* ================= 灵宠主画板区 (Apple Widget Inset) ================= */
 .avatar-card {
   display: flex;
   flex-direction: row;
-  background: #121929;
-  border: 1px solid rgba(255, 117, 140, 0.25);
-  border-radius: 24rpx;
-  padding: 20rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 32rpx;
+  padding: 24rpx;
   gap: 24rpx;
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.4);
 }
 
 .canvas-wrapper {
   width: 270rpx;
   height: 480rpx;
-  border-radius: 20rpx;
+  border-radius: 24rpx;
   overflow: hidden;
-  background: #000;
+  background: #000000;
   flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .hud-meta {
@@ -227,17 +212,19 @@
 
 .pet-name {
   font-size: 32rpx;
-  font-weight: 800;
-  color: #f8fafc;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: -0.5rpx;
 }
 
 .mood-pill {
   font-size: 20rpx;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  padding: 4rpx 14rpx;
-  border-radius: 20rpx;
+  color: #64D2FF;
+  background: rgba(100, 210, 255, 0.12);
+  border: 0.5px solid rgba(100, 210, 255, 0.3);
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  font-weight: 500;
 }
 
 .meta-row {
@@ -245,44 +232,43 @@
   justify-content: space-between;
   align-items: center;
   font-size: 22rpx;
-  margin-bottom: 4rpx;
+  margin-bottom: 6rpx;
 }
 
 .meta-label {
-  color: #94a3b8;
+  color: var(--ios-label-secondary, #8E8E93);
 }
 
 .highlight-pink {
-  color: #f472b6;
-  font-weight: 700;
+  color: #FF375F;
+  font-weight: 600;
 }
 
 .highlight-cyan {
-  color: #38bdf8;
-  font-weight: 700;
+  color: #64D2FF;
+  font-weight: 600;
 }
 
 .bar-bg {
   width: 100%;
-  height: 14rpx;
-  background: #020617;
+  height: 12rpx;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 999rpx;
   overflow: hidden;
-  border: 1px solid #1e293b;
 }
 
 .bar-fill {
   height: 100%;
   border-radius: 999rpx;
-  transition: width 0.3s ease;
+  transition: width 0.35s cubic-bezier(0.2, 0.9, 0.4, 1);
 }
 
 .xp-fill {
-  background: linear-gradient(90deg, #ec4899, #f43f5e);
+  background: linear-gradient(90deg, #FF375F, #FF758C);
 }
 
 .energy-fill {
-  background: linear-gradient(90deg, #06b6d4, #3b82f6);
+  background: linear-gradient(90deg, #30D158, #64D2FF);
 }
 
 .stat-tags {
@@ -293,26 +279,27 @@
 }
 
 .stat-tag {
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  border-radius: 12rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14rpx;
   padding: 8rpx 10rpx;
   font-size: 20rpx;
-  color: #cbd5e1;
+  color: #EBEBF5;
   text-align: center;
+  font-weight: 500;
 }
 
 .touch-guide-tip {
   margin-top: 12rpx;
-  background: rgba(15, 23, 42, 0.6);
-  border-radius: 10rpx;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12rpx;
   padding: 8rpx 10rpx;
   font-size: 18rpx;
-  color: #64748b;
+  color: var(--ios-label-tertiary, #636366);
   text-align: center;
 }
 
-/* 投喂屋快捷横幅 */
+/* ================= 甜点工坊快捷通道 (App Store Feature Banner) ================= */
 .quick-room-nav {
   width: 100%;
 }
@@ -321,87 +308,95 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(217, 70, 239, 0.15));
-  border: 1px solid rgba(236, 72, 153, 0.35);
-  border-radius: 20rpx;
-  padding: 18rpx 24rpx;
-  cursor: pointer;
+  background: linear-gradient(135deg, rgba(255, 55, 95, 0.12), rgba(255, 159, 10, 0.08));
+  border: 0.5px solid rgba(255, 55, 95, 0.25);
+  border-radius: 28rpx;
+  padding: 22rpx 26rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.2);
+  transition: transform 0.12s ease;
+}
+
+.feed-banner:active {
+  transform: scale(0.985);
 }
 
 .room-title {
   font-size: 26rpx;
   font-weight: 700;
-  color: #f472b6;
+  color: #FF375F;
   display: block;
 }
 
 .room-desc {
   font-size: 20rpx;
-  color: #cbd5e1;
+  color: var(--ios-label-secondary, #8E8E93);
   display: block;
   margin-top: 4rpx;
 }
 
 .room-btn {
   font-size: 22rpx;
-  font-weight: 700;
-  color: #f472b6;
-  background: rgba(236, 72, 153, 0.2);
-  padding: 8rpx 20rpx;
-  border-radius: 20rpx;
+  font-weight: 600;
+  color: #FF375F;
+  background: rgba(255, 55, 95, 0.18);
+  padding: 8rpx 22rpx;
+  border-radius: 999rpx;
 }
 
-/* 心声日记 */
+/* ================= 心声日记与具身互动卡片 (Apple Notes Card) ================= */
 .diary-card, .tamagotchi-card {
-  background: #121929;
-  border: 1px solid #1e293b;
-  border-radius: 20rpx;
-  padding: 20rpx 24rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
+  padding: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.25);
 }
 
 .diary-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12rpx;
+  margin-bottom: 14rpx;
 }
 
 .diary-title {
   font-size: 26rpx;
   font-weight: 700;
-  color: #f6d365;
+  color: #FFD60A;
 }
 
 .diary-link {
   font-size: 20rpx;
-  color: #38bdf8;
+  color: var(--ios-blue, #0A84FF);
   cursor: pointer;
 }
 
 .diary-bubble {
-  background: #020617;
-  border: 1px solid #334155;
-  border-radius: 14rpx;
-  padding: 16rpx 20rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20rpx;
+  padding: 20rpx 22rpx;
   font-size: 24rpx;
-  color: #e2e8f0;
+  color: #FFFFFF;
   line-height: 1.6;
+  font-style: italic;
   cursor: pointer;
 }
 
-/* 历史对话记忆预览 */
+/* ================= 历史对话记忆预览 (iMessage Style) ================= */
 .memory-card {
-  background: #121929;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 20rpx;
-  padding: 20rpx 24rpx;
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
+  padding: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.25);
 }
 
 .memory-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12rpx;
+  margin-bottom: 14rpx;
 }
 
 .memory-title-group {
@@ -413,90 +408,91 @@
 .memory-title {
   font-size: 26rpx;
   font-weight: 700;
-  color: #38bdf8;
+  color: #64D2FF;
 }
 
 .memory-badge {
   font-size: 18rpx;
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid #38bdf8;
-  color: #38bdf8;
-  padding: 2rpx 10rpx;
-  border-radius: 12rpx;
+  background: rgba(100, 210, 255, 0.15);
+  border: 0.5px solid rgba(100, 210, 255, 0.35);
+  color: #64D2FF;
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
 }
 
 .memory-link {
   font-size: 20rpx;
-  color: #38bdf8;
+  color: var(--ios-blue, #0A84FF);
   cursor: pointer;
 }
 
 .memory-preview-bubble {
-  background: #020617;
-  border: 1px solid #1e293b;
-  border-radius: 14rpx;
-  padding: 16rpx 20rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20rpx;
+  padding: 18rpx 22rpx;
   display: flex;
   flex-direction: column;
-  gap: 10rpx;
+  gap: 12rpx;
   cursor: pointer;
 }
 
 .mem-preview-row {
   display: flex;
   align-items: flex-start;
-  gap: 10rpx;
+  gap: 12rpx;
   font-size: 22rpx;
   line-height: 1.5;
 }
 
 .mem-role-tag {
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
 .user-tag {
-  color: #94a3b8;
+  color: var(--ios-label-secondary, #8E8E93);
 }
 
 .pet-tag {
-  color: #00f2fe;
+  color: #64D2FF;
 }
 
 .mem-snippet-text {
-  color: #cbd5e1;
+  color: #FFFFFF;
   word-break: break-all;
 }
 
 .pet-answer {
-  color: #f1f5f9;
+  color: #EBEBF5;
 }
 
 .memory-empty-preview {
-  background: #020617;
-  border: 1px dashed #334155;
-  border-radius: 14rpx;
-  padding: 20rpx;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 20rpx;
+  padding: 22rpx;
   font-size: 22rpx;
-  color: #64748b;
+  color: var(--ios-label-tertiary, #636366);
   text-align: center;
   cursor: pointer;
 }
 
-/* 拓麻歌子互动区 */
+/* ================= 掌心具身互动区 (Apple Control Center Tactile) ================= */
 .section-title {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   font-size: 26rpx;
   font-weight: 700;
-  color: #00f2fe;
+  color: #FFFFFF;
   margin-bottom: 16rpx;
 }
 
 .section-sub {
   font-size: 20rpx;
-  color: #64748b;
+  color: var(--ios-label-tertiary, #636366);
   font-weight: 400;
 }
 
@@ -511,26 +507,39 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10rpx;
-  height: 88rpx;
-  min-height: 88rpx;
-  border-radius: 16rpx;
+  gap: 12rpx;
+  height: 92rpx;
+  min-height: 92rpx;
+  border-radius: 22rpx;
   font-size: 24rpx;
   font-weight: 600;
-  color: white;
-  border: none;
+  color: #FFFFFF;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
   width: 100% !important;
   margin: 0;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.25);
+  transition: transform 0.12s cubic-bezier(0.2, 0.9, 0.4, 1), opacity 0.12s ease;
 }
 
 .btn-action:active {
-  transform: scale(0.98);
+  transform: scale(0.96);
+  opacity: 0.9;
 }
 
-.btn-pet   { background: linear-gradient(135deg, #10b981, #059669); }
-.btn-groom { background: linear-gradient(135deg, #06b6d4, #0ea5e9); }
-.btn-play  { background: linear-gradient(135deg, #f59e0b, #eab308); }
-.btn-shake { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.action-icon {
+  font-size: 30rpx;
+}
+
+.action-text {
+  font-weight: 600;
+  letter-spacing: -0.2rpx;
+}
+
+/* 具有温润质感的 Apple 风格柔和渐变色 */
+.btn-pet   { background: linear-gradient(135deg, rgba(255, 55, 95, 0.35), rgba(255, 117, 140, 0.35)), #2C2C2E; border-color: rgba(255, 55, 95, 0.3); }
+.btn-groom { background: linear-gradient(135deg, rgba(100, 210, 255, 0.35), rgba(10, 132, 255, 0.35)), #2C2C2E; border-color: rgba(100, 210, 255, 0.3); }
+.btn-play  { background: linear-gradient(135deg, rgba(255, 159, 10, 0.35), rgba(255, 214, 10, 0.35)), #2C2C2E; border-color: rgba(255, 159, 10, 0.3); }
+.btn-shake { background: linear-gradient(135deg, rgba(94, 92, 230, 0.35), rgba(191, 90, 242, 0.35)), #2C2C2E; border-color: rgba(94, 92, 230, 0.3); }
 
 .sub-action-grid {
   display: grid;
@@ -539,11 +548,12 @@
 }
 
 .btn-sub {
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  background: var(--ios-tertiary-bg, #2C2C2E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  color: var(--ios-label-secondary, #8E8E93);
   font-size: 20rpx;
-  border-radius: 14rpx;
+  font-weight: 500;
+  border-radius: 16rpx;
   height: 68rpx;
   min-height: 68rpx;
   display: flex;
@@ -551,9 +561,15 @@
   justify-content: center;
   width: 100% !important;
   margin: 0;
+  transition: all 0.12s ease;
 }
 
-/* 连接快捷栏 */
+.btn-sub:active {
+  background: var(--ios-quaternary-bg, #3A3A3C);
+  color: #FFFFFF;
+}
+
+/* ================= 底部连接与信道控制栏 ================= */
 .connect-grid {
   display: flex;
   gap: 12rpx;
@@ -567,20 +583,27 @@
   gap: 8rpx;
   height: 76rpx;
   min-height: 76rpx;
-  border-radius: 16rpx;
+  border-radius: 20rpx;
   font-size: 24rpx;
   font-weight: 600;
-  border: none;
-  color: #fff;
-  background: #1e293b;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  color: var(--ios-label-secondary, #8E8E93);
+  background: var(--ios-secondary-bg, #1C1C1E);
   width: auto !important;
   margin: 0;
+  transition: all 0.15s ease;
 }
 
 .btn-active {
-  background: linear-gradient(135deg, #0284c7, #2563eb);
+  background: var(--ios-blue, #0A84FF);
+  color: #FFFFFF;
+  border-color: transparent;
+  box-shadow: 0 4rpx 16rpx rgba(10, 132, 255, 0.35);
 }
 
 .btn-active-sim {
-  background: linear-gradient(135deg, #7c3aed, #9333ea);
+  background: var(--ios-purple, #BF5AF2);
+  color: #FFFFFF;
+  border-color: transparent;
+  box-shadow: 0 4rpx 16rpx rgba(191, 90, 242, 0.35);
 }

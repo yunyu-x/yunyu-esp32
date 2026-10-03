@@ -1,18 +1,50 @@
-/** app.wxss **/
+/** app.wxss - Apple Human Interface Guidelines Dark Mode Design System **/
 page {
-  background-color: #080c16;
-  color: #f0f4f8;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", Roboto, sans-serif;
+  /* Apple iOS Dark Mode System Palette */
+  --ios-bg: #000000;
+  --ios-secondary-bg: #1C1C1E;
+  --ios-tertiary-bg: #2C2C2E;
+  --ios-quaternary-bg: #3A3A3C;
+  --ios-separator: rgba(84, 84, 88, 0.36);
+  --ios-separator-opaque: #38383A;
+  
+  /* Apple System Grays (Dark Mode) */
+  --ios-label: #FFFFFF;
+  --ios-label-secondary: #8E8E93;
+  --ios-label-tertiary: #636366;
+  --ios-label-quaternary: #48484A;
+  
+  /* Apple System Colors */
+  --ios-blue: #0A84FF;
+  --ios-green: #30D158;
+  --ios-indigo: #5E5CE6;
+  --ios-orange: #FF9F0A;
+  --ios-pink: #FF375F;
+  --ios-purple: #BF5AF2;
+  --ios-red: #FF453A;
+  --ios-teal: #64D2FF;
+  --ios-yellow: #FFD60A;
+  
+  /* Warm Companion Accent (Soft Rose / Coral) */
+  --companion-accent: #FF375F;
+  --companion-accent-soft: rgba(255, 55, 95, 0.15);
+  --companion-warm-gold: #FFD60A;
+
+  background-color: var(--ios-bg);
+  color: var(--ios-label);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Helvetica Neue", Roboto, sans-serif;
   box-sizing: border-box;
   width: 100%;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.3rpx;
 }
 
 view, text, button, input, scroll-view, canvas {
   box-sizing: border-box;
 }
 
-/* 全局重置微信小程序 button 默认的侵入式宽高度与内外边距 */
+/* 全局重置微信小程序 button 默认的侵入式宽高度与内外边距，融入 iOS 触控反馈 */
 button {
   position: relative;
   display: flex;
@@ -21,17 +53,23 @@ button {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-size: 24rpx;
+  font-size: 26rpx;
   text-align: center;
   text-decoration: none;
   line-height: normal;
-  border-radius: 12rpx;
+  border-radius: 20rpx;
   -webkit-tap-highlight-color: transparent;
   overflow: visible;
   width: auto;
   min-height: auto;
   border: none;
   background-color: transparent;
+  transition: transform 0.12s cubic-bezier(0.2, 0.9, 0.4, 1), opacity 0.12s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+  opacity: 0.88;
 }
 
 button:not([size='mini']) {
@@ -46,16 +84,17 @@ button::after {
   display: none;
 }
 
-/* 全局重置 input 文本框，防止 flex 布局下文字被压扁或上下遮挡 */
+/* 全局重置 input 文本框，适配 iOS 输入框质感 */
 input {
   box-sizing: border-box;
   font-family: inherit;
-  font-size: 26rpx;
-  color: #f8fafc;
+  font-size: 28rpx;
+  color: #FFFFFF;
   min-width: 0;
 }
 
 .input-placeholder {
-  color: #64748b;
-  font-size: 24rpx;
+  color: #636366;
+  font-size: 26rpx;
 }
+

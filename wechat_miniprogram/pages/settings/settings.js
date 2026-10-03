@@ -147,9 +147,6 @@ Page({
         patch.hotspot = { ...hs };
       }
       if (this.data.trafficPercent !== percent) patch.trafficPercent = percent;
-      if (hs.isHotspot && this.data.networkMode !== "hotspot") {
-        patch.networkMode = "hotspot";
-      }
     }
 
     // 硬件 Wi-Fi STA 联网状态
@@ -268,11 +265,12 @@ Page({
 
   onSelectNetworkMode(e) {
     const mode = e.currentTarget.dataset.mode;
+    if (this.data.networkMode === mode) return;
     this.setData({ networkMode: mode });
     haptics.vibrate("light");
 
-    // 立即向设备同步热点模式状态 (无论设备当前是Wi-Fi还是BLE在线)
     const isHs = (mode === "hotspot");
+    StorageManager.saveSettings({ isHotspot: isHs, networkMode: mode });
     buddyService.updateHotspotConfig({
       isHotspot: isHs,
       dataLimitMb: this.data.hotspotLimitMb,

@@ -1,12 +1,14 @@
 <!-- pages/index/index.wxml -->
 <view class="container">
-  <!-- 顶部状态栏与硬件握手标识 -->
+  <!-- 顶部状态栏与硬件握手标识 (Apple HIG 状态胶囊) -->
   <view class="header-card">
     <view class="header-left">
-      <text class="app-icon">🤖</text>
-      <view>
-        <text class="app-title">LingBuddy 灵宠伴侣</text>
-        <text class="app-subtitle">M5StickS3 · 微信随身陪伴中枢</text>
+      <view class="app-icon-wrap">
+        <text class="app-icon">🐾</text>
+      </view>
+      <view class="app-title-group">
+        <text class="app-title">悄悄 · 灵宠伴侣</text>
+        <text class="app-subtitle">M5StickS3 · 掌心有爱随身相伴</text>
       </view>
     </view>
     <view class="status-badge-group">
@@ -16,13 +18,12 @@
       <!-- BLE 蓝牙状态标志 -->
       <view class="status-badge {{isBleMode ? 'badge-ble-connected' : 'badge-ble-disconnected'}}" bindtap="navigateToSettings">
         <view class="status-dot"></view>
-        <text>{{isBleMode ? 'BLE 已连' : 'BLE 未连'}}</text>
+        <text>{{isBleMode ? '蓝牙已连' : '未连接'}}</text>
       </view>
       <!-- Wi-Fi / 热点网络状态标志 (统一硬件实际联网状态) -->
       <view class="status-badge {{isDeviceWifiOnline ? (networkBadgeClass || 'status-online') : 'status-offline-red'}}" bindtap="navigateToSettings">
         <view class="status-dot"></view>
-        <text>{{networkBadgeText || (isDeviceWifiOnline ? '网络在线' : 'Wi-Fi 离线')}}</text>
-        <text class="status-arrow">⚙️</text>
+        <text>{{networkBadgeText || (isDeviceWifiOnline ? '在线' : '离线')}}</text>
       </view>
     </view>
   </view>
@@ -97,8 +98,8 @@
   <view class="quick-room-nav">
     <view class="room-banner feed-banner" bindtap="navigateToFeed">
       <view class="room-info">
-        <text class="room-title">🍰 隔空投喂屋</text>
-        <text class="room-desc">草莓大福、舒芙蕾、熔岩甜甜圈已上架</text>
+        <text class="room-title">🍰 灵宠甜点工坊</text>
+        <text class="room-desc">草莓大福、舒芙蕾与热可可，为悄悄补充能量</text>
       </view>
       <text class="room-btn">去投喂 ›</text>
     </view>
@@ -107,11 +108,11 @@
   <!-- 第一人称灵宠即时心声日记卡片 -->
   <view class="diary-card">
     <view class="diary-header">
-      <text class="diary-title">📖 {{petState.name}} 的即时心声日记</text>
+      <text class="diary-title">📖 {{petState.name}} 的即时心声</text>
       <text class="diary-link" bindtap="navigateToDiary">全部日记 ({{diaryCount}}篇) ›</text>
     </view>
     <view class="diary-bubble" bindtap="navigateToDiary">
-      "{{petState.diary}}"
+      “{{petState.diary}}”
     </view>
   </view>
 
@@ -119,18 +120,18 @@
   <view class="memory-card">
     <view class="memory-header">
       <view class="memory-title-group">
-        <text class="memory-title">💬 {{petState.name}} 的最新对话记忆</text>
+        <text class="memory-title">💬 {{petState.name}} 的最新对话</text>
         <text class="memory-badge" wx:if="{{memoryCount > 0}}">{{memoryCount}}轮</text>
       </view>
-      <text class="memory-link" bindtap="navigateToDialogueHistory">历史对话 ›</text>
+      <text class="memory-link" bindtap="navigateToDialogueHistory">历史记录 ›</text>
     </view>
     <view class="memory-preview-bubble" bindtap="navigateToDialogueHistory" wx:if="{{latestMemory}}">
       <view class="mem-preview-row">
-        <text class="mem-role-tag user-tag">👤 我:</text>
+        <text class="mem-role-tag user-tag">我:</text>
         <text class="mem-snippet-text">{{latestMemory.user}}</text>
       </view>
       <view class="mem-preview-row">
-        <text class="mem-role-tag pet-tag">🤖 {{petState.name}}:</text>
+        <text class="mem-role-tag pet-tag">{{petState.name}}:</text>
         <text class="mem-snippet-text pet-answer">{{latestMemory.ai}}</text>
       </view>
     </view>
@@ -139,10 +140,10 @@
     </view>
   </view>
 
-  <!-- 拓麻歌子具身互动控制中心 (微震动触觉联觉) -->
+  <!-- 拓麻歌子具身互动控制中心 (Apple Control Center 风格触控) -->
   <view class="tamagotchi-card">
     <view class="section-title">
-      <text>🎮 拓麻歌子随身具身互动</text>
+      <text>💫 掌心具身互动</text>
       <text class="section-sub">支持真机触觉反馈与和弦同步</text>
     </view>
 
@@ -150,26 +151,26 @@
     <view class="action-grid">
       <button class="btn-action btn-pet" bindtap="handlePetAction">
         <text class="action-icon">🌸</text>
-        <text>隔空抚摸</text>
+        <text class="action-text">温柔抚摸</text>
       </button>
       <button class="btn-action btn-groom" bindtap="handleGroomAction">
         <text class="action-icon">✨</text>
-        <text>舒适梳毛</text>
+        <text class="action-text">舒适梳毛</text>
       </button>
       <button class="btn-action btn-play" bindtap="handlePlayAction">
         <text class="action-icon">✋</text>
-        <text>默契击掌</text>
+        <text class="action-text">默契击掌</text>
       </button>
       <button class="btn-action btn-shake" bindtap="handleShakeAction">
         <text class="action-icon">🌀</text>
-        <text>调皮转圈</text>
+        <text class="action-text">调皮转圈</text>
       </button>
     </view>
 
     <!-- 辅助控制 -->
     <view class="sub-action-grid">
-      <button class="btn-sub" bindtap="handleSleepAction">🌙 灵宠晚安入睡</button>
-      <button class="btn-sub" bindtap="handleWakeAction">☀️ 晨起伸懒腰</button>
+      <button class="btn-sub" bindtap="handleSleepAction">🌙 伴侣晚安入睡</button>
+      <button class="btn-sub" bindtap="handleWakeAction">☀️ 晨起轻唤醒</button>
       <button class="btn-sub" bindtap="handleToggleAvatarMode">🎨 切换屏显模式</button>
     </view>
   </view>

@@ -17,7 +17,7 @@ Component({
     petState: {
       type: Object,
       value: {
-        name: "小木",
+        name: "悄悄",
         level: 1,
         xp: 15,
         energy: 100,

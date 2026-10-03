@@ -19,6 +19,7 @@
 #include "sticks3_memory_store.h"
 #include "sticks3_avatar.h"
 #include "sticks3_wifi_config.h"
+#include "sticks3_audio.h"
 
 namespace sticks3 {
 
@@ -71,7 +72,7 @@ public:
         // 4. 手机控制与外部注入
         _pCharInject = pService->createCharacteristic(
             BLE_CHAR_CONTROL_INJECT_UUID,
-            BLECharacteristic::PROPERTY_WRITE
+            BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR
         );
         _pCharInject->setCallbacks(new StickS3BLEInjectCallbacks());
 
@@ -90,6 +91,10 @@ public:
         doc_status["level"] = stats.intimacy_level;
         doc_status["xp"] = stats.intimacy_xp;
         doc_status["energy"] = stats.energy;
+        doc_status["feeds"] = stats.total_feeds;
+        doc_status["grooms"] = stats.total_grooms;
+        doc_status["pets"] = stats.total_pets;
+        doc_status["shakes"] = stats.total_shakes;
         doc_status["mood"] = (int)StickS3Avatar::getInstance().getMood();
 
         // 手机共享热点状态与网络状态遥测 (精简适配 BLE MTU)
@@ -183,15 +188,33 @@ public:
     void feedInjectBytes(const uint8_t* data, size_t len) {
         if (!data || len == 0) return;
 
-        // 若前次分片超过 800ms 未成帧，自动清空残留碎片防止死锁
-        if (_inject_accum_buf.length() > 0 && millis() - _last_inject_rx_time > 800) {
+        // 若前次分片超过 1200ms 未成帧，自动清空残留碎片防止死锁
+        if (_inject_accum_buf.length() > 0 && millis() - _last_inject_rx_time > 1200) {
             Serial.printf("[BLE-INJECT] Buffer timeout, dropped %u bytes dangling data\n", (unsigned)_inject_accum_buf.length());
             _inject_accum_buf = "";
         }
         _last_inject_rx_time = millis();
 
         for (size_t i = 0; i < len; i++) {
-            _inject_accum_buf += (char)data[i];
+            char c = (char)data[i];
+            if (c == '\r') continue;
+            if (c == '\n') {
+                if (_inject_accum_buf.length() > 0) {
+                    _inject_accum_buf.trim();
+                    if (_inject_accum_buf.startsWith("{") && _inject_accum_buf.endsWith("}")) {
+                        JsonDocument doc;
+                        DeserializationError err = deserializeJson(doc, _inject_accum_buf);
+                        if (!err) {
+                            handleInjectDocument(doc);
+                        } else {
+                            Serial.printf("[BLE-INJECT] JSON line parse error: %s\n", err.c_str());
+                        }
+                    }
+                    _inject_accum_buf = "";
+                }
+            } else {
+                _inject_accum_buf += c;
+            }
         }
 
         // 尝试解析：若含有完整 JSON 对象
@@ -222,30 +245,38 @@ public:
     void handleInjectDocument(JsonDocument& doc) {
         String action = doc["action"] | "";
         if (action == "pet") {
-            StickS3Avatar::getInstance().setMood(MOOD_HAPPY);
-            StickS3Avatar::getInstance().addIntimacy(3);
-            StickS3Avatar::getInstance().generateDiaryEntry("手机端主人刚刚隔空摸了摸我的小脑瓜，好幸福！");
+            StickS3Avatar::getInstance().pet();
+            StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
             notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
         } else if (action == "feed") {
-            String snack = doc["snack"] | (doc["value"] | "香甜小蛋糕");
+            String snack = doc["snack"] | (doc["value"] | "草莓奶油大福");
             StickS3Avatar::getInstance().feed(snack);
+            StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
             notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
         } else if (action == "groom") {
             StickS3Avatar::getInstance().groom();
+            StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
             notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
         } else if (action == "play") {
             StickS3Avatar::getInstance().play();
+            StickS3Audio::getInstance().playTone(1800, 40, 0.45f);
             notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
         } else if (action == "shake") {
-            StickS3Avatar::getInstance().setMood(MOOD_DIZZY);
-            StickS3Avatar::getInstance().generateDiaryEntry("手机端发来摇晃指令，眼睛里全都是小星星！");
+            StickS3Avatar::getInstance().shake();
+            StickS3Audio::getInstance().playTone(800, 60, 0.35f);
             notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
         } else if (action == "sleep") {
-            StickS3Avatar::getInstance().setMood(MOOD_SLEEP);
+            StickS3Avatar::getInstance().sleep();
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
         } else if (action == "wake") {
-            StickS3Avatar::getInstance().setMood(MOOD_LISTEN);
+            StickS3Avatar::getInstance().wake();
+            StickS3Audio::getInstance().playTone(1200, 50, 0.45f);
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+        } else if (action == "toggle_mode" || action == "mode") {
+            StickS3Avatar::getInstance().toggleAvatarMode();
+            StickS3Audio::getInstance().playTone(1500, 25, 0.40f);
         } else if (action == "set_name") {
-            String new_name = doc["value"] | "小木";
+            String new_name = doc["value"] | "悄悄";
             StickS3Avatar::getInstance().setPetName(new_name);
         } else if (action == "add_xp") {
             int xp = doc["value"] | 10;
@@ -266,7 +297,7 @@ public:
         } else if (action == "inject_memory") {
             String note = doc["value"] | "";
             if (note.length() > 0) {
-                StickS3MemoryStore::getInstance().addTurn("[手机备忘] " + note, "好哒，小木已把这条生活备忘记在心里啦！", "Tina");
+                StickS3MemoryStore::getInstance().addTurn("[手机备忘] " + note, "好哒，悄悄已把这条生活备忘记在心里啦！", "Tina");
                 StickS3Avatar::getInstance().generateDiaryEntry("主人从手机同步了一条新的生活备忘给我。");
                 notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
             }
@@ -329,11 +360,12 @@ public:
                 notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
             }
         } else if (action == "hotspot_cfg" || action == "set_traffic_limit") {
-            bool is_hs = true;
-            uint32_t limit_mb = 100;
-            bool cutoff = true;
+            auto& cfg_mgr = StickS3ConfigManager::getInstance();
+            bool is_hs = cfg_mgr.isHotspot();
+            uint32_t limit_mb = cfg_mgr.getHotspotLimitMB();
+            bool cutoff = cfg_mgr.isHotspotCutoffEnabled();
 
-            if (!doc["is_hotspot"].isNull()) is_hs = parseJsonBool(doc["is_hotspot"], true);
+            if (!doc["is_hotspot"].isNull()) is_hs = parseJsonBool(doc["is_hotspot"], is_hs);
             if (!doc["data_limit_mb"].isNull()) limit_mb = doc["data_limit_mb"].as<uint32_t>();
             else if (!doc["limit_mb"].isNull()) limit_mb = doc["limit_mb"].as<uint32_t>();
             else if (doc["value"].is<int>()) limit_mb = doc["value"].as<uint32_t>();

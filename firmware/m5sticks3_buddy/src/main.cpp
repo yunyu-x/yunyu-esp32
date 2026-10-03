@@ -670,7 +670,7 @@ void setup() {
     Serial.printf("[BOOT] Audio Subsystem: %s\n", audio_ok ? "ONLINE" : "FAILED");
 
     // 8.5 初始化离线语音唤醒词「悄悄」引擎与灵宠微表情
-    sticks3::StickS3Avatar::getInstance().begin("小木");
+    sticks3::StickS3Avatar::getInstance().begin("悄悄");
     sticks3::StickS3WakeWordEngine::getInstance().begin();
     auto& cfg = sticks3::StickS3ConfigManager::getInstance().getConfig();
     sticks3::StickS3WakeWordEngine::getInstance().setEnabled(cfg.wakeword_enabled);

@@ -1,10 +1,10 @@
 /* wechat_miniprogram/components/avatar-canvas/avatar-canvas.wxss */
 .avatar-canvas-container {
   position: relative;
-  border-radius: 24rpx;
+  border-radius: 28rpx;
   overflow: hidden;
   background: #000000;
-  box-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.6), 0 0 0 2rpx rgba(56, 189, 248, 0.35);
+  box-shadow: 0 16rpx 40rpx rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -20,25 +20,29 @@
 .touch-hint-pill {
   position: absolute;
   bottom: 24rpx;
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(56, 189, 248, 0.5);
-  padding: 6rpx 18rpx;
-  border-radius: 30rpx;
+  background: rgba(44, 44, 46, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(255, 255, 255, 0.16);
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
   pointer-events: none;
-  animation: hintPop 2.2s ease forwards;
+  animation: hintPop 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   z-index: 10;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.4);
 }
 
 .hint-text {
   font-size: 20rpx;
-  color: #38bdf8;
-  font-weight: 600;
+  color: #FFFFFF;
+  font-weight: 500;
+  letter-spacing: 0.5rpx;
 }
 
 @keyframes hintPop {
-  0% { opacity: 0; transform: translateY(8rpx) scale(0.95); }
+  0% { opacity: 0; transform: translateY(10rpx) scale(0.92); }
   15% { opacity: 1; transform: translateY(0) scale(1); }
   80% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-8rpx) scale(0.95); }
+  100% { opacity: 0; transform: translateY(-6rpx) scale(0.96); }
 }
+

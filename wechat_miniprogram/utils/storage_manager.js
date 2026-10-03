@@ -148,7 +148,7 @@ class StorageManager {
       if (Array.isArray(mems)) return mems;
     } catch (e) {}
     return [
-      { user: "你好小木，今天天气怎么样？", ai: "今天阳光明媚，微风正好，最适合我们一起去散步啦！" }
+      { user: "你好悄悄，今天天气怎么样？", ai: "今天阳光明媚，微风正好，最适合我们一起去散步啦！" }
     ];
   }
 
@@ -169,7 +169,7 @@ class StorageManager {
       if (st && typeof st === "object") return st;
     } catch (e) {}
     return {
-      name: "小木",
+      name: "悄悄",
       level: 1,
       xp: 15,
       energy: 100,

@@ -6,7 +6,7 @@ const { haptics } = require("./utils/haptics.js");
 App({
   globalData: {
     deviceName: "StickS3-Buddy",
-    petName: "小木",
+    petName: "悄悄",
     wifiHost: "192.168.110.67"
   },
   buddyService,

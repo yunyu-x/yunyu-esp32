@@ -80,7 +80,7 @@ wechat_miniprogram/
 当手机与 StickS3 处于同一局域网（例如 `192.168.110.67` 或设备热点 `192.168.4.1`）时：
 - **`GET /pet/status`**：获取实时灵宠数据
   ```json
-  {"name":"小木","mood_id":1,"mood_name":"聆听中","level":1,"xp":25,"energy":100,"feeds":1,"grooms":0,"pets":0,"shakes":0,"convos":0,"diary":"主人喂我吃了一块草莓奶油大福，吧唧吧唧超级满足，活力满满！","avatar_mode":true}
+  {"name":"悄悄","mood_id":1,"mood_name":"聆听中","level":1,"xp":25,"energy":100,"feeds":1,"grooms":0,"pets":0,"shakes":0,"convos":0,"diary":"主人喂我吃了一块草莓奶油大福，吧唧吧唧超级满足，活力满满！","avatar_mode":true}
   ```
 - **`POST /pet/action`**：下发拓麻歌子互动
   - 请求载荷：`action=feed&item=草莓奶油大福`、`action=groom`、`action=play`、`action=pet`
@@ -108,7 +108,7 @@ wechat_miniprogram/
 - [x] 落地主界面底部四大 TabBar 导航架构（含 8 张自研高质感 Tab 图标）：
   1. **伴侣主页 (`pages/index/`)**：集成 `<avatar-canvas>` 动态微表情、即时亲密度/活力 HUD、手势交互与快捷动作网格；
   2. **隔空投喂屋 (`pages/feed/`)**：精致甜点道具图鉴（草莓奶油大福、鲜奶舒芙蕾、比利时曲奇、彩虹熔岩甜甜圈、焦糖爆米花、宇治特调抹茶冰淇淋），即点即喂，伴随微表情大口咀嚼与飞跃金屑；
-  3. **记忆日记本 (`pages/diary/`)**：瀑布流展示小木在硬件端记录的第一人称日记卡片，支持 8 种情绪分类标签筛选（全部/收藏/美食/抚摸/梳毛/击掌/调皮/晚安）、本地收藏与心声长图分享卡片；
+  3. **记忆日记本 (`pages/diary/`)**：瀑布流展示悄悄在硬件端记录的第一人称日记卡片，支持 8 种情绪分类标签筛选（全部/收藏/美食/抚摸/梳毛/击掌/调皮/晚安）、本地收藏与心声长图分享卡片；
   4. **设备设置/BLE配网 (`pages/settings/`)**：BLE 设备扫描连接、Wi-Fi 一键配网、局域网高速通道配置、震动反馈开关、屏显模式切换与离线缓存清空。
 
 ### 任务 4：一键 BLE 智能配网流程 (Smart Provisioning) (Completed)

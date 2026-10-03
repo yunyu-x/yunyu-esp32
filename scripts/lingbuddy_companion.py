@@ -39,7 +39,7 @@ CHAR_INJECT_UUID   = "0000FFB4-0000-1000-8000-00805F9B34FB"
 class LingBuddySimulatorClient:
     """协议合规与无硬件/纯仿真测试客户端"""
 
-    def __init__(self, name: str = "小木"):
+    def __init__(self, name: str = "悄悄"):
         self.name = name
         self.level = 1
         self.xp = 15
@@ -48,7 +48,7 @@ class LingBuddySimulatorClient:
         self.mood = 0
         self.diary_history = ["今天刚刚苏醒，期待和主人一起探索世界！"]
         self.memory_turns = [
-            {"role": "user", "content": "你好呀小木"},
+            {"role": "user", "content": "你好呀悄悄"},
             {"role": "assistant", "content": "[E:happy] 你好主人！随时听候你的差遣~"}
         ]
 

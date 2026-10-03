@@ -61,7 +61,7 @@ def test_vector_store_crud_and_search():
         assert id1 > 0 and id2 > 0
 
         # 写入日记
-        d_id = store.add_diary_entry("今天听主人提到了意大利面，小木口水都要流出来啦~", intimacy_level=2)
+        d_id = store.add_diary_entry("今天听主人提到了意大利面，悄悄口水都要流出来啦~", intimacy_level=2)
         assert d_id > 0
 
         stats = store.get_stats()

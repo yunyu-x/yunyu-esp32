@@ -183,7 +183,7 @@ def test_ble_status_snapshot_contract():
 
     # 模拟 sticks3_ble_sync.h 中的 0xFFB2 序列化报文
     snapshot = {
-        "name": "小木",
+        "name": "悄悄",
         "level": 2,
         "xp": 45,
         "energy": 90,
@@ -332,7 +332,7 @@ def test_http_hotspot_traffic_endpoint_contract():
 def test_http_pet_status_hotspot_fields():
     """验证 GET /pet/status 包含热点遥测字段"""
     status_resp = {
-        "name": "小木",
+        "name": "悄悄",
         "mood_id": 0,
         "mood_name": "常态待命",
         "level": 1,

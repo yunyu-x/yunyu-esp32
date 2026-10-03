@@ -17,7 +17,7 @@ const FILTERS = [
 Page({
   data: {
     activeSection: "diary", // 'diary' | 'dialogue'
-    petName: "小木",
+    petName: "悄悄",
     petLevel: 1,
     diaries: [],
     filteredDiaries: [],
@@ -120,7 +120,7 @@ Page({
   handleClearMemories() {
     wx.showModal({
       title: "清空历史对话记忆",
-      content: "确定要清空与小木的全部历史对话记忆吗？",
+      content: "确定要清空与悄悄的全部历史对话记忆吗？",
       confirmText: "清空",
       confirmColor: "#ef4444",
       success: (res) => {
@@ -152,7 +152,7 @@ Page({
     const favCount = list.filter(d => d.isFavorite).length;
 
     this.setData({
-      petName: st.name || "小木",
+      petName: st.name || "悄悄",
       petLevel: st.level || 1,
       diaries: list,
       favoriteCount: favCount
@@ -263,9 +263,9 @@ Page({
   },
 
   onShareAppMessage() {
-    const content = this.data.sharingDiary ? this.data.sharingDiary.content : "我的灵宠小木今天又偷偷写日记啦！";
+    const content = this.data.sharingDiary ? this.data.sharingDiary.content : "我的灵宠悄悄今天又偷偷写日记啦！";
     return {
-      title: `【小木的心声日记】"${content}"`,
+      title: `【悄悄的心声日记】"${content}"`,
       path: "/pages/index/index"
     };
   }

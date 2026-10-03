@@ -145,7 +145,7 @@ audio { width: 100%; height: 38px; border-radius: 8px; margin-top: 8px; outline:
   <!-- 灵宠第一人称心声日记 -->
   <div class="pet-diary-box">
     <div style="color:#94a3b8;font-size:11px;margin-bottom:3px;display:flex;justify-content:space-between;">
-      <span>📖 <b id="petNameLabel">小木</b> 的即时心声日记:</span>
+      <span>📖 <b id="petNameLabel">悄悄</b> 的即时心声日记:</span>
       <span id="petStatCounts" style="color:#64748b;">喂:0 梳:0 摸:0 晃:0</span>
     </div>
     <div id="petDiaryText" style="color:#e2e8f0;font-size:12px;">
@@ -1682,7 +1682,10 @@ private:
                 audio.playTone(800, 60, 0.35f);
             } else if (act == "sleep") {
                 avatar.sleep();
-            } else if (act == "toggle_mode") {
+            } else if (act == "wake") {
+                avatar.wake();
+                audio.playTone(1200, 50, 0.45f);
+            } else if (act == "toggle_mode" || act == "mode") {
                 avatar.toggleAvatarMode();
                 audio.playTone(1500, 25, 0.40f);
             } else if (act == "mood") {

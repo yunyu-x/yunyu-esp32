@@ -55,7 +55,7 @@ public:
         return instance;
     }
 
-    void begin(const String& name = "小木") {
+    void begin(const String& name = "悄悄") {
         _stats.intimacy_level = 1;
         _stats.intimacy_xp = 15;
         _stats.total_pets = 0;
@@ -211,6 +211,15 @@ public:
         _current_mood = MOOD_SLEEP;
         _last_interaction_time = millis() - 95000;
         _stats.current_diary = "呼噜呼噜~ 灵宠进入梦乡打呼噜啦，晚安哦。";
+    }
+
+    // 拓麻歌子交互：晨起唤醒 / 伸懒腰
+    void wake() {
+        _current_mood = MOOD_LISTEN;
+        _target_mood = MOOD_IDLE;
+        _last_interaction_time = millis();
+        _happy_until = millis() + 2000;
+        _stats.current_diary = _stats.pet_name + "揉揉眼睛苏醒啦！今天也要元气满满哦！";
     }
 
     bool isAvatarMode() const { return _avatar_mode_active; }

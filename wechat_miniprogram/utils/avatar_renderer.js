@@ -41,7 +41,7 @@ class AvatarRenderer {
     ctx.fillRect(0, 0, baseW, 18);
     ctx.fillStyle = "#f6d365";
     ctx.font = "bold 9px sans-serif";
-    ctx.fillText(`${petState.name || "小木"} Lv.${petState.level || 1}`, 6, 12);
+    ctx.fillText(`${petState.name || "悄悄"} Lv.${petState.level || 1}`, 6, 12);
 
     ctx.fillStyle = "#34d399";
     ctx.textAlign = "right";

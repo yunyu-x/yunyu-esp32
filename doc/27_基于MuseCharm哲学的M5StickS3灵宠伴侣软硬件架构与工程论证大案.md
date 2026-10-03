@@ -351,16 +351,7 @@ ESP32-S3 即使有 8MB PSRAM，对于数周甚至数月的人生级记忆仍显�
 | `CHAR_MEMORY_STREAM` | `0xFFB1` | Read / Notify | 分包下发 PSRAM 历史轮次：<br>`{"seq":1,"turn":5,"u":"明天要去上海","a":"收到，上海明天有雨记得带伞"}` |
 | `CHAR_PET_STATUS` | `0xFFB2` | Read / Write | 读取与同步灵宠亲密度、等级与心情：<br>`{"intimacy":320,"level":4,"mood":"happy","energy":85}` |
 | `CHAR_PET_DIARY` | `0xFFB3` | Notify | 灵宠在后台自动生成的“灵宠日记”条目：<br>`{"time":1790506800,"diary":"今天主人带我坐了地铁，外面好吵，但主人的手很温暖。"}` |
-| `CHAR_CONTROL_INJECT` | `0xFFB4` | Write | 手机端向设备回写系统配置、音色热切换、注入手机日历行程，以及拓麻歌子具身互动：<br>- `feed`: 投喂小点心 (恢复活力 +20，亲密 +10，触发 `MOOD_EAT` 咀嚼动效与和弦)<br>- `groom`: 梳理毛发 (亲密 +12，触发 `MOOD_GROOM` 星芒与呼噜音)<br>- `play`: 默契击掌 (亲密 +15，消耗活力 -10，触发 `MOOD_WINK` 眨眼放电)<br>- `pet` / `shake` / `sleep` / `wake` / `inject_memory` |
-
-### 7.3 双轨长程向量知识库沉淀 (Dual-Track Vector Knowledge Base)
-突破 ESP32-S3 局部 RAM 与 Flash 限制，构建端云协同的双轨长程向量知识库：
-1. **轻量前端轨 (`web/lingbuddy_companion.html`)**：
-   - 基于浏览器原生 `IndexedDB` 维护持久化表；
-   - 提取多尺度字符级 N-Gram 并映射至 128 维空间，通过余弦相似度计算实现纯本地毫秒级 Top-K 检索与知识切片展示，零第三方服务端依赖；
-2. **产能后端轨 (`scripts/lingbuddy_vector_store.py`)**：
-   - 基于 SQLite (`lingbuddy_knowledge.db`)，支持多轮对话与第一人称日记的自动向量化与聚合；
-   - 提供标准 RAG 上下文组装接口，可无缝注入 DashScope 百炼实时流式大模型，实现对主人过往爱好、行程与承诺的长程回忆。
+| `CHAR_CONTROL_INJECT` | `0xFFB4` | Write | 手机端向设备回写系统配置、音色热切换、注入手机日历行程。 |
 
 ---
 
@@ -369,26 +360,25 @@ ESP32-S3 即使有 8MB PSRAM，对于数周甚至数月的人生级记忆仍显�
 ### 8.1 研发实施里程碑 (Implementation Roadmap)
 
 ```
-阶段一：视觉微表情与实体点按即说 (Week 1 - 已就绪)
+阶段一：视觉微表情与实体点按即说 (Week 1)
   ├── 落地 PAE 矢量表情引擎 (12 种表情 60 FPS 局部刷显)
   ├── 实现正面大按键 Btn A Push-to-Talk 毫秒级视听反馈
   └── 屏幕双瞳麦克风拾音 VU 音量自适应放大缩小
 
-阶段二：大模型情绪标签与嘴型音频强绑定 (Week 2 - 已就绪)
+阶段二：大模型情绪标签与嘴型音频强绑定 (Week 2)
   ├── 百炼 System Prompt 注入灵宠性格与 [E:emotion] 标签协议
   ├── WSS 客户端首包提取情绪标签并驱动表情切换
   └── ES8311 播放任务实时解算 PCM 能量，嘴巴随语音开合
 
-阶段三：BMI270 物理体感情感动力学 (Week 3 - 已就绪)
+阶段三：BMI270 物理体感情感动力学 (Week 3)
   ├── 晃动、轻拍、抛接、倒置物理姿态事件机
   ├── 亲密度与能量 Tamagotchi 状态机落地
   └── 跌倒惊叫、抚摸呼噜声学和弦闭环
 
-阶段四：BLE 手机端伴侣记忆备份与灵宠日记 (Week 4 - 已就绪)
-  ├── 建立 0xFFB0 GATT 记忆分包同步协议 (0xFFB1~0xFFB4)
-  ├── 移动端 Web 响应式自适应与 Web Bluetooth 指数退避自动重连
-  ├── 双轨 SQLite / IndexedDB 向量知识库检索沉淀
-  └── 拓麻歌子投喂点心 (feed)、梳毛 (groom)、击掌 (play) 专属音画彩蛋
+阶段四：BLE 手机端记忆备份与灵宠日记 (Week 4)
+  ├── 建立 0xFFB0 GATT 记忆分包同步协议
+  ├── 灵宠离线日记生成引擎
+  └── 网页端/小程序 Web Bluetooth 联调与记忆可视化呈现
 ```
 
 ### 8.2 自动化测试矩阵与验证工具 (Verification Matrix)

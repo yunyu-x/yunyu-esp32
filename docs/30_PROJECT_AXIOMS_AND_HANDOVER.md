@@ -97,12 +97,21 @@ graph TD
   - 在主循环 `loop()` 中挂接 `StickS3BLESync::getInstance().update()`。
   - 实现了基于网络源（热点/宽带/离线）的橙色 "HOT"、绿色 "WiFi"、红色 "!NET" 徽章。
 
-### 2. 微信小程序端全套产品落地 (`miniprogram/`)
-- **可折叠扫描列表**：优化扫描设备界面，支持搜索结果折叠/展开，解决蓝牙列表过长遮挡关键界面的问题。
-- **热点流量监控看板**：在设置页中无缝集成移动热点模式切换、流量配额限制（MB）、自动熔断开关与实时已消耗流量同步。
-- **配网引导与网络验证**：提供分步引导向导，支持一键发送网络连通性探测。
-- **局部 Diff 渲染与防频闪**：去除大范围 `this.setData`，改为精确字段更新，彻底消除移动端由于高频数据同步造成的频闪。
-- **端到端状态一致性**：重构全局存储与事件总线，保证首页断网/联网标识与设置页完全对齐。
+### 3. 最新周期里程碑成果与全栈优化 (2026-10-03 Milestone)
+- **【代号纯净归一】**：全面检索并清理固件、小程序、Web端及所有测试中遗留的“小木”代号，全栈 100% 统一为「悄悄」，0 处残留。
+- **【双通道配网平滑无跳动】**：彻底解耦 `settings.js` 中硬件背景遥测与用户活动表单模式，消除从手机热点切换至常规宽带 Wi-Fi 时的自动跳回与抖动；固件端 `hotspot_cfg` 正确保持既有热点模式标志。
+- **【具身互动硬件链路完整闭环】**：
+  - 固件端：修复 `handleInjectDocument`，调用 `avatar.pet()` / `avatar.feed()` / `avatar.shake()`，正确维持 `_happy_until` 动作时长；
+  - 视听联觉：联动 `StickS3Audio` 在抚摸与击掌时演奏清脆和弦音；
+  - 特征值强化：为 `0xFFB4` 补充 `PROPERTY_WRITE_NR`（无应答高速写入）；
+  - 容错降级：小程序端 `buddy_service.js` 增加局域网 IP 自动探测与 HTTP 优雅回退。
+- **【Apple HIG 人文陪伴美学重构】**：
+  - 全局设计词元：苹果原生暗黑纯黑底色 (`#000000`)、标准层级卡片 (`#1C1C1E` / `#2C2C2E` / `#3A3A3C`)、SF Pro / PingFang 字体排版与 0.5px 微边框。
+  - 核心模块质感：Control Center 风格触控反馈大按键、App Store 风格甜点货架卡片、Notes 风格衬线体心声随笔、iMessage 风格对话记录流、iOS Settings `UITableView grouped` 规范分组。
+- **【小程序上线与发布支撑体系】**：
+  - 修复 `app.json` 中 `scope.userLocation` 超过 30 字符导致的 `80058` 报错，移除非必要的定位权限声明；
+  - 整理《用户隐私保护指引》配置指南（仅需勾选【蓝牙信息】声明，本地存储无需声明）；
+  - 配备「🎮 仿真模式」与真机视频测试说明，破解无硬件审核被拒难题。
 
 ---
 
@@ -115,11 +124,11 @@ graph TD
 - **当前 Git 分支**：`feature/lingbuddy-companion`。
 
 ### 2. 当前运行性能与健康度指标 (实机监控基线)
-- **主循环帧率**：`FPS: 96.8 ~ 98.0 FPS`。
-- **内部 SRAM**：`free = 64KB, max_block = 45KB`（极其健康，无碎片）。
-- **外部 PSRAM**：`free = 7.22MB / 8.00MB`（显存仅占 64.8KB，空间极度充裕）。
-- **I2C 总线健康**：PMIC 与 BMI270 累计执行 5000+ 笔事务，`Fails = 0`。
-- **长程运行周期**：`Tick > 4900+` 无一次重启，反复重启问题已彻底根治。
+- **主循环帧率**：`FPS: 96.8 ~ 98.9 FPS`。
+- **内部 SRAM**：`free = 141KB, max_block = 127KB`（充裕健康）。
+- **外部 PSRAM**：`free = 7.36MB / 8.00MB`（显存仅占 64.8KB，空间极度充裕）。
+- **I2C 总线健康**：PMIC 与 BMI270 累计执行 1000+ 笔事务，`Fails = 0`。
+- **长程运行周期**：`Tick > 3000+` 无一次重启，硬件长时间运行稳定。
 - **屏幕显示效果**：15 FPS 离线合成 + DMA 单次刷新，全屏零撕裂、零频闪。
 
 ### 3. 下一个 Agent 必须掌握的工具链命令
@@ -135,8 +144,13 @@ graph TD
   ```powershell
   python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"
   ```
+- **回归测试全家桶**：
+  ```powershell
+  python -m pytest tests/test_avatar_and_empathy.py tests/test_wifi_hotspot_and_quota.py tests/test_wakeword_engine.py tests/test_wifi_and_bailian_pipeline.py tests/test_audio_stream_pipeline.py tests/test_firmware_driver_suite.py tests/test_vector_knowledge_base.py -v
+  ```
 
 ### 4. 建议后续继续推进的方向 (Next Potential Tasks)
-1. **灵宠微表情丰富化与情景动作**：基于已验证的 PSRAM 双缓冲引擎，增加更多参数化表情动画（如吃饱满足感、好感度进阶特效粒子）。
-2. **多语言大模型音色热切换**：在小程序端扩展音色选择面板，通过 BLE `0xFFB4` 动态下发阿里云百炼音色代码并即时生效。
+1. **多音色与音效包动态下发**：通过 BLE 0xFFB4 实时切换阿里百炼语音音色（如 Tina、艾飞等）。
+2. **离线语音备忘与日程唤醒**：在硬件 Flash 中存储定时待办，在指定时间主动弹出心声日记与音频闹铃。
 3. **灵方 (LingCube) 机器人遥测集群看板**：利用 UDP 8080 端口接收自重构微型机器人集群广播，在 StickS3 屏幕上以矢量小图标形式展现集群单体拓扑。
+
