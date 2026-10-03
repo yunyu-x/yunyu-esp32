@@ -54,12 +54,14 @@ public:
           _last_mic_read_time(0), _last_rx_stream_time(0), _last_session_update_time(0),
           _session_initialized(false), _server_response_active(false),
           _response_done_received(false), _is_response_cancelled(false),
-          _pending_cancel(false), _server_in_speech(false),
-          _last_activity_time(0), _server_output_sample_rate(16000),
+          _pending_cancel(false), _pending_memory_save(false), _pending_reconnect(false),
+          _server_in_speech(false), _last_activity_time(0), _server_output_sample_rate(16000),
           _last_state_change(0), _total_interrupts(0), _last_error(""),
           _rx_text_dirty(false), _wake_window_until(0) {
         _user_query = "";
         _ai_reply = "";
+        _pending_turn_user = "";
+        _pending_turn_ai = "";
     }
 
     void setTextCallback(BailianTextCallback cb) { _on_text = cb; }
@@ -321,7 +323,12 @@ static const char* DASHSCOPE_ROOT_CA =
                 if (_state == BL_STATE_SPEAKING) {
                     setState(BL_STATE_LISTENING);
                 }
-                Serial.println("[BAILIAN] Natural playback finished. Restored to LISTENING mode.");
+                // 核心：播报完毕后开启连续对话追问窗口 (默认 8~10 秒)
+                // 确保用户可以在听到回复后自然直接追问，无需重新呼唤唤醒词！
+                auto& cfg = StickS3ConfigManager::getInstance().getConfig();
+                uint32_t tout_sec = cfg.wakeword_timeout_sec >= 5 ? cfg.wakeword_timeout_sec : 8;
+                _wake_window_until = millis() + (tout_sec * 1000);
+                Serial.printf("[BAILIAN] Natural playback finished. Continuous dialogue window OPEN for %us! Restored to LISTENING mode.\n", (unsigned)tout_sec);
             }
         }
 
@@ -394,6 +401,24 @@ static const char* DASHSCOPE_ROOT_CA =
             StickS3MemoryStore::getInstance().cleanupCaches();
         }
 
+        // 2.6 安全异步执行 NVS Flash 记忆持久化与多轮会话热更新 (遵循公理二，彻底杜绝在 websocket_task 中写 Flash 导致 Cache 禁用崩溃)
+        if (_pending_memory_save) {
+            _pending_memory_save = false;
+            auto& cfg = StickS3ConfigManager::getInstance().getConfig();
+            StickS3MemoryStore::getInstance().addTurn(_pending_turn_user, _pending_turn_ai, cfg.bailian_voice);
+            StickS3MemoryStore::getInstance().cleanupCaches();
+            if (isConnected()) {
+                sendSessionUpdate();
+            }
+        }
+
+        // 2.7 异步平滑重连调度 (杜绝在底层回调中自我销毁客户端导致 Crash)
+        if (_pending_reconnect) {
+            _pending_reconnect = false;
+            Serial.println("[BAILIAN] Performing scheduled reconnect in loopTask...");
+            connect();
+        }
+
         // 3. 在线且处于 LISTENING 模式时，流式读取麦克风并推流到百炼
         if (isConnected() && _session_initialized) {
             if (_state == BL_STATE_LISTENING) {
@@ -415,9 +440,9 @@ static const char* DASHSCOPE_ROOT_CA =
         }
 
         // 3.1 离线唤醒词常态麦克风采样：
-        // 当未处于主动上行流式推流 (BL_STATE_LISTENING) 且非放音期时，
-        // 持续读取麦克风 PCM 灌入 StickS3WakeWordEngine，确保「悄悄」在任何网络或空闲状态下均可毫秒级唤醒！
-        if (StickS3WakeWordEngine::getInstance().isEnabled() && !audio.isPlaying() && !(_state == BL_STATE_LISTENING && isConnected())) {
+        // 当未处于主动上行流式推流 (BL_STATE_LISTENING) 时，
+        // 持续读取麦克风 PCM 灌入 StickS3WakeWordEngine，确保「悄悄」随时毫秒级唤醒或语音打断！
+        if (StickS3WakeWordEngine::getInstance().isEnabled() && !(_state == BL_STATE_LISTENING && isConnected())) {
             static uint32_t last_offline_mic_time = 0;
             if (millis() - last_offline_mic_time >= 40) {
                 last_offline_mic_time = millis();
@@ -876,6 +901,39 @@ private:
                                 }
                             }
 
+                            // 极速直通零内存分配音频解码：
+                            // 针对高达 20KB~28KB 的 response.audio.delta，完全绕过 ArduinoJson AST 堆构造，
+                            // 消除频繁 28KB SRAM 动态内存分配与堆碎片化，彻底根治内存耗尽重启！
+                            const char* audio_delta_tag = strstr(s_rx_buf, "\"response.audio.delta\"");
+                            if (audio_delta_tag) {
+                                const char* delta_tag = strstr(s_rx_buf, "\"delta\":\"");
+                                if (delta_tag) {
+                                    const char* b64_start = delta_tag + 9;
+                                    const char* b64_end = strchr(b64_start, '\"');
+                                    if (b64_end && b64_end > b64_start) {
+                                        size_t b64_len = b64_end - b64_start;
+                                        _last_rx_stream_time = millis();
+                                        _last_activity_time = millis();
+                                        if (_state != BL_STATE_SPEAKING) {
+                                            setState(BL_STATE_SPEAKING);
+                                        }
+                                        static uint8_t* s_pcm_fast_out = nullptr;
+                                        if (!s_pcm_fast_out) {
+                                            s_pcm_fast_out = (uint8_t*)ps_malloc(32768);
+                                        }
+                                        if (s_pcm_fast_out && b64_len > 0) {
+                                            size_t pcm_len = 0;
+                                            int dec_ret = mbedtls_base64_decode(s_pcm_fast_out, 32768, &pcm_len,
+                                                                                (const unsigned char*)b64_start, b64_len);
+                                            if (dec_ret == 0 && pcm_len > 0) {
+                                                StickS3Audio::getInstance().feedStreamPCM(s_pcm_fast_out, pcm_len, _server_output_sample_rate);
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+
                             handleServerMessage(s_rx_buf, data->payload_len);
                         }
                     }
@@ -990,12 +1048,12 @@ private:
                 // 解码 Base64 PCM 并压入 PSRAM 环形缓冲区 (使用 PSRAM 缓冲区避免栈溢出)
                 static uint8_t* s_pcm_out = nullptr;
                 if (!s_pcm_out) {
-                    s_pcm_out = (uint8_t*)ps_malloc(24576);
+                    s_pcm_out = (uint8_t*)ps_malloc(32768);
                 }
                 if (s_pcm_out) {
                     size_t b64_len = strlen(b64_audio);
                     size_t pcm_len = 0;
-                    int dec_ret = mbedtls_base64_decode(s_pcm_out, 24576, &pcm_len,
+                    int dec_ret = mbedtls_base64_decode(s_pcm_out, 32768, &pcm_len,
                                                         (const unsigned char*)b64_audio, b64_len);
                     if (dec_ret == 0 && pcm_len > 0) {
                         StickS3Audio::getInstance().feedStreamPCM(s_pcm_out, pcm_len, _server_output_sample_rate);
@@ -1029,19 +1087,12 @@ private:
             _last_activity_time = millis();
             Serial.println("[BAILIAN] LLM response streaming complete.");
 
-            auto& cfg = StickS3ConfigManager::getInstance().getConfig();
-            if (cfg.wakeword_enabled) {
-                // 播报完成，预留 2.5 秒追问缓冲窗口，若用户未追问则自然回退到等待唤醒
-                _wake_window_until = millis() + 2500;
-            }
-
-            // 实时将本轮人机对话固化存储至记忆子系统 (PSRAM + Flash NVS)
+            // 关键：不在 websocket_task 中直接执行 Flash NVS 写入与 session.update (遵循工程公理二)
+            // 标记记忆持久化待处理，在 loopTask 中安全执行，彻底杜绝 Flash 禁用导致 Cache Panic 异常重启
             if (_user_query.length() > 0 && _ai_reply.length() > 0 && !was_cancelled) {
-                StickS3MemoryStore::getInstance().addTurn(_user_query, _ai_reply, cfg.bailian_voice);
-                // 触发缓存清理与看门狗堆碎屑整理
-                StickS3MemoryStore::getInstance().cleanupCaches();
-                // 实时热更新会话 instructions 注入最新多轮记忆
-                sendSessionUpdate();
+                _pending_turn_user = _user_query;
+                _pending_turn_ai = _ai_reply;
+                _pending_memory_save = true;
             }
 
             if (_on_text) {
@@ -1056,12 +1107,12 @@ private:
             _is_response_cancelled = false;
             const char* msg = doc["error"]["message"] | "Unknown error";
             Serial.printf("[BAILIAN-ERROR] Server error: %s\n", msg);
-            // 拦截 300 秒空闲断开提示，静默平滑重连，不转入错误红屏与报错显示
+            // 拦截 300 秒空闲断开提示，标记在 loopTask 中重连，不在底层回调中自我销毁导致崩溃
             if (strstr(msg, "300 seconds") != nullptr || strstr(msg, "session was closed") != nullptr) {
-                Serial.println("[BAILIAN] Intercepted 300s idle timeout. Re-establishing session seamlessly...");
+                Serial.println("[BAILIAN] Intercepted 300s idle timeout. Scheduling reconnect in loopTask...");
                 _last_error = "";
                 _last_activity_time = millis();
-                connect();
+                _pending_reconnect = true;
                 return;
             }
             // 拦截打断时由于网络时延导致的取消响应竞争事件，静默忽略杜绝红屏
@@ -1087,6 +1138,10 @@ private:
     bool _response_done_received;
     bool _is_response_cancelled;
     volatile bool _pending_cancel;
+    volatile bool _pending_memory_save;
+    volatile bool _pending_reconnect;
+    String _pending_turn_user;
+    String _pending_turn_ai;
     bool _server_in_speech;
     uint32_t _last_state_change;
     uint32_t _total_interrupts;

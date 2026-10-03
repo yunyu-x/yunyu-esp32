@@ -963,10 +963,16 @@ void loop() {
             g_pet_avatar_mode = sticks3::StickS3Avatar::getInstance().isAvatarMode();
             if (g_pet_avatar_mode) {
                 String subtitle = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? bl.getAiReply() : (bl.getUserQuery().length() > 0 ? bl.getUserQuery() : latest_ble_msg);
-                if (subtitle.length() == 0) subtitle = "按正面[A]键说话，摇摇我有惊喜~";
+                if (subtitle.length() == 0) {
+                    if (bl.getState() == sticks3::BL_STATE_LISTENING && bl.isWakeWindowOpen()) {
+                        subtitle = "我在听，请直接吩咐~";
+                    } else {
+                        subtitle = "说“悄悄”唤醒，按[A]键说话~";
+                    }
+                }
                 auto cur_m = sticks3::StickS3Avatar::getInstance().getMood();
                 String tag = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? "说话中" :
-                             (bl.getState() == sticks3::BL_STATE_LISTENING) ? "聆听中" :
+                             (bl.getState() == sticks3::BL_STATE_LISTENING) ? (bl.isWakeWindowOpen() ? "连麦聆听" : "等待唤醒") :
                              (bl.getState() == sticks3::BL_STATE_THINKING) ? "思考中" :
                              (cur_m == sticks3::MOOD_EAT) ? "进食中" :
                              (cur_m == sticks3::MOOD_GROOM) ? "梳毛中" :

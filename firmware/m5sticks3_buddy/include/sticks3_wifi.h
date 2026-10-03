@@ -1096,9 +1096,8 @@ public:
         // C. 处理 UDP 数据报文
         handleUDP();
 
-        // D. 更新 STA 配网状态机与百炼大模型客户端
+        // D. 更新 STA 配网状态机
         StickS3ConfigManager::getInstance().update();
-        StickS3BailianClient::getInstance().update();
 
         // E. 轮询环境 AP 异步扫描状态
         if (_is_scanning) {

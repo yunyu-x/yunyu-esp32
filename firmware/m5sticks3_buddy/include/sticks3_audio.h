@@ -31,12 +31,12 @@ enum ChimeType {
     CHIME_SUCCESS      // 成功提示音
 };
 
-// PSRAM 环形流式音频缓冲区 (用于大模型下行 response.audio.delta 毫秒级边收边播，多核安全)
+// PSRAM 环形流式音频缓冲区 (用于大模型下行 response.audio.delta 毫秒级边收边播，多任务安全互斥)
 class AudioRingBuffer {
 public:
     explicit AudioRingBuffer(size_t capacity)
-        : _capacity(capacity), _head(0), _tail(0), _count(0), _buf(nullptr),
-          _mux(portMUX_INITIALIZER_UNLOCKED) {
+        : _capacity(capacity), _head(0), _tail(0), _count(0), _buf(nullptr) {
+        _mutex = xSemaphoreCreateMutex();
         if (psramFound()) {
             _buf = (uint8_t*)ps_malloc(capacity);
         } else {
@@ -45,14 +45,15 @@ public:
     }
     ~AudioRingBuffer() {
         if (_buf) free(_buf);
+        if (_mutex) vSemaphoreDelete(_mutex);
     }
     size_t write(const uint8_t* data, size_t len) {
-        if (!_buf || len == 0) return 0;
-        portENTER_CRITICAL(&_mux);
+        if (!_buf || len == 0 || !_mutex) return 0;
+        if (xSemaphoreTake(_mutex, pdMS_TO_TICKS(50)) != pdTRUE) return 0;
         size_t space = _capacity - _count;
         size_t to_write = (len < space) ? len : space;
         if (to_write == 0) {
-            portEXIT_CRITICAL(&_mux);
+            xSemaphoreGive(_mutex);
             return 0;
         }
 
@@ -63,14 +64,14 @@ public:
         }
         _head = (_head + to_write) % _capacity;
         _count += to_write;
-        portEXIT_CRITICAL(&_mux);
+        xSemaphoreGive(_mutex);
         return to_write;
     }
     size_t read(uint8_t* dest, size_t len) {
-        if (!_buf || len == 0) return 0;
-        portENTER_CRITICAL(&_mux);
+        if (!_buf || len == 0 || !_mutex) return 0;
+        if (xSemaphoreTake(_mutex, pdMS_TO_TICKS(20)) != pdTRUE) return 0;
         if (_count == 0) {
-            portEXIT_CRITICAL(&_mux);
+            xSemaphoreGive(_mutex);
             return 0;
         }
         size_t to_read = (len < _count) ? len : _count;
@@ -81,21 +82,26 @@ public:
         }
         _tail = (_tail + to_read) % _capacity;
         _count -= to_read;
-        portEXIT_CRITICAL(&_mux);
+        xSemaphoreGive(_mutex);
         return to_read;
     }
     void clear() {
-        portENTER_CRITICAL(&_mux);
-        _head = 0;
-        _tail = 0;
-        _count = 0;
-        portEXIT_CRITICAL(&_mux);
+        if (!_mutex) return;
+        if (xSemaphoreTake(_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+            _head = 0;
+            _tail = 0;
+            _count = 0;
+            xSemaphoreGive(_mutex);
+        }
     }
     size_t available() {
-        portENTER_CRITICAL(&_mux);
-        size_t c = _count;
-        portEXIT_CRITICAL(&_mux);
-        return c;
+        if (!_mutex) return 0;
+        if (xSemaphoreTake(_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+            size_t c = _count;
+            xSemaphoreGive(_mutex);
+            return c;
+        }
+        return _count;
     }
     size_t capacity() const { return _capacity; }
 private:
@@ -104,7 +110,7 @@ private:
     size_t _tail;
     volatile size_t _count;
     uint8_t* _buf;
-    portMUX_TYPE _mux;
+    SemaphoreHandle_t _mutex;
 };
 
 class StickS3Audio {
