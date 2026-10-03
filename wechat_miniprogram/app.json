@@ -45,7 +45,7 @@
     ]
   },
   "usingComponents": {
-    "avatar-canvas": "/components/avatar-canvas/avatar-canvas"
+    "avatar-canvas": "./components/avatar-canvas/avatar-canvas"
   },
   "__usePrivacyCheck__": true,
   "requiredBackgroundModes": [],

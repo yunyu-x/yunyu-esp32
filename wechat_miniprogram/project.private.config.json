@@ -1,7 +1,11 @@
 {
   "libVersion": "3.17.2",
   "projectname": "lingbuddy-miniprogram",
-  "condition": {},
+  "condition": {
+    "miniprogram": {
+      "list": []
+    }
+  },
   "setting": {
     "urlCheck": false,
     "coverView": true,
@@ -9,7 +13,7 @@
     "skylineRenderEnable": false,
     "preloadBackgroundData": false,
     "autoAudits": false,
-    "useApiHook": true,
+    "useApiHook": false,
     "showShadowRootInWxmlPanel": true,
     "useStaticServer": false,
     "useLanDebug": false,
@@ -20,4 +24,4 @@
     "ignoreDevUnusedFiles": true,
     "bigPackageSizeSupport": false
   }
-}
+}

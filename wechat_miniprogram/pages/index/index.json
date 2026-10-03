@@ -2,6 +2,7 @@
   "navigationBarTitleText": "LingBuddy 灵宠伴侣",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "avatar-canvas": "/components/avatar-canvas/avatar-canvas"
+    "avatar-canvas": "../../components/avatar-canvas/avatar-canvas"
   }
 }
+

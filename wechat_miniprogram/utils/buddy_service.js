@@ -60,23 +60,26 @@ class BuddyService {
   }
 
   _autoProbeWifi() {
-    if (this.httpClient && this.httpClient.host) {
-      this.httpClient.getPetStatus().then(st => {
-        if (st) {
-          this.isConnected = true;
-          this.isWifiMode = true;
-          this.connectionStatusText = "Wi-Fi 在线";
-          this.updatePetState(st);
-          this.notifyListeners("connection", {
-            isConnected: true,
-            isWifiMode: true,
-            statusText: "Wi-Fi 在线"
-          });
-        }
-      }).catch(() => {
-        // 静默探测
-      });
-    }
+    // 延迟异步探测，确保小程序框架与模拟器 WebView 完成基础握手
+    setTimeout(() => {
+      if (this.httpClient && this.httpClient.host) {
+        this.httpClient.getPetStatus().then(st => {
+          if (st) {
+            this.isConnected = true;
+            this.isWifiMode = true;
+            this.connectionStatusText = "Wi-Fi 在线";
+            this.updatePetState(st);
+            this.notifyListeners("connection", {
+              isConnected: true,
+              isWifiMode: true,
+              statusText: "Wi-Fi 在线"
+            });
+          }
+        }).catch(() => {
+          // 静默探测
+        });
+      }
+    }, 1200);
   }
 
   _setupBleHandlers() {

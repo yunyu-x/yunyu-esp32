@@ -2,6 +2,7 @@
   "navigationBarTitleText": "隔空投喂屋 · LingBuddy",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "avatar-canvas": "/components/avatar-canvas/avatar-canvas"
+    "avatar-canvas": "../../components/avatar-canvas/avatar-canvas"
   }
 }
+
