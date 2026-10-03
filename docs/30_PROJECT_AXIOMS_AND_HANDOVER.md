@@ -1,0 +1,142 @@
+# M5StickS3 灵宠伴侣 (LingBuddy) 项目公理体系与全栈交接指南
+
+> **文件标识**：`docs/30_PROJECT_AXIOMS_AND_HANDOVER.md`  
+> **更新时间**：2026-10-03  
+> **适用目标**：跨会话、跨版本研发团队与后续自主开发 Agent 的最高工程准则与系统交接手册。
+
+---
+
+## 第一部分：本项目最高工程公理 (The Project Axioms)
+
+在本项目（M5StickS3 灵宠伴侣 / 灵方自重构机器人地面调测系统）的持续演进中，**以下六大公理为不可违背的根本性公理（Constitutional Invariants）**。后续任何代码编写、重构与功能演进均必须严格遵守。
+
+```mermaid
+graph TD
+    A1["公理一: 固件修改必烧必启<br/>(Real Hardware Law)"]
+    A2["公理二: 中断与通讯异步解耦<br/>(Async Decoupling Law)"]
+    A3["公理三: 显存零撕裂双缓冲<br/>(Zero-Tear Double Buffer Law)"]
+    A4["公理四: 网络显式区分与一致性<br/>(Explicit Network Coherence Law)"]
+    A5["公理五: 零功能回退与渐进加固<br/>(Non-Regression Law)"]
+    A6["公理六: 自适应协议与防截断编码<br/>(Adaptive Encoding Law)"]
+
+    A1 --> Core["系统高鲁棒性 & 零硬件试错成本"]
+    A2 --> Core
+    A3 --> Core
+    A4 --> Core
+    A5 --> Core
+    A6 --> Core
+```
+
+---
+
+### 【公理一：真实硬件烧录验证公理】(Strict Hardware Verification Law)
+1. **真实硬件铁律**：任何针对嵌入式固件的源码改动，**绝不能停留在“代码编写完成”或“本地编译通过”层面**。必须通过 PlatformIO 编译出固件镜像并烧录至真实连接的物理硬件（本地 `COM3`）。
+2. **必须硬重启（Hard Reset）**：烧录完成后，必须通过 RTS/DTR 脉冲触发单片机硬件级硬重启。
+3. **串口实时诊断验收**：必须采集并阅读至少 10~15 秒的真实串口启动与运行日志，亲眼确认系统自检全项通过（`Tick` 稳定递增、`FPS` 处于正常范围、I2C 零失败、零 `Panic/Stack Overflow`、零重启循环），方可宣称任务完成并交付。
+
+---
+
+### 【公理二：中断与通讯协议栈异步解耦公理】(Interrupt & Protocol Task Decoupling Law)
+1. **严禁中断与协议栈内重操作**：在 ESP-IDF 的底层任务中（特别是 Bluedroid 蓝牙控制协议栈 `BTC_TASK`，其默认分配堆栈仅约 3KB），**绝对禁止**同步执行耗时、大内存占用或阻塞式操作（包括但不限于：`Preferences` NVS Flash 读写、`WiFi.begin()` 模式切换、`ArduinoJson` 动态反序列化、I2C 慢速设备访问）。
+2. **微栈入队解耦机制**：所有来自外部通信接口（BLE NUS `0xFFB4`、串口、TCP/UDP）的下发指令，在中断或底层回调中仅允许在自旋锁临界区内向二进制队列追加原始字节（栈开销必须 `< 32 字节`）。
+3. **主线程安全消费**：所有指令解析与系统配置变更，必须在拥有 **16KB+ 充裕堆栈** 的 `loopTask` 中异步处理（如 `StickS3BLESync::getInstance().update()`）。
+
+---
+
+### 【公理三：显存零撕裂双缓冲物理公理】(Zero-Tear Double-Buffering Law)
+1. **杜绝物理屏直写**：严禁直接在物理 ST7789 LCD 上进行分步清屏与多层控件绘制。因为 SPI 总线速度与屏幕背光扫描刷新率存在时序差，任何 `fillRect` 擦除动作都会被人眼感知为剧烈的 15Hz 物理闪烁与撕裂。
+2. **PSRAM 双缓冲显存**：必须利用 ESP32-S3 丰富的 8MB PSRAM 空间，开辟全分辨率显存精灵画布（`static LGFX_Sprite canvas(&display)`，135x240 @ 16-bit RGB565，仅占用 64.8KB PSRAM）。
+3. **离线合成与原子推送**：灵宠微表情（Avatar）、矢量瞳孔与嘴型、多行排版汉字、姿态水准仪和顶部/底部状态栏，全部在离线显存中无缝合成；在帧周期末尾通过 `canvas.pushSprite(0, 0)` 经 SPI DMA **单次原子性全量推送**，从物理底层彻底消除屏幕频闪与背光暗闪。
+
+---
+
+### 【公理四：网络模式显式区分与端到端一致性公理】(Explicit Network Mode & Coherence Law)
+1. **严格区分网络来源**：设备端与移动端（小程序/Web）必须明确区分并展示两种网络模式：
+   - **手机共享移动热点模式**：顶部与设备端徽章显示暖橙底 **"HOT"**，小程序同步开启流量监控看板（显示已用 MB、配额上限、熔断开关），超额自动熔断保护手机流量；
+   - **常规 Wi-Fi 宽带模式**：顶部与设备端徽章显示亮绿底 **"WiFi"**，启用局域网高速通道；
+   - **断网警示**：未连接网络时，设备端显式亮起红色警示底 **"!NET"**，小程序展示离线重连引导。
+2. **端到端状态逻辑一致性**：小程序主页与设置页的状态数据源必须统一。严禁出现主页显示断开、而设置页显示已连接的逻辑分歧。
+3. **配网引导与智能验证**：向设备写入 Wi-Fi/热点配置后，小程序必须引导用户校验网络可用性；若处于手机热点环境导致局域网广播受阻，必须给出自适应降级指引（优先验证 BLE 状态推送与外网大模型通路）。
+
+---
+
+### 【公理五：零功能回退与渐进加固公理】(Non-Regression & Progressive Hardening Law)
+1. **基线特性不可动摇**：新增任何功能或修复 Bug 时，绝不允许导致此前已调通的核心特性发生任何形式的劣化或失效：
+   - 离线声学唤醒词「悄悄」匹配引擎；
+   - 阿里云百炼大模型（DashScope Realtime WSS 16kHz PCM）全双工语音流式问答；
+   - 正面按键 A 毫秒级物理打断（Barge-In）；
+   - 12 种迪士尼拟态矢量微表情与 Tamagotchi 亲密度系统；
+   - 8 轮长程对话记忆与两级滑动窗口压缩（`safeTruncateUtf8`）；
+   - I2C 总线全局互斥锁（`g_i2c_mutex`）保障的传感器与音频芯片零冲突。
+2. **关键参数防溢出**：对 FreeRTOS 任务堆栈保持保守的余量防护（如 `audioTask` 保持 6KB+，主循环提升优先级至 4）。
+
+---
+
+### 【公理六：跨端自适应协议与防截断编码公理】(Adaptive Multi-Chunk & Robust Encoding Law)
+1. **自适应分片传输**：BLE 传输受限于 MTU（23 ~ 517 字节），所有长文本（如对话记忆 JSON、大模型答复）必须支持分片流式推送（Chunking）与接收端多包拼帧重组机制。
+2. **Unicode 字符级安全截断**：文本截断绝不能按原始字节粗暴 slice。必须使用字符级算法（`safeTruncateUtf8`），沿合法 UTF-8 变长字节边界（1~4字节）截断，并在末尾补全合法标识符，彻底防止非法字节导致的客户端解析崩溃或 WebSocket RFC 6455 1007 协议违规。
+
+---
+
+## 第二部分：当前所有的工作与改动全景整理
+
+本周期内完成的全栈关键改造涵盖固件、通信协议、算法与移动端小程序，清单如下：
+
+### 1. 嵌入式固件重构 (`firmware/m5sticks3_buddy/`)
+- **`include/sticks3_ble_sync.h`**：
+  - 彻底重写 BLE Characteristic 写入架构，引入 `_rx_queue` 与 `queueIncomingBytes` 自旋锁入队。
+  - 新增 `StickS3BLESync::update()` 主循环安全任务，将 NVS 写操作和 Wi-Fi 协议栈重连从 `BTC_TASK` 解耦至 `loopTask`。
+  - 实现双向控制注入指令（`hotspot_cfg`、`reset_traffic`、`query_wifi_status`）。
+  - 实现全量对话记忆分包流式发送（`streamMemoryChunked`）。
+- **`include/sticks3_audio.h`**：
+  - 将 FreeRTOS `audioTask` 任务堆栈从 4096 字节安全扩容至 6144 字节。
+  - 维持 ES8311 + AW8737 功放与 MEMS 硅麦的全双工低延时特性。
+- **`src/main.cpp`**：
+  - 声明并初始化 PSRAM 级 `LGFX_Sprite canvas(&display)` 双缓冲画布。
+  - 将 `drawChineseText` 与 UI 渲染函数重构为支持 `LovyanGFX&` 的模板引擎，消除所有界面直写撕裂。
+  - 在主循环 `loop()` 中挂接 `StickS3BLESync::getInstance().update()`。
+  - 实现了基于网络源（热点/宽带/离线）的橙色 "HOT"、绿色 "WiFi"、红色 "!NET" 徽章。
+
+### 2. 微信小程序端全套产品落地 (`miniprogram/`)
+- **可折叠扫描列表**：优化扫描设备界面，支持搜索结果折叠/展开，解决蓝牙列表过长遮挡关键界面的问题。
+- **热点流量监控看板**：在设置页中无缝集成移动热点模式切换、流量配额限制（MB）、自动熔断开关与实时已消耗流量同步。
+- **配网引导与网络验证**：提供分步引导向导，支持一键发送网络连通性探测。
+- **局部 Diff 渲染与防频闪**：去除大范围 `this.setData`，改为精确字段更新，彻底消除移动端由于高频数据同步造成的频闪。
+- **端到端状态一致性**：重构全局存储与事件总线，保证首页断网/联网标识与设置页完全对齐。
+
+---
+
+## 第三部分：下一个对话的系统交接描述 (Session Handover Spec)
+
+### 1. 硬件环境与当前工作基线
+- **开发板**：M5Stack StickS3（ESP32-S3-PICO-1, 8MB Flash, 8MB PSRAM）。
+- **物理接口连接**：已连接至本地端口 `COM3`，波特率 `115200`。
+- **网络当前分配**：局域网 STA IP `192.168.110.67`，SoftAP IP `192.168.4.1`。
+- **当前 Git 分支**：`feature/lingbuddy-companion`。
+
+### 2. 当前运行性能与健康度指标 (实机监控基线)
+- **主循环帧率**：`FPS: 96.8 ~ 98.0 FPS`。
+- **内部 SRAM**：`free = 64KB, max_block = 45KB`（极其健康，无碎片）。
+- **外部 PSRAM**：`free = 7.22MB / 8.00MB`（显存仅占 64.8KB，空间极度充裕）。
+- **I2C 总线健康**：PMIC 与 BMI270 累计执行 5000+ 笔事务，`Fails = 0`。
+- **长程运行周期**：`Tick > 4900+` 无一次重启，反复重启问题已彻底根治。
+- **屏幕显示效果**：15 FPS 离线合成 + DMA 单次刷新，全屏零撕裂、零频闪。
+
+### 3. 下一个 Agent 必须掌握的工具链命令
+- **编译固件**：
+  ```powershell
+  python -m platformio run -e m5sticks3_buddy
+  ```
+- **烧录固件至硬件**：
+  ```powershell
+  python -m platformio run -e m5sticks3_buddy -t upload
+  ```
+- **触发硬重启并读取实时串口日志（验证公理一）**：
+  ```powershell
+  python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"
+  ```
+
+### 4. 建议后续继续推进的方向 (Next Potential Tasks)
+1. **灵宠微表情丰富化与情景动作**：基于已验证的 PSRAM 双缓冲引擎，增加更多参数化表情动画（如吃饱满足感、好感度进阶特效粒子）。
+2. **多语言大模型音色热切换**：在小程序端扩展音色选择面板，通过 BLE `0xFFB4` 动态下发阿里云百炼音色代码并即时生效。
+3. **灵方 (LingCube) 机器人遥测集群看板**：利用 UDP 8080 端口接收自重构微型机器人集群广播，在 StickS3 屏幕上以矢量小图标形式展现集群单体拓扑。

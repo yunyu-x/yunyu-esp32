@@ -13,30 +13,26 @@
 
 ```markdown
 你好！请接手并继续推进本项目开发。在开始编写代码前，请先完整阅读工作交接文档与核心源码：
-1. 核心交接文档：`docs/01_StickS3_Hardware_and_Bringup_Guide.md`
-2. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`
-3. 固件核心源码：`firmware/m5sticks3_buddy/src/main.cpp` 与 `include/sticks3_bailian_client.h`
+1. 项目最高公理与全栈交接：`docs/30_PROJECT_AXIOMS_AND_HANDOVER.md` (必读！严格遵守六大不可违背公理)
+2. 移动端与小程序交接：`docs/29_微信小程序与移动端研发交接指南_HANDOVER_MOBILE.md`
+3. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`
+4. 固件核心源码：`firmware/m5sticks3_buddy/src/main.cpp` 与 `include/sticks3_ble_sync.h`
+
+【本项目六大不可违背公理 (Project Constitutional Axioms)】：
+- 公理一【真实硬件烧录验证】：固件改动必须烧录真实硬件 (COM3) 并 RTS/DTR 硬重启，串口实测 10~15 秒验证通过，拒绝空谈。
+- 公理二【中断通讯异步解耦】：严禁在底层任务 (如 BTC_TASK) 中执行 Flash 读写或 WiFi 重连，必须经队列解耦至 loopTask。
+- 公理三【显存零撕裂双缓冲】：物理屏严禁直接擦写，必须经 PSRAM LGFX_Sprite (135x240) 离线合成后 DMA 原子推送，消灭频闪。
+- 公理四【网络显式区分一致】：手机热点 (橙色 HOT / 流量熔断) 与宽带 WiFi (绿色 WiFi) 强区分，小程序主页与设置页数据 100% 一致。
+- 公理五【零功能回退渐进加固】：离线唤醒词「悄悄」、阿里百炼流式语音、12种微表情、记忆存储与物理打断绝对不容劣化。
+- 公理六【自适应协议与防截断】：跨端分包重组，中文截断必须使用 safeTruncateUtf8 字符级保护器，杜绝非法字节崩溃。
 
 【当前硬件与工程基线】：
 - 硬件平台：M5Stack StickS3 (ESP32-S3-PICO-1, 8MB Flash, 8MB PSRAM)，已连接在本地串口 `COM3`，局域网 IP `192.168.110.67`。
-- 核心参考文档：
-  - `docs/01_StickS3_Hardware_and_Bringup_Guide.md` (全栈硬件与固件指南)
-  - `docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md` (全双工语音大模型与长程记忆压缩交接文档)
-- 底层已就绪：
-  - M5PM1 电源门控（GPIO2 点亮 LCD 3.3V 供电，GPIO3 开启功放）已标定。
-  - 按键引脚已修正为 G11 (Btn A) 与 G12 (Btn B)。
-  - BMI270 姿态传感器、ES8311 音频和弦与麦克风 VU、ST7789v2 1.14" 屏幕均已点亮。
-  - BLE Nordic UART (30字节广播合规包) 与 2.4GHz Wi-Fi (SoftAP/TCP/UDP/Web) 全互通。
-  - 全集 23,940 条目 GBK-to-Unicode Flash 映射表已落地，手机端发送汉字已无方格子。
-  - 智能 Web 配网：网页端 (`http://192.168.4.1`) 扫描周边 AP、填密入网并持久化存入 NVS，掉电开机秒级自连。
-  - 阿里云百炼大模型：DashScope Realtime WebSocket (WSS) 16kHz PCM 全双工流式对话已调通，网页端自由配置 API Key、音色与模型。
-  - **离线语音唤醒词「悄悄」(qiāo qiāo)**：时频 3 子带滤波 + ZCR + 叠词对称度综合评分声学引擎 (`sticks3_wakeword.h`)，零动态堆碎片，未唤醒时待命挂起推流省 Token，唤醒后即刻和弦播音并拉起 8~10 秒问答窗口；AI 发声时说「悄悄」可瞬间 Barge-In 物理打断。
-  - 毫秒级中途打断 (Barge-In)：支持服务端 VAD 识别、本地硅麦能量检测、唤醒词打断与正面主键 A 物理打断，瞬间静音并发送 `response.cancel` 终止服务端生成。
-  - **双级记忆压缩 (Two-Tier Compaction)**：PSRAM 平铺静态数组 (`MAX_TURNS_IN_MEMORY=8`)，零 Internal SRAM 碎片；第 9 轮触发滑动窗口自动提炼为 `[前期摘要]`；Flash NVS 持久化核心 5 轮。
-  - **Unicode 字符级安全截断 (`safeTruncateUtf8`)**：彻底杜绝 UTF-8 变长多字节中文字符截断撕裂导致的 RFC 6455 1007 协议违规断连。
-  - **I2C 全局互斥锁 (`g_i2c_mutex`)**：彻底隔离 BMI270/M5PM1 与 ES8311 跨核心并发冲突。
-- 自动化流水线：编译与烧录自愈请统一使用 `python scripts/autonomous_bringup_agent.py` 或 `python -m platformio run -d firmware/m5sticks3_buddy`。
-- 回归测试：全套 46 项自动化单元测试已就绪 (`pytest tests/ -v`)，实机 9 轮长程记忆压测使用 `python scripts/test_voice_dialogue_and_memory_compression.py`，唤醒词测试使用 `pytest tests/test_wakeword_engine.py -v`。
+- 固件状态：Anti-Flicker Double-Buffer Canvas (135x240 in PSRAM) 稳定运行，主循环 FPS: 96.8 ~ 98.0，SRAM: 64KB free，PSRAM: 7.22MB free，I2C 零失败，长程运行零重启。
+- 自动化流水线：
+  - 编译固件：`python -m platformio run -e m5sticks3_buddy`
+  - 烧录固件：`python -m platformio run -e m5sticks3_buddy -t upload`
+  - 验证运行：`python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"`
 
 【本次开发目标】：
 [在这里填入您的具体需求，可直接选用下方第二章节的细分方向]
