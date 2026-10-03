@@ -1,0 +1,478 @@
+/*
+ * web/css/style.css
+ * -----------------
+ * microUnit 网页端物理控制与集群仿真平台样式表
+ * 现代化工业科幻 / 赛博朋克深色毛玻璃界面设计
+ */
+
+:root {
+    --bg-dark: #0b0f19;
+    --panel-bg: rgba(16, 24, 40, 0.85);
+    --panel-border: rgba(56, 189, 248, 0.2);
+    --accent-blue: #38bdf8;
+    --accent-cyan: #06b6d4;
+    --accent-green: #10b981;
+    --accent-orange: #f59e0b;
+    --accent-red: #ef4444;
+    --accent-purple: #a855f7;
+    --text-main: #f3f4f6;
+    --text-muted: #9ca3af;
+    --btn-hover: rgba(56, 189, 248, 0.15);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    user-select: none;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ================= Top Navbar ================= */
+.top-navbar {
+    height: 54px;
+    background: rgba(11, 15, 25, 0.95);
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 100;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.brand-logo {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 15px;
+    color: #000;
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+}
+
+.brand-title {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+}
+
+.brand-tag {
+    font-size: 10px;
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent-blue);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.nav-tabs {
+    display: flex;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.tab-btn.active {
+    background: var(--accent-blue);
+    color: #000;
+    font-weight: 700;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+.nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ctrl-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s ease;
+}
+
+.ctrl-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--accent-blue);
+}
+
+.ctrl-btn.primary {
+    background: var(--accent-green);
+    color: #000;
+    border: none;
+}
+
+.ctrl-btn.primary:hover {
+    background: #34d399;
+}
+
+.speed-select {
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* ================= Main Workspace Layout ================= */
+.main-workspace {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Side Panels */
+.side-panel {
+    width: 280px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(12px);
+    border-right: 1px solid var(--panel-border);
+    display: flex;
+    flex-direction: column;
+    z-index: 20;
+    overflow-y: auto;
+}
+
+.side-panel.right {
+    border-right: none;
+    border-left: 1px solid var(--panel-border);
+}
+
+.panel-section {
+    padding: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.section-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Controls & Form Groups */
+.form-group {
+    margin-bottom: 10px;
+}
+
+.form-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.form-label span.val {
+    color: var(--accent-blue);
+    font-weight: 600;
+}
+
+.slider-input {
+    width: 100%;
+    accent-color: var(--accent-blue);
+    cursor: pointer;
+}
+
+.btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.btn-action {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.btn-action:hover {
+    background: var(--btn-hover);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+
+.btn-action.highlight {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+
+.btn-action.warning {
+    border-color: var(--accent-orange);
+    color: var(--accent-orange);
+}
+
+.btn-action.danger {
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+}
+
+/* Directional Force D-Pad */
+.dpad-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.dpad-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+    padding: 8px 4px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+}
+
+.dpad-btn:active {
+    background: var(--accent-blue);
+    color: #000;
+    transform: scale(0.95);
+}
+
+/* ================= 3D Viewport ================= */
+.viewport-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #151d30 0%, #080c14 100%);
+}
+
+#webgl-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* HUD Overlay Badges */
+.viewport-hud {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    display: flex;
+    gap: 10px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.hud-card {
+    background: rgba(11, 15, 25, 0.85);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(8px);
+    border-radius: 8px;
+    padding: 8px 12px;
+    min-width: 90px;
+}
+
+.hud-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.hud-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    margin-top: 2px;
+}
+
+.hud-value.blue { color: var(--accent-blue); }
+.hud-value.green { color: var(--accent-green); }
+.hud-value.orange { color: var(--accent-orange); }
+
+/* Viewport Tips */
+.viewport-tip {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+/* ================= Bottom Telemetry Dashboard ================= */
+.bottom-dashboard {
+    height: 190px;
+    background: rgba(11, 15, 25, 0.95);
+    border-top: 1px solid var(--panel-border);
+    display: flex;
+    flex-direction: column;
+    z-index: 30;
+    transition: height 0.3s ease;
+}
+
+.bottom-dashboard.collapsed {
+    height: 28px;
+}
+
+.dashboard-header {
+    height: 28px;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dashboard-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.chart-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 8px 12px;
+    overflow: hidden;
+}
+
+.chart-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.chart-card-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.chart-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* Floating Toast HUD */
+.sim-toast {
+    position: fixed;
+    top: 56px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: rgba(15, 23, 42, 0.94);
+    border: 1px solid var(--accent-blue);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.35);
+    color: #f8fafc;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    pointer-events: none;
+    opacity: 0;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sim-toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+.sim-toast.warning {
+    border-color: var(--accent-orange);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(245, 158, 11, 0.35);
+}
+
+.sim-toast.danger {
+    border-color: var(--accent-red);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(239, 68, 68, 0.35);
+}
+
+.btn-action:active {
+    transform: scale(0.96);
+    filter: brightness(1.2);
+}
+

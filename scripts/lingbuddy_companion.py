@@ -218,5 +218,180 @@ def run_cli_demo():
     print("=" * 76)
 
 
+def create_web_app(simulator: Optional[LingBuddySimulatorClient] = None, vector_store: Optional[LingBuddyVectorStore] = None):
+    """创建并配置 FastAPI Web 伴侣控制台服务"""
+    from fastapi import FastAPI, Request
+    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.middleware.cors import CORSMiddleware
+
+    if simulator is None:
+        simulator = LingBuddySimulatorClient()
+    if vector_store is None:
+        workspace_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        db_path = os.path.join(workspace_dir, "lingbuddy_knowledge.db")
+        vector_store = LingBuddyVectorStore(db_path=db_path)
+
+    app = FastAPI(
+        title="LingBuddy Web Companion Console",
+        description="M5StickS3 灵宠伴侣桌面 Web 控制台与遥测中枢",
+        version="1.0.0"
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    workspace_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    web_dir = os.path.join(workspace_dir, "web")
+    web_preview_dir = os.path.join(workspace_dir, "web_preview")
+
+    if os.path.exists(os.path.join(web_dir, "css")):
+        app.mount("/css", StaticFiles(directory=os.path.join(web_dir, "css")), name="css")
+    if os.path.exists(os.path.join(web_dir, "js")):
+        app.mount("/js", StaticFiles(directory=os.path.join(web_dir, "js")), name="js")
+    if os.path.exists(os.path.join(web_dir, "vendor")):
+        app.mount("/vendor", StaticFiles(directory=os.path.join(web_dir, "vendor")), name="vendor")
+    if os.path.exists(web_preview_dir):
+        app.mount("/web_preview", StaticFiles(directory=web_preview_dir), name="web_preview")
+
+    @app.get("/")
+    async def index():
+        companion_html = os.path.join(web_dir, "lingbuddy_companion.html")
+        if os.path.exists(companion_html):
+            return FileResponse(companion_html)
+        return {"status": "ok", "message": "LingBuddy Companion Server Ready"}
+
+    @app.get("/companion")
+    async def companion():
+        return FileResponse(os.path.join(web_dir, "lingbuddy_companion.html"))
+
+    @app.get("/exploded")
+    async def exploded():
+        return FileResponse(os.path.join(web_dir, "exploded_view.html"))
+
+    @app.get("/simulation")
+    async def simulation():
+        return FileResponse(os.path.join(web_dir, "index.html"))
+
+    @app.get("/guide")
+    async def guide():
+        return FileResponse(os.path.join(web_preview_dir, "open_platform_guide.html"))
+
+    @app.get("/api/health")
+    async def api_health():
+        return {
+            "status": "ok",
+            "service": "lingbuddy_companion",
+            "device": "M5StickS3",
+            "version": "1.0.0",
+            "timestamp": int(time.time())
+        }
+
+    @app.get("/pet/status")
+    async def get_pet_status():
+        st = simulator.read_status()
+        st["mood_id"] = st.get("mood", 0)
+        st["diary"] = simulator.diary_history[-1] if simulator.diary_history else ""
+        return st
+
+    @app.post("/pet/action")
+    async def post_pet_action(request: Request):
+        action = None
+        value = None
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            data = await request.json()
+            action = data.get("action")
+            value = data.get("value") or data.get("item")
+        else:
+            form = await request.form()
+            action = form.get("action")
+            value = form.get("value") or form.get("item")
+
+        if not action:
+            return JSONResponse(status_code=400, content={"status": "error", "message": "Missing action parameter"})
+
+        res = simulator.inject_action(str(action), value)
+        st = simulator.read_status()
+        st["mood_id"] = st.get("mood", 0)
+        st["diary"] = simulator.diary_history[-1] if simulator.diary_history else ""
+        st["status"] = "ok"
+        st["action_result"] = res
+        return st
+
+    @app.get("/pet/diary")
+    async def get_pet_diary():
+        return {"diary": simulator.diary_history}
+
+    @app.get("/pet/memory")
+    async def get_pet_memory():
+        return {
+            "turns": simulator.memory_turns,
+            "chunks": simulator.get_chunked_memory()
+        }
+
+    @app.post("/pet/inject_memory")
+    async def post_inject_memory(request: Request):
+        content_type = request.headers.get("content-type", "")
+        text = ""
+        if "application/json" in content_type:
+            data = await request.json()
+            text = data.get("memory") or data.get("content", "")
+        else:
+            form = await request.form()
+            text = form.get("memory") or form.get("content", "")
+        if not text:
+            return JSONResponse(status_code=400, content={"status": "error", "message": "Empty content"})
+        simulator.inject_action("inject_memory", text)
+        vector_store.add_dialogue_turn("user", f"[手机备忘] {text}")
+        return {"status": "ok", "message": "Memory injected"}
+
+    @app.get("/pet/rag/search")
+    async def rag_search(q: str = "", top_k: int = 3):
+        hits = vector_store.search(q, top_k=top_k)
+        context = vector_store.export_rag_context(q)
+        return {"query": q, "hits": hits, "rag_context": context}
+
+    return app
+
+
+def run_server(host: str = "0.0.0.0", port: int = 8000):
+    """启动本地 Web 伴侣控制台服务"""
+    import uvicorn
+    sep = "=" * 70
+    print("\n" + sep)
+    print(" 🚀 LingBuddy 桌面 Web 伴侣控制台服务已启动")
+    print(sep)
+    print(f" ▶ 桌面伴侣界面:   http://127.0.0.1:{port}/")
+    print(f" ▶ 3D 结构爆炸图:  http://127.0.0.1:{port}/exploded")
+    print(f" ▶ 多体动力学仿真: http://127.0.0.1:{port}/simulation")
+    print(f" ▶ 开放平台指南:   http://127.0.0.1:{port}/guide")
+    print(f" ▶ 健康检查接口:   http://127.0.0.1:{port}/api/health")
+    print(sep + "\n")
+    app = create_web_app()
+    uvicorn.run(app, host=host, port=port, log_level="info")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="LingBuddy Companion Control & Simulation Server")
+    parser.add_argument("--demo", action="store_true", help="运行 BLE GATT 仿真与记忆重组 CLI 演示")
+    parser.add_argument("--cli", action="store_true", help="同 --demo")
+    parser.add_argument("--serve", action="store_true", default=True, help="启动桌面 Web 伴侣控制台服务 (默认)")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="监听地址 (默认 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=8000, help="监听端口 (默认 8000)")
+    args = parser.parse_args()
+
+    if args.demo or args.cli:
+        run_cli_demo()
+    else:
+        run_server(host=args.host, port=args.port)
+
+
 if __name__ == "__main__":
-    run_cli_demo()
+    main()
+

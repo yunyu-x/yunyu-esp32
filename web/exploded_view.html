@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>灵方 LingCube | 50mm 内部结构 3D 交互拆分与装配透视平台</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: rgba(15, 23, 42, 0.82);
+            --panel-border: rgba(56, 189, 248, 0.22);
+            --accent-color: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.35);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --gold-accent: #fbbf24;
+            --danger-color: #f43f5e;
+            --success-color: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-primary);
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* 玻璃拟态卡片通用样式 */
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+            z-index: 10;
+        }
+
+        /* 顶部导航条 */
+        header.top-bar {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            height: 58px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .brand-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #0284c7, #38bdf8);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 18px;
+            color: #fff;
+            box-shadow: 0 0 16px var(--accent-glow);
+        }
+
+        .brand-title {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: var(--text-primary);
+        }
+
+        .brand-subtitle {
+            font-size: 11px;
+            color: var(--accent-color);
+            font-weight: 500;
+        }
+
+        .mode-toggles {
+            display: flex;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 4px;
+            gap: 4px;
+        }
+
+        .mode-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .mode-btn.active {
+            background: #0284c7;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.5);
+        }
+
+        /* 快捷链接按钮 */
+        .btn-link {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid var(--panel-border);
+            color: var(--text-primary);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-link:hover {
+            border-color: var(--accent-color);
+            background: rgba(56, 189, 248, 0.15);
+        }
+
+        /* 底部主控操作台 */
+        .bottom-console {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 12px 24px;
+        }
+
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-color);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .range-slider {
+            -webkit-appearance: none;
+            width: 220px;
+            height: 6px;
+            border-radius: 3px;
+            background: #1e293b;
+            outline: none;
+            transition: background 0.2s;
+        }
+
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-glow);
+            transition: transform 0.15s;
+        }
+
+        .range-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .action-btn {
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            background: #334155;
+            border-color: var(--accent-color);
+        }
+
+        .action-btn.active {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        /* 左侧视图与显示过滤工具栏 */
+        .left-toolbar {
+            position: absolute;
+            top: 90px;
+            left: 16px;
+            width: 210px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .panel-heading {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 6px;
+            margin-bottom: 4px;
+        }
+
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .tool-btn {
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-secondary);
+            padding: 8px 6px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tool-btn:hover {
+            background: #334155;
+            color: var(--text-primary);
+        }
+
+        .tool-btn.active {
+            background: rgba(56, 189, 248, 0.22);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px 0;
+        }
+
+        .checkbox-row input {
+            cursor: pointer;
+            accent-color: var(--accent-color);
+        }
+
+        /* 右侧零部件交互属性面板 */
+        .right-inspector {
+            position: absolute;
+            top: 90px;
+            right: 16px;
+            width: 320px;
+            max-height: calc(100vh - 125px);
+            overflow-y: auto;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .inspector-badge {
+            display: inline-block;
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: 700;
+            width: fit-content;
+        }
+
+        .part-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.3;
+        }
+
+        .part-category {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .property-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+
+        .property-table tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .property-table td {
+            padding: 7px 4px;
+        }
+
+        .prop-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+            width: 36%;
+        }
+
+        .prop-value {
+            color: var(--text-primary);
+            font-family: monospace;
+            font-weight: 500;
+        }
+
+        .desc-box {
+            background: rgba(15, 23, 42, 0.6);
+            border-left: 3px solid var(--accent-color);
+            padding: 10px 12px;
+            font-size: 11px;
+            color: #cbd5e1;
+            line-height: 1.5;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .connection-box {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px dashed rgba(56, 189, 248, 0.3);
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .connection-title {
+            font-weight: 700;
+            color: var(--gold-accent);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* 快捷提示气泡 */
+        .tooltip-hud {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #fff;
+            transform: translate(-50%, -130%);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 20;
+            white-space: nowrap;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 900px) {
+            .left-toolbar { display: none; }
+            .right-inspector { width: 280px; }
+            .range-slider { width: 140px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D WebGL 渲染容器 -->
+    <div id="canvas-container"></div>
+
+    <!-- 鼠标悬浮 HUD 标签 -->
+    <div id="hover-tooltip" class="tooltip-hud">零部件名</div>
+
+    <!-- 顶部主导航 -->
+    <header class="top-bar glass-panel">
+        <div class="brand-box">
+            <div class="brand-icon">μU</div>
+            <div>
+                <div class="brand-title">灵方 LingCube | 50mm 内部结构 3D 拆分透视平台</div>
+                <div class="brand-subtitle">CAD 零部件级装配关系、电气互联与公差链交互演示系统</div>
+            </div>
+        </div>
+
+        <div class="mode-toggles">
+            <button class="mode-btn active" id="btn-opt-b" title="全固态纯电磁架构 (主线 52.5g, 真IP68, 无旋转件)">
+                ⚡ 方案 B: 全固态纯电磁 (52.5g)
+            </button>
+            <button class="mode-btn" id="btn-opt-a" title="动量轮混合动力架构 (85.0g, 含黄铜飞轮与1104电机)">
+                ⚙️ 方案 A: 飞轮混合动力 (85.0g)
+            </button>
+        </div>
+
+        <div>
+            <a href="index.html" class="btn-link" title="返回物理仿真与集群控制平台">
+                🌐 返回控制仿真平台
+            </a>
+        </div>
+    </header>
+
+    <!-- 左侧视图与显示模式控制 -->
+    <aside class="left-toolbar glass-panel">
+        <div>
+            <div class="panel-heading">渲染渲染风格</div>
+            <div class="tool-grid">
+                <button class="tool-btn active" id="style-solid">真实实体</button>
+                <button class="tool-btn" id="style-xray">X光透视</button>
+                <button class="tool-btn" id="style-wire">CAD线框</button>
+                <button class="tool-btn" id="style-cut">剖切剖视图</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="panel-heading">预设视角</div>
+            <div class="tool-grid">
+                <button class="tool-btn active" id="view-iso">3D 轴测</button>
+                <button class="tool-btn" id="view-front">正视图</button>
+                <button class="tool-btn" id="view-top">俯视图</button>
+                <button class="tool-btn" id="view-side">侧视图</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="panel-heading">装配连接线与标尺</div>
+            <label class="checkbox-row">
+                <input type="checkbox" id="chk-guides" checked>
+                <span>装配引线 (Guides)</span>
+            </label>
+            <label class="checkbox-row">
+                <input type="checkbox" id="chk-axes" checked>
+                <span>50mm 坐标基准轴</span>
+            </label>
+            <label class="checkbox-row">
+                <input type="checkbox" id="chk-autorotate">
+                <span>360° 缓慢自动巡航</span>
+            </label>
+            <label class="checkbox-row">
+                <input type="checkbox" id="chk-grid" checked>
+                <span>地面毫米网格台</span>
+            </label>
+        </div>
+    </aside>
+
+    <!-- 右侧零部件详细属性审查面板 (Inspector) -->
+    <aside class="right-inspector glass-panel" id="inspector-panel">
+        <div class="inspector-badge" id="insp-category">STRUCTURE</div>
+        <div class="part-title" id="insp-name">上盖结构件 (Upper Shell)</div>
+        <div class="part-category" id="insp-subtitle">50mm 立方体外围精密保护骨架</div>
+
+        <div class="desc-box" id="insp-desc">
+            采用 Somos Taurus 高韧性光固化树脂（小批量采用 PC/ABS 合金注塑），壁厚 1.0mm，四角采用 R1.5mm 连续倒角过渡以平滑翻滚时接触瞬心 ICR 的运动轨迹。
+        </div>
+
+        <table class="property-table">
+            <tbody>
+                <tr>
+                    <td class="prop-label">材料规格:</td>
+                    <td class="prop-value" id="insp-material">Somos Taurus / PC-ABS</td>
+                </tr>
+                <tr>
+                    <td class="prop-label">包络尺寸:</td>
+                    <td class="prop-value" id="insp-dimensions">50.0 x 50.0 x 25.0 mm</td>
+                </tr>
+                <tr>
+                    <td class="prop-label">单件质量:</td>
+                    <td class="prop-value" id="insp-mass">6.20 g</td>
+                </tr>
+                <tr>
+                    <td class="prop-label">公差等级:</td>
+                    <td class="prop-value" id="insp-tolerance">GB/T 14486 MT5 (±0.04mm)</td>
+                </tr>
+                <tr>
+                    <td class="prop-label">采购代码:</td>
+                    <td class="prop-value" id="insp-partno">MEC-SHL-UP-01</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="connection-box">
+            <div class="connection-title">🔗 装配与连接关系:</div>
+            <div id="insp-connection" style="color: #e2e8f0;">
+                通过 4 颗 M1.6×8mm 沉头十字不锈钢螺栓与下盖精密螺套紧固；中缝嵌入 0.5mm 硅胶密封圈实现 IP68 防水。
+            </div>
+        </div>
+    </aside>
+
+    <!-- 底部主控操作栏 (拆分/合并滑动条) -->
+    <div class="bottom-console glass-panel">
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>💥 拆分爆炸度:</span>
+                <span id="val-explode-pct" style="color:#fff; font-family:monospace; min-width:40px;">0%</span>
+            </div>
+            <input type="range" min="0" max="100" value="0" class="range-slider" id="explode-slider">
+        </div>
+
+        <button class="action-btn" id="btn-animate-explode">
+            <span>🎬 平滑拆解</span>
+        </button>
+        <button class="action-btn" id="btn-collapse">
+            <span>🧲 一键合并</span>
+        </button>
+        <button class="action-btn" id="btn-reset-cam">
+            <span>🎯 视点居中</span>
+        </button>
+    </div>
+
+    <!-- 脚本加载 (支持本地 vendor 离线与 CDN 自动容灾) -->
+    <script src="vendor/three.min.js"></script>
+    <script src="vendor/OrbitControls.js"></script>
+    <script>
+        // CDN 应急回退
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+            document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>');
+        }
+    </script>
+
+    <!-- 核心 3D 拆装交互逻辑脚本 -->
+    <script>
+        // ====================================================================
+        // microUnit 3D 结构爆炸图核心控制器
+        // ====================================================================
+
+        let scene, camera, renderer, controls;
+        let components = [];
+        let guideLinesGroup;
+        let axesHelper, gridHelper;
+        let raycaster, mouse;
+        let selectedObject = null;
+        let hoveredObject = null;
+
+        let currentOption = 'B'; // 'A' (Flywheel) or 'B' (Solid-State)
+        let renderStyle = 'solid'; // 'solid', 'xray', 'wire', 'cut'
+        let explodeFactor = 0.0; // 0.0 ~ 1.0
+        let targetExplodeFactor = 0.0;
+        let isAnimating = false;
+
+        // 零部件详细工程数据库
+        const COMPONENT_DB = {
+            "shell_upper": {
+                name: "上机壳 (Upper Shell)",
+                category: "STRUCTURE",
+                subtitle: "50mm 顶部防护外壳与磁路密封支架",
+                material: "Somos Taurus 树脂 / PC-ABS 合金",
+                dimensions: "50.0 x 50.0 x 25.0 mm (壁厚 1.0mm)",
+                mass: "6.20 g",
+                tolerance: "GB/T 14486 MT5 (±0.04mm)",
+                partno: "MEC-SHL-UP-01",
+                desc: "容纳顶面与侧上部极靴，四棱角倒角 R1.5mm，预留 4 个 M1.6 沉孔与防呆定位销槽。内壁设置 0.12mm FPC 贴合限位筋。",
+                connection: "通过 4 颗 M1.6×8 不锈钢十字螺栓与下壳铜柱拉紧，结合面设有 0.5mm 硅胶密封环槽。"
+            },
+            "shell_lower": {
+                name: "下机壳 (Lower Shell)",
+                category: "STRUCTURE",
+                subtitle: "底座结构件与电芯托架",
+                material: "Somos Taurus 树脂 / PC-ABS 合金",
+                dimensions: "50.0 x 50.0 x 25.0 mm (壁厚 1.0mm)",
+                mass: "6.40 g",
+                tolerance: "GB/T 14486 MT5 (±0.04mm)",
+                partno: "MEC-SHL-DN-01",
+                desc: "底部设有底面 EPM 导磁极靴安装沉台与 383040 动力电芯专用凹槽，预埋 4 个 M1.6 滚花铜螺母嵌件。",
+                connection: "承托全部内部核心模块，与上盖通过四角过盈定位销精确对中（同轴度 < 0.02mm）。"
+            },
+            "truss_frame": {
+                name: "内部 PA12 减重轻量桁架 (Skeletal Truss)",
+                category: "INTERNAL FRAME",
+                subtitle: "高刚度核心机电承载骨架",
+                material: "PA12 SLS 激光烧结尼龙 (填充率 10%)",
+                dimensions: "44.0 x 44.0 x 44.0 mm",
+                mass: "3.20 g",
+                tolerance: "SLS 自由成型 (±0.05mm)",
+                partno: "MEC-TRS-PA12",
+                desc: "超轻量化镂空桁架结构，提供 6 面 EPM 线圈骨架刚性支撑，彻底消除多面大吸力下的壳体形变。",
+                connection: "卡扣式自锁固定于下机壳内腔，为 PCBA 主板与电芯提供三维定位隔舱。"
+            },
+            "battery_pack": {
+                name: "383040 动力锂聚合物电芯 (LiPo Core)",
+                category: "POWER",
+                subtitle: "高倍率超薄动力储能核心",
+                material: "高倍率钴酸锂聚合物软包",
+                dimensions: "38.0 x 30.0 x 4.0 mm",
+                mass: "14.50 g",
+                tolerance: "封装公差 ±0.2mm",
+                partno: "BAT-383040-15C",
+                desc: "3.7V 标称电压，Option B 容量 1300mAh（Option A 为 650mAh 15C 脉冲型），内阻 80mΩ，配备 DW01A 150ms 延时保护电路板。",
+                connection: "软包极耳通过点焊连接保护板，输出端通过 Molex 超薄微型端子插接至主板 VBAT。"
+            },
+            "mainboard_pcba": {
+                name: "4层沉金主控电路板 (Core PCBA)",
+                category: "ELECTRONICS",
+                subtitle: "ESP32-S3 双核 240MHz 嵌入式核心",
+                material: "4-Layer 1.0mm FR-4 (沉金阻抗控制)",
+                dimensions: "42.0 x 42.0 x 1.0 mm",
+                mass: "4.20 g (Option B) / 7.50 g (Option A)",
+                tolerance: "IPC-A-610 Class 2",
+                partno: "PCB-ESP32-S3-V2",
+                desc: "板载 ESP32-S3-WROOM-1 主控、SGM2205 低噪声 LDO、DRV8833 功率 H 桥驱动芯片及 MPU-6050 姿态传感器。",
+                connection: "通过柔性 FPC 排线引出 6 面线圈触发信号与红外光收发信号，四角螺钉固连于 PA12 骨架。"
+            },
+            "epm_face_top": {
+                name: "顶面 EPM 复合磁路组件 (+Y Face)",
+                category: "ACTUATION",
+                subtitle: "双稳态电永磁与近红外收发阵列 (内嵌平齐)",
+                material: "DT4C 纯铁极靴 + LCP Bobbin + 漆包线圈 + N52/AlNiCo",
+                dimensions: "22.0 x 22.0 x 4.5 mm (全沉入外壳沉孔)",
+                mass: "2.92 g",
+                tolerance: "CNC 极靴研磨平整度 (±0.015mm)",
+                partno: "ACT-EPM-UNIT-01",
+                desc: "内嵌于外壳 4.5mm 深度沉腔中。端面 DT4C 电工纯铁极靴经 CNC 高光磨平，与外壳完全齐平（表面覆 50μm Kapton 耐磨绝缘膜）。内部包含 LCP 骨架、120 匝脉冲励磁线圈（0.65Ω）及真空导热环氧灌封消振体。",
+                connection: "极靴端面平齐外壳基准面，后方通过常温精密气压卡扣与内部 PA12 骨架固定，引出线采用 FPC 双 S 弯应力释放焊盘连至主板。"
+            },
+            "epm_face_bottom": {
+                name: "底面 EPM 复合磁路组件 (-Y Face)",
+                category: "ACTUATION",
+                subtitle: "基座地面吸附与防滑移锁定单元 (内嵌平齐)",
+                material: "DT4C 纯铁极靴 + LCP Bobbin + 漆包线圈 + N52/AlNiCo",
+                dimensions: "22.0 x 22.0 x 4.5 mm (全沉入外壳沉孔)",
+                mass: "2.92 g",
+                tolerance: "CNC 极靴研磨平整度 (±0.015mm)",
+                partno: "ACT-EPM-UNIT-02",
+                desc: "端面与底壳下表面精密平齐，提供 35.0N 法向锁紧力，闭合零气隙磁回路，彻底消除 0.25N·m 反扭矩下的打滑。集成 6-Pin 磁吸 Pogo-Pin 充电测试触点。",
+                connection: "内嵌于底壳外部沉腔中，后部导磁轭铁与内部骨架紧密贴合。"
+            },
+            "epm_faces_side": {
+                name: "4侧面 EPM 磁路与微线圈阵列 (±X / ±Z Faces)",
+                category: "ACTUATION",
+                subtitle: "面面重构吸合与推挽起跳动力源 (内嵌平齐)",
+                material: "DT4C 极靴 + LCP Bobbin + 120匝微线圈 (x4)",
+                dimensions: "22.0 x 22.0 x 4.5 mm (x4)",
+                mass: "11.68 g (4面总重)",
+                tolerance: "端面齐平度 < 0.02mm",
+                partno: "ACT-EPM-UNIT-SIDE",
+                desc: "四侧面端面极靴完全与 50mm 机壳侧表面平齐，线圈与磁钢完全埋入侧壁沉孔内。平齐设计杜绝了机器人翻滚过程中端面与地面的机械碰撞干涉，确保面面贴合零气隙自重构。",
+                connection: "通过柔性 FPC 环状级联总线供电，内部真空灌封防震。"
+            },
+            "flywheel_unit": {
+                name: "黄铜惯性飞轮与 1104 无刷电机 (仅方案 A)",
+                category: "KINETIC (OPTION A ONLY)",
+                subtitle: "角动量转移越垒动力总成",
+                material: "H62 精密黄铜 + 铝合金电机定子",
+                dimensions: "外径 Φ27.0mm, 轮缘厚 3.5mm",
+                mass: "22.0g 飞轮 + 8.0g 电机",
+                tolerance: "动平衡 G2.5 级",
+                partno: "MEC-FLW-BRASS-22G",
+                desc: "极惯量 J_yy = 2.02e-6 kg·m²，18,000 RPM 急刹在 15ms 内注入 55.0mJ 角动能，平稳越过 45° 鞍点重力势垒。",
+                connection: "MR52ZZ 双微型滚珠轴承支撑，四颗 M1.4 螺钉安装于中心骨架。在方案 B 中已彻底剔除以全密封灌封。"
+            },
+            "fasteners_sealing": {
+                name: "紧固螺栓、定位销与密封环 (Fasteners & Seal)",
+                category: "HARDWARE",
+                subtitle: "高强度连接与防呆定位",
+                material: "SUS304 不锈钢 / 硅橡胶 / 黄铜嵌件",
+                dimensions: "M1.6 x 8 mm 十字沉头螺钉 (x4)",
+                mass: "1.18 g",
+                tolerance: "GB/T 819 紧固级",
+                partno: "FST-M16-SUS304",
+                desc: "4 颗长螺栓贯穿四角沉孔，锁入底壳热熔预埋铜嵌件，配合 2 根 Φ1.5mm 阶梯销防止上下盖错位。",
+                connection: "螺栓预紧扭矩 0.15 N·m，防松微囊胶涂抹，保证在 50G 跌落冲击下螺丝绝不松脱。"
+            }
+        };
+
+        // 初始化 Three.js 场景
+        function initThreeScene() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0b0f19);
+            scene.fog = new THREE.FogExp2(0x0b0f19, 0.0035);
+
+            camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 1000);
+            camera.position.set(110, 85, 130);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.maxDistance = 450;
+            controls.minDistance = 25;
+            controls.target.set(0, 0, 0);
+
+            // 灯光布局
+            setupLighting();
+
+            // 辅助网格与坐标轴
+            setupHelpers();
+
+            // 构建全部 3D 零部件
+            buildMicroUnitComponents();
+
+            // 装配连接引线
+            buildGuideLines();
+
+            // 射线拾取与事件监听
+            setupInteractions();
+
+            // 监听窗口缩放
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function setupLighting() {
+            const ambient = new THREE.AmbientLight(0xffffff, 0.85);
+            scene.add(ambient);
+
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight1.position.set(100, 160, 120);
+            dirLight1.castShadow = true;
+            dirLight1.shadow.mapSize.width = 2048;
+            dirLight1.shadow.mapSize.height = 2048;
+            dirLight1.shadow.camera.near = 10;
+            dirLight1.shadow.camera.far = 400;
+            dirLight1.shadow.camera.left = -90;
+            dirLight1.shadow.camera.right = 90;
+            dirLight1.shadow.camera.top = 90;
+            dirLight1.shadow.camera.bottom = -90;
+            scene.add(dirLight1);
+
+            const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.6);
+            dirLight2.position.set(-120, -50, -100);
+            scene.add(dirLight2);
+
+            const pointLight = new THREE.PointLight(0xfbbf24, 0.8, 150);
+            pointLight.position.set(0, 40, 0);
+            scene.add(pointLight);
+        }
+
+        function setupHelpers() {
+            // 地面毫米级辅助网格
+            gridHelper = new THREE.GridHelper(260, 26, 0x38bdf8, 0x1e293b);
+            gridHelper.position.y = -40;
+            scene.add(gridHelper);
+
+            // 50mm 坐标基准轴
+            axesHelper = new THREE.AxesHelper(35);
+            axesHelper.position.set(-30, -38, -30);
+            scene.add(axesHelper);
+
+            guideLinesGroup = new THREE.Group();
+            scene.add(guideLinesGroup);
+        }
+
+        // ====================================================================
+        // 核心几何与材质生成工厂
+        // ====================================================================
+
+        function createFilletedBoxGeometry(w, h, d, r) {
+            // 参数化倒角立方体近似生成
+            const geom = new THREE.BoxGeometry(w, h, d, 2, 2, 2);
+            return geom;
+        }
+
+        function buildMicroUnitComponents() {
+            components = [];
+
+            // 材质库
+            const materials = {
+                shellResin: new THREE.MeshPhysicalMaterial({
+                    color: 0x38bdf8,
+                    metalness: 0.1,
+                    roughness: 0.15,
+                    transmission: 0.65, // 半透明树脂质感
+                    transparent: true,
+                    opacity: 0.85,
+                    ior: 1.45,
+                    clearcoat: 0.8,
+                    clearcoatRoughness: 0.1
+                }),
+                pcbGreen: new THREE.MeshStandardMaterial({
+                    color: 0x064e3b, // 工业墨绿色沉金板
+                    roughness: 0.4,
+                    metalness: 0.2
+                }),
+                goldContacts: new THREE.MeshStandardMaterial({
+                    color: 0xf59e0b,
+                    metalness: 0.9,
+                    roughness: 0.2
+                }),
+                chipBlack: new THREE.MeshStandardMaterial({
+                    color: 0x18181b,
+                    roughness: 0.6,
+                    metalness: 0.3
+                }),
+                batterySilver: new THREE.MeshStandardMaterial({
+                    color: 0xd4d4d8,
+                    metalness: 0.75,
+                    roughness: 0.25
+                }),
+                pa12Nylon: new THREE.MeshStandardMaterial({
+                    color: 0x475569,
+                    roughness: 0.8,
+                    metalness: 0.1
+                }),
+                ironPole: new THREE.MeshStandardMaterial({
+                    color: 0xe2e8f0, // 电工纯铁光洁度
+                    metalness: 0.95,
+                    roughness: 0.15
+                }),
+                magnetNdFeB: new THREE.MeshStandardMaterial({
+                    color: 0x94a3b8, // 镀镍暗银色
+                    metalness: 0.85,
+                    roughness: 0.3
+                }),
+                magnetAlNiCo: new THREE.MeshStandardMaterial({
+                    color: 0xb45309, // 铝镍钴金属暗铜色
+                    metalness: 0.8,
+                    roughness: 0.35
+                }),
+                copperCoil: new THREE.MeshStandardMaterial({
+                    color: 0xd97706, // 纯铜漆包线
+                    metalness: 0.7,
+                    roughness: 0.3
+                }),
+                brassFlywheel: new THREE.MeshStandardMaterial({
+                    color: 0xfbbf24, // H62 精密黄铜高反光
+                    metalness: 0.9,
+                    roughness: 0.18
+                }),
+                sealingRubber: new THREE.MeshStandardMaterial({
+                    color: 0xef4444, // 红色硅胶圈
+                    roughness: 0.9,
+                    metalness: 0.0
+                }),
+                stainlessScrew: new THREE.MeshStandardMaterial({
+                    color: 0xf8fafc,
+                    metalness: 0.95,
+                    roughness: 0.2
+                })
+            };
+
+            // 1. 上机壳组件 (Upper Shell: 50x50x25mm)
+            const upperShellGroup = new THREE.Group();
+            const upperMain = new THREE.Mesh(createFilletedBoxGeometry(50, 24, 50, 1.5), materials.shellResin);
+            upperMain.castShadow = true;
+            upperMain.receiveShadow = true;
+            upperShellGroup.add(upperMain);
+            // 上盖顶面红外通信与极靴精密内凹沉孔 (0.2mm 浅盆导向定位槽)
+            const topBasin = new THREE.Mesh(new THREE.CylinderGeometry(11.0, 11.0, 0.4, 32), materials.pa12Nylon);
+            topBasin.position.y = 11.9;
+            upperShellGroup.add(topBasin);
+
+            registerComponent({
+                key: "shell_upper",
+                object: upperShellGroup,
+                basePos: new THREE.Vector3(0, 13, 0),
+                explodeVec: new THREE.Vector3(0, 60, 0), // 沿 +Y 轴大幅升起
+                type: 'both'
+            });
+
+            // 2. 下机壳组件 (Lower Shell: 50x50x25mm)
+            const lowerShellGroup = new THREE.Group();
+            const lowerMain = new THREE.Mesh(createFilletedBoxGeometry(50, 24, 50, 1.5), materials.shellResin);
+            lowerMain.castShadow = true;
+            lowerMain.receiveShadow = true;
+            lowerShellGroup.add(lowerMain);
+            // 底壳沉槽
+            const bottomRecess = new THREE.Mesh(new THREE.BoxGeometry(40, 6, 40), materials.pa12Nylon);
+            bottomRecess.position.y = -9;
+            lowerShellGroup.add(bottomRecess);
+
+            registerComponent({
+                key: "shell_lower",
+                object: lowerShellGroup,
+                basePos: new THREE.Vector3(0, -13, 0),
+                explodeVec: new THREE.Vector3(0, -60, 0), // 沿 -Y 轴大幅降落
+                type: 'both'
+            });
+
+            // 3. 硅胶密封圈与紧固螺栓 (Fasteners & Seal)
+            const sealGroup = new THREE.Group();
+            const sealRing = new THREE.Mesh(new THREE.TorusGeometry(23, 0.8, 8, 32), materials.sealingRubber);
+            sealRing.rotation.x = Math.PI / 2;
+            sealGroup.add(sealRing);
+            // 4 颗 M1.6 螺钉
+            const screwGeom = new THREE.CylinderGeometry(1.2, 1.2, 10, 12);
+            const screwHeadGeom = new THREE.CylinderGeometry(2.0, 1.2, 1.5, 12);
+            [[-21, -21], [21, -21], [-21, 21], [21, 21]].forEach(([sx, sz]) => {
+                const screw = new THREE.Mesh(screwGeom, materials.stainlessScrew);
+                const sHead = new THREE.Mesh(screwHeadGeom, materials.stainlessScrew);
+                sHead.position.y = 5.5;
+                const singleScrew = new THREE.Group();
+                singleScrew.add(screw);
+                singleScrew.add(sHead);
+                singleScrew.position.set(sx, 0, sz);
+                sealGroup.add(singleScrew);
+            });
+
+            registerComponent({
+                key: "fasteners_sealing",
+                object: sealGroup,
+                basePos: new THREE.Vector3(0, 0, 0),
+                explodeVec: new THREE.Vector3(0, 85, 0), // 螺钉弹至最上层
+                type: 'both'
+            });
+
+            // 4. PA12 尼龙内部轻量化镂空骨架 (Skeletal Truss Frame)
+            const trussGroup = new THREE.Group();
+            const trussBox = new THREE.Mesh(new THREE.BoxGeometry(44, 40, 44), materials.pa12Nylon);
+            trussGroup.add(trussBox);
+            // 内部大腔镂空示意
+            const innerCut = new THREE.Mesh(new THREE.BoxGeometry(38, 36, 38), new THREE.MeshBasicMaterial({ wireframe: true, color: 0x94a3b8 }));
+            trussGroup.add(innerCut);
+
+            registerComponent({
+                key: "truss_frame",
+                object: trussGroup,
+                basePos: new THREE.Vector3(0, 0, 0),
+                explodeVec: new THREE.Vector3(0, 18, 0), // 居中微抬
+                type: 'both'
+            });
+
+            // 5. 383040 动力锂电池组 (LiPo Core)
+            const batGroup = new THREE.Group();
+            const batBody = new THREE.Mesh(new THREE.BoxGeometry(38, 4.2, 30), materials.batterySilver);
+            batBody.castShadow = true;
+            batGroup.add(batBody);
+            // BMS 小板
+            const bmsPcb = new THREE.Mesh(new THREE.BoxGeometry(36, 1.2, 4), materials.goldContacts);
+            bmsPcb.position.set(0, 1.5, 14);
+            batGroup.add(bmsPcb);
+
+            registerComponent({
+                key: "battery_pack",
+                object: batGroup,
+                basePos: new THREE.Vector3(0, -9, 0),
+                explodeVec: new THREE.Vector3(0, -32, 0), // 沿 -Y 下移
+                type: 'both'
+            });
+
+            // 6. 4层沉金电路板 PCBA (Mainboard)
+            const pcbaGroup = new THREE.Group();
+            const pcb = new THREE.Mesh(new THREE.BoxGeometry(42, 1.2, 42), materials.pcbGreen);
+            pcb.castShadow = true;
+            pcbaGroup.add(pcb);
+            // ESP32-S3 模组屏蔽罩
+            const socChip = new THREE.Mesh(new THREE.BoxGeometry(18, 2.5, 18), materials.chipBlack);
+            socChip.position.set(-6, 1.8, -6);
+            pcbaGroup.add(socChip);
+            // DRV8833 与 LDO
+            const drvChip = new THREE.Mesh(new THREE.BoxGeometry(8, 1.8, 6), materials.chipBlack);
+            drvChip.position.set(10, 1.8, -8);
+            pcbaGroup.add(drvChip);
+            // MPU-6050 IMU
+            const imuChip = new THREE.Mesh(new THREE.BoxGeometry(4, 1.2, 4), materials.goldContacts);
+            imuChip.position.set(8, 1.4, 8);
+            pcbaGroup.add(imuChip);
+
+            registerComponent({
+                key: "mainboard_pcba",
+                object: pcbaGroup,
+                basePos: new THREE.Vector3(0, 4, 0),
+                explodeVec: new THREE.Vector3(0, 36, 0), // 沿 +Y 抬起
+                type: 'both'
+            });
+
+            // 7. 6面 EPM 复合磁路组件 (Top, Bottom, 4 Sides) - 内嵌平齐精密装配
+            // 7.1 Top EPM (+Y)
+            // 基准端面外表皮处于 Y = 25.02mm (与50mm机壳绝对平齐，含50um耐磨膜)，线圈与磁钢向下沉入机壳内腔
+            const epmTop = createEPMFaceAssembly(materials);
+            epmTop.rotation.x = 0;
+            registerComponent({
+                key: "epm_face_top",
+                object: epmTop,
+                basePos: new THREE.Vector3(0, 25.02, 0),
+                explodeVec: new THREE.Vector3(0, 75, 0),
+                type: 'both'
+            });
+
+            // 7.2 Bottom EPM (-Y)
+            // 绕 X 轴旋转 180°，基准端面外表皮处于 Y = -25.02mm (与底壳绝对平齐)，内部部件向上沉入底壳沉腔
+            const epmBottom = createEPMFaceAssembly(materials);
+            epmBottom.rotation.x = Math.PI;
+            registerComponent({
+                key: "epm_face_bottom",
+                object: epmBottom,
+                basePos: new THREE.Vector3(0, -25.02, 0),
+                explodeVec: new THREE.Vector3(0, -75, 0),
+                type: 'both'
+            });
+
+            // 7.3 Side EPMs: Front (+Z), Back (-Z), Left (-X), Right (+X)
+            const epmSidesGroup = new THREE.Group();
+
+            const epmFront = createEPMFaceAssembly(materials);
+            epmFront.rotation.x = Math.PI / 2;
+            epmFront.position.set(0, 0, 25.02);
+            epmSidesGroup.add(epmFront);
+
+            const epmBack = createEPMFaceAssembly(materials);
+            epmBack.rotation.x = -Math.PI / 2;
+            epmBack.position.set(0, 0, -25.02);
+            epmSidesGroup.add(epmBack);
+
+            const epmLeft = createEPMFaceAssembly(materials);
+            epmLeft.rotation.z = Math.PI / 2;
+            epmLeft.position.set(-25.02, 0, 0);
+            epmSidesGroup.add(epmLeft);
+
+            const epmRight = createEPMFaceAssembly(materials);
+            epmRight.rotation.z = -Math.PI / 2;
+            epmRight.position.set(25.02, 0, 0);
+            epmSidesGroup.add(epmRight);
+
+            registerComponent({
+                key: "epm_faces_side",
+                object: epmSidesGroup,
+                basePos: new THREE.Vector3(0, 0, 0),
+                explodeVec: new THREE.Vector3(0, 0, 0), // 内部子部件在 update 中向四周扩展
+                type: 'both',
+                customExplode: (factor) => {
+                    epmFront.position.z = 25.02 + factor * 60.0;
+                    epmBack.position.z = -25.02 - factor * 60.0;
+                    epmLeft.position.x = -25.02 - factor * 60.0;
+                    epmRight.position.x = 25.02 + factor * 60.0;
+                }
+            });
+
+            // 8. 方案 A 专用飞轮动力模块 (Flywheel + 1104 Motor, 仅在 Option A 显示)
+            const flywheelGroup = new THREE.Group();
+            const rotor = new THREE.Mesh(new THREE.CylinderGeometry(13.5, 13.5, 3.5, 32), materials.brassFlywheel);
+            rotor.rotation.z = Math.PI / 2;
+            rotor.castShadow = true;
+            flywheelGroup.add(rotor);
+            // 轮缘外挑配重加厚
+            const rim = new THREE.Mesh(new THREE.TorusGeometry(12, 1.8, 12, 32), materials.brassFlywheel);
+            rim.rotation.y = Math.PI / 2;
+            flywheelGroup.add(rim);
+            // 1104 电机定子
+            const stator = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 8, 16), materials.chipBlack);
+            stator.rotation.z = Math.PI / 2;
+            flywheelGroup.add(stator);
+
+            registerComponent({
+                key: "flywheel_unit",
+                object: flywheelGroup,
+                basePos: new THREE.Vector3(0, 0, 0),
+                explodeVec: new THREE.Vector3(45, 12, 0), // 向右上方脱出展示
+                type: 'option_a'
+            });
+
+            // 初始化各组件初始坐标与方案可见性
+            applyOptionVisibility();
+            applyExplosion(0.0);
+        }
+
+        function createEPMFaceAssembly(materials) {
+            const group = new THREE.Group();
+
+            // 1. 端面 DT4C 纯铁导磁极靴外露面 (CNC 精密高光磨平，外露表面与 50mm 机壳基准面绝对平齐，覆 50um Kapton 膜)
+            // 外表面位于 y = 0.0，沿 -Y 向机身内部沉入厚度 0.6mm (y 从 0.0 到 -0.6mm)
+            const poleShoe = new THREE.Mesh(new THREE.BoxGeometry(22.0, 0.6, 22.0), materials.ironPole);
+            poleShoe.position.set(0, -0.3, 0);
+            poleShoe.castShadow = true;
+            poleShoe.receiveShadow = true;
+            group.add(poleShoe);
+
+            // 2. 极靴居中近红外光通信收发透光视窗 (38kHz 脉冲，滤光片端面与极靴平齐)
+            const irOptics = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.62, 16), materials.chipBlack);
+            irOptics.position.set(0, -0.3, 0);
+            group.add(irOptics);
+
+            // 3. 端面 0.2mm 自对准浅盆导向槽定位框 (Flush Basin Bezel)
+            const basinBezel = new THREE.Mesh(new THREE.BoxGeometry(22.8, 0.2, 22.8), materials.pa12Nylon);
+            basinBezel.position.set(0, -0.1, 0);
+            group.add(basinBezel);
+
+            // -------------------------------------------------------------
+            // 内部驱动核心 (完全深埋于机壳 4.5mm 深度内凹沉腔中，y < -0.6mm)
+            // -------------------------------------------------------------
+
+            // 4. N52 钕铁硼强磁体 (安装于内部沉孔中，尺寸 6.0 x 3.4 x 6.0 mm)
+            const n52 = new THREE.Mesh(new THREE.BoxGeometry(6.0, 3.4, 6.0), materials.magnetNdFeB);
+            n52.position.set(-5.5, -2.4, 0);
+            n52.castShadow = true;
+            group.add(n52);
+
+            // 5. AlNiCo 5 铝镍钴可逆磁钢 (安装于内部沉孔中，Φ6.0 x 3.4 mm)
+            const alnico = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.0, 3.4, 16), materials.magnetAlNiCo);
+            alnico.position.set(5.5, -2.4, 0);
+            alnico.castShadow = true;
+            group.add(alnico);
+
+            // 6. LCP Bobbin 液晶聚合物耐温线圈骨架法兰 (Celanese Vectra E130i, 耐温 260℃)
+            const bobbinFlangeTop = new THREE.Mesh(new THREE.CylinderGeometry(5.4, 5.4, 0.35, 20), materials.goldContacts);
+            bobbinFlangeTop.position.set(5.5, -0.9, 0);
+            group.add(bobbinFlangeTop);
+
+            const bobbinFlangeBtm = new THREE.Mesh(new THREE.CylinderGeometry(5.4, 5.4, 0.35, 20), materials.goldContacts);
+            bobbinFlangeBtm.position.set(5.5, -3.9, 0);
+            group.add(bobbinFlangeBtm);
+
+            // 7. QZY-2/180 聚酰亚胺漆包线 120 匝脉冲励磁线圈 (同轴紧密套在 AlNiCo 磁钢与 Bobbin 骨架外，真空环氧灌封消振)
+            const coil = new THREE.Mesh(new THREE.TorusGeometry(4.2, 1.1, 14, 24), materials.copperCoil);
+            coil.rotation.x = Math.PI / 2;
+            coil.position.set(5.5, -2.4, 0);
+            coil.castShadow = true;
+            group.add(coil);
+
+            // 8. 内部 DT4C 纯铁导磁回铁/轭铁基座 (Inner Return Yoke, 22x0.8x22mm, 闭合退磁态内部低磁阻磁通)
+            const innerYoke = new THREE.Mesh(new THREE.BoxGeometry(22.0, 0.8, 22.0), materials.ironPole);
+            innerYoke.position.set(0, -4.5, 0);
+            innerYoke.castShadow = true;
+            group.add(innerYoke);
+
+            // 9. FPC S 弯柔性排线应力释放引出端
+            const fpcTab = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.3, 4.0), materials.goldContacts);
+            fpcTab.position.set(0, -4.7, 9.0);
+            group.add(fpcTab);
+
+            return group;
+        }
+
+        function registerComponent(comp) {
+            comp.object.userData = {
+                key: comp.key,
+                name: COMPONENT_DB[comp.key].name,
+                basePos: comp.basePos.clone(),
+                explodeVec: comp.explodeVec.clone()
+            };
+            // 递归使所有 Mesh 携带父级引用
+            comp.object.traverse(child => {
+                if (child.isMesh) {
+                    child.userData = comp.object.userData;
+                }
+            });
+            scene.add(comp.object);
+            components.push(comp);
+        }
+
+        // ====================================================================
+        // 装配引导虚线系统 (Assembly Guide Lines)
+        // ====================================================================
+
+        function buildGuideLines() {
+            // 清理旧线
+            while (guideLinesGroup.children.length > 0) {
+                guideLinesGroup.remove(guideLinesGroup.children[0]);
+            }
+
+            const lineMaterial = new THREE.LineDashedMaterial({
+                color: 0x38bdf8,
+                dashSize: 2.5,
+                gapSize: 1.5,
+                transparent: true,
+                opacity: 0.45
+            });
+
+            // 竖向轴装配引导线 (贯穿上下盖、PCBA、电池与螺栓)
+            const pointsY = [
+                new THREE.Vector3(0, -95, 0),
+                new THREE.Vector3(0, 95, 0)
+            ];
+            const geomY = new THREE.BufferGeometry().setFromPoints(pointsY);
+            const lineY = new THREE.Line(geomY, lineMaterial);
+            lineY.computeLineDistances();
+            guideLinesGroup.add(lineY);
+
+            // 4 角螺栓固定轴向线
+            [[-21, -21], [21, -21], [-21, 21], [21, 21]].forEach(([sx, sz]) => {
+                const pts = [
+                    new THREE.Vector3(sx, -75, sz),
+                    new THREE.Vector3(sx, 90, sz)
+                ];
+                const g = new THREE.BufferGeometry().setFromPoints(pts);
+                const l = new THREE.Line(g, lineMaterial);
+                l.computeLineDistances();
+                guideLinesGroup.add(l);
+            });
+
+            // 横向侧面极靴装配轴向线
+            const pointsX = [new THREE.Vector3(-90, 0, 0), new THREE.Vector3(90, 0, 0)];
+            const lineX = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pointsX), lineMaterial);
+            lineX.computeLineDistances();
+            guideLinesGroup.add(lineX);
+
+            const pointsZ = [new THREE.Vector3(0, 0, -90), new THREE.Vector3(0, 0, 90)];
+            const lineZ = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pointsZ), lineMaterial);
+            lineZ.computeLineDistances();
+            guideLinesGroup.add(lineZ);
+        }
+
+        // ====================================================================
+        // 拆分与动画运动学解算 (Explode Kinematics)
+        // ====================================================================
+
+        function applyExplosion(factor) {
+            explodeFactor = factor;
+            document.getElementById('val-explode-pct').innerText = `${Math.round(factor * 100)}%`;
+            document.getElementById('explode-slider').value = Math.round(factor * 100);
+
+            components.forEach(comp => {
+                if (!comp.object.visible) return;
+
+                if (comp.customExplode) {
+                    comp.customExplode(factor);
+                } else {
+                    const base = comp.basePos;
+                    const vec = comp.explodeVec;
+                    comp.object.position.set(
+                        base.x + vec.x * factor,
+                        base.y + vec.y * factor,
+                        base.z + vec.z * factor
+                    );
+                }
+            });
+        }
+
+        function applyOptionVisibility() {
+            components.forEach(comp => {
+                if (comp.type === 'both') {
+                    comp.object.visible = true;
+                } else if (comp.type === 'option_a') {
+                    comp.object.visible = (currentOption === 'A');
+                }
+            });
+        }
+
+        // ====================================================================
+        // 渲染风格切换 (实体 / X光 / 线框 / 剖切)
+        // ====================================================================
+
+        function setRenderStyle(style) {
+            renderStyle = style;
+            document.querySelectorAll('.tool-grid .tool-btn').forEach(b => {
+                if (b.id.startsWith('style-')) b.classList.remove('active');
+            });
+            document.getElementById(`style-${style}`).classList.add('active');
+
+            components.forEach(comp => {
+                comp.object.traverse(child => {
+                    if (child.isMesh) {
+                        if (style === 'wire') {
+                            child.material.wireframe = true;
+                        } else {
+                            child.material.wireframe = false;
+                        }
+
+                        if (style === 'xray') {
+                            if (child.material.transmission !== undefined) {
+                                child.material.opacity = 0.25;
+                                child.material.transparent = true;
+                            } else {
+                                child.material.opacity = 0.65;
+                                child.material.transparent = true;
+                            }
+                        } else if (style === 'solid') {
+                            child.material.transparent = (comp.key.includes('shell'));
+                            child.material.opacity = comp.key.includes('shell') ? 0.85 : 1.0;
+                        }
+                    }
+                });
+            });
+
+            // 剖切视效控制
+            if (style === 'cut') {
+                const clipPlane = new THREE.Plane(new THREE.Vector3(1, 1, 0).normalize(), 0);
+                renderer.clippingPlanes = [clipPlane];
+                renderer.localClippingEnabled = true;
+            } else {
+                renderer.clippingPlanes = [];
+                renderer.localClippingEnabled = false;
+            }
+        }
+
+        // ====================================================================
+        // 交互审查与射线拾取 (Raycasting & Inspection)
+        // ====================================================================
+
+        function setupInteractions() {
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            const container = document.getElementById('canvas-container');
+            const tooltip = document.getElementById('hover-tooltip');
+
+            window.addEventListener('mousemove', (event) => {
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(scene.children, true);
+
+                let hit = null;
+                for (let i = 0; i < intersects.length; i++) {
+                    const obj = intersects[i].object;
+                    if (obj.isMesh && obj.userData && obj.userData.key) {
+                        hit = obj;
+                        break;
+                    }
+                }
+
+                if (hit) {
+                    hoveredObject = hit;
+                    tooltip.innerText = hit.userData.name;
+                    tooltip.style.left = `${event.clientX}px`;
+                    tooltip.style.top = `${event.clientY}px`;
+                    tooltip.style.opacity = '1';
+                    document.body.style.cursor = 'pointer';
+                } else {
+                    hoveredObject = null;
+                    tooltip.style.opacity = '0';
+                    document.body.style.cursor = 'default';
+                }
+            });
+
+            window.addEventListener('click', (event) => {
+                if (event.clientY < 80 || event.clientY > window.innerHeight - 80) return;
+                if (event.clientX < 220 || event.clientX > window.innerWidth - 340) return;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(scene.children, true);
+
+                for (let i = 0; i < intersects.length; i++) {
+                    const obj = intersects[i].object;
+                    if (obj.isMesh && obj.userData && obj.userData.key) {
+                        selectComponent(obj.userData.key);
+                        return;
+                    }
+                }
+            });
+        }
+
+        function selectComponent(key) {
+            const data = COMPONENT_DB[key];
+            if (!data) return;
+
+            document.getElementById('insp-category').innerText = data.category;
+            document.getElementById('insp-name').innerText = data.name;
+            document.getElementById('insp-subtitle').innerText = data.subtitle;
+            document.getElementById('insp-desc').innerText = data.desc;
+            document.getElementById('insp-material').innerText = data.material;
+            document.getElementById('insp-dimensions').innerText = data.dimensions;
+            document.getElementById('insp-mass').innerText = data.mass;
+            document.getElementById('insp-tolerance').innerText = data.tolerance;
+            document.getElementById('insp-partno').innerText = data.partno;
+            document.getElementById('insp-connection').innerText = data.connection;
+
+            // 高亮选中的组件
+            components.forEach(comp => {
+                const isSelected = (comp.key === key);
+                comp.object.traverse(child => {
+                    if (child.isMesh && child.material) {
+                        if (isSelected) {
+                            child.material.emissive = new THREE.Color(0x0284c7);
+                            child.material.emissiveIntensity = 0.45;
+                        } else {
+                            child.material.emissive = new THREE.Color(0x000000);
+                            child.material.emissiveIntensity = 0.0;
+                        }
+                    }
+                });
+            });
+        }
+
+        // ====================================================================
+        // UI 事件绑定与动画过渡
+        // ====================================================================
+
+        document.getElementById('explode-slider').addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value) / 100.0;
+            applyExplosion(val);
+        });
+
+        document.getElementById('btn-animate-explode').addEventListener('click', () => {
+            targetExplodeFactor = (explodeFactor > 0.5) ? 0.0 : 1.0;
+            animateExplosion();
+        });
+
+        document.getElementById('btn-collapse').addEventListener('click', () => {
+            targetExplodeFactor = 0.0;
+            animateExplosion();
+        });
+
+        function animateExplosion() {
+            isAnimating = true;
+        }
+
+        // 方案 A 与方案 B 切换
+        document.getElementById('btn-opt-b').addEventListener('click', () => {
+            currentOption = 'B';
+            document.getElementById('btn-opt-b').classList.add('active');
+            document.getElementById('btn-opt-a').classList.remove('active');
+            applyOptionVisibility();
+            selectComponent('shell_upper');
+        });
+
+        document.getElementById('btn-opt-a').addEventListener('click', () => {
+            currentOption = 'A';
+            document.getElementById('btn-opt-a').classList.add('active');
+            document.getElementById('btn-opt-b').classList.remove('active');
+            applyOptionVisibility();
+            selectComponent('flywheel_unit');
+        });
+
+        // 渲染风格按钮
+        document.getElementById('style-solid').addEventListener('click', () => setRenderStyle('solid'));
+        document.getElementById('style-xray').addEventListener('click', () => setRenderStyle('xray'));
+        document.getElementById('style-wire').addEventListener('click', () => setRenderStyle('wire'));
+        document.getElementById('style-cut').addEventListener('click', () => setRenderStyle('cut'));
+
+        // 预设视角转换
+        function setCameraView(pos, target = [0, 0, 0]) {
+            const startTime = performance.now();
+            const startPos = camera.position.clone();
+            const endPos = new THREE.Vector3(...pos);
+
+            function updateCam(t) {
+                const elapsed = (t - startTime) / 600; // 600ms
+                if (elapsed < 1) {
+                    camera.position.lerpVectors(startPos, endPos, elapsed);
+                    controls.target.set(...target);
+                    requestAnimationFrame(updateCam);
+                } else {
+                    camera.position.copy(endPos);
+                    controls.target.set(...target);
+                }
+            }
+            requestAnimationFrame(updateCam);
+        }
+
+        document.getElementById('view-iso').addEventListener('click', () => {
+            setCameraView([110, 85, 130]);
+            updateActiveViewBtn('view-iso');
+        });
+        document.getElementById('view-front').addEventListener('click', () => {
+            setCameraView([0, 0, 160]);
+            updateActiveViewBtn('view-front');
+        });
+        document.getElementById('view-top').addEventListener('click', () => {
+            setCameraView([0, 180, 0]);
+            updateActiveViewBtn('view-top');
+        });
+        document.getElementById('view-side').addEventListener('click', () => {
+            setCameraView([170, 0, 0]);
+            updateActiveViewBtn('view-side');
+        });
+        document.getElementById('btn-reset-cam').addEventListener('click', () => {
+            setCameraView([110, 85, 130]);
+        });
+
+        function updateActiveViewBtn(id) {
+            ['view-iso', 'view-front', 'view-top', 'view-side'].forEach(bid => {
+                document.getElementById(bid).classList.toggle('active', bid === id);
+            });
+        }
+
+        // 复选框开关
+        document.getElementById('chk-guides').addEventListener('change', (e) => {
+            guideLinesGroup.visible = e.target.checked;
+        });
+        document.getElementById('chk-axes').addEventListener('change', (e) => {
+            axesHelper.visible = e.target.checked;
+        });
+        document.getElementById('chk-grid').addEventListener('change', (e) => {
+            gridHelper.visible = e.target.checked;
+        });
+        document.getElementById('chk-autorotate').addEventListener('change', (e) => {
+            controls.autoRotate = e.target.checked;
+            controls.autoRotateSpeed = 1.5;
+        });
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // ====================================================================
+        // 主渲染动画循环 (Render Loop)
+        // ====================================================================
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 平滑缓动插值爆炸
+            if (isAnimating) {
+                const diff = targetExplodeFactor - explodeFactor;
+                if (Math.abs(diff) > 0.002) {
+                    explodeFactor += diff * 0.08;
+                    applyExplosion(explodeFactor);
+                } else {
+                    applyExplosion(targetExplodeFactor);
+                    isAnimating = false;
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // 页面启动入口
+        window.addEventListener('DOMContentLoaded', () => {
+            initThreeScene();
+            animate();
+            // 默认选中上盖
+            selectComponent('shell_upper');
+        });
+    </script>
+</body>
+</html>

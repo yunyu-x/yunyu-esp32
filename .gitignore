@@ -68,4 +68,7 @@ tools/bin/
 external_repos/
 node_modules/
 *.exe
+*.db
 dist/public_preview_url.*
+web_preview/public_preview_url.*
+

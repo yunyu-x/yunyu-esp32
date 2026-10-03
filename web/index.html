@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>灵方 LingCube (microUnit) | 微型自重构机器人多体受力控制仿真平台</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- 顶部主导航栏 -->
+    <header class="top-navbar">
+        <div class="brand">
+            <div class="brand-logo">μU</div>
+            <div class="brand-title">灵方 LingCube <span style="font-size:12px; opacity:0.75;">(microUnit)</span> | 自重构具身控制仿真平台</div>
+            <span class="brand-tag">v2.0 HIL/SIL Ready</span>
+        </div>
+
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-scenario="single">① 灵方单体控制</button>
+            <button class="tab-btn" data-scenario="dual">② 双体爬升灵组</button>
+            <button class="tab-btn" data-scenario="multi">③ 多态构型装配</button>
+            <button class="tab-btn" data-scenario="swarm">④ 灵阵集群编队</button>
+            <button class="tab-btn" data-scenario="realistic">⑤ 真实高保真环境 (Realistic)</button>
+            <button class="tab-btn" data-scenario="prototype" id="tab-prototype">⑦ 手搓原型机落地 (Prototype)</button>
+            <button class="tab-btn" data-scenario="free">⑥ 自由力学沙盒</button>
+        </nav>
+
+        <div class="nav-controls">
+            <button class="ctrl-btn highlight" id="btn-toggle-realistic" title="开启真实多物理场：非光滑打滑、倒角迁移、电池内阻压降与焦耳热阻模型">
+                🔬 真实物理: <span id="val-realistic-badge" style="color:#38bdf8; font-weight:bold;">开启</span>
+            </button>
+            <button class="ctrl-btn primary" id="btn-play-pause">
+                <span id="play-icon">⏸</span> 运行中
+            </button>
+            <button class="ctrl-btn" id="btn-step">⏯ 单步</button>
+            <button class="ctrl-btn" id="btn-reset">🔄 重置</button>
+            <select class="speed-select" id="speed-select">
+                <option value="0.5">0.5x 慢放</option>
+                <option value="1.0" selected>1.0x 实时</option>
+                <option value="2.0">2.0x 加速</option>
+                <option value="5.0">5.0x 极速</option>
+            </select>
+            <a href="exploded_view.html" class="ctrl-btn highlight" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:rgba(2,132,199,0.35); border-color:#38bdf8; color:#fff;" title="打开 3D 内部结构交互拆分与装配透视平台">
+                💥 3D 结构爆炸图
+            </a>
+        </div>
+    </header>
+
+    <!-- 工作区主体 -->
+    <main class="main-workspace">
+
+        <!-- 左侧面板: 装配器与受力注入 -->
+        <aside class="side-panel left">
+            <!-- 模块装配配置 -->
+            <div class="panel-section">
+                <div class="section-title">⚙️ 灵组构型装配 (Assembler)</div>
+                <div class="form-group">
+                    <div class="form-label">
+                        <span>灵方数量 (LingCubes)</span>
+                        <span class="val" id="val-unit-count">1</span>
+                    </div>
+                    <input type="range" class="slider-input" id="slider-unit-count" min="1" max="32" value="1">
+                </div>
+                <div class="btn-grid">
+                    <button class="btn-action highlight" id="btn-topo-chain">🔗 灵链 (Chain)</button>
+                    <button class="btn-action" id="btn-topo-lattice">▦ 灵席 (Grid)</button>
+                    <button class="btn-action" id="btn-topo-ring">⭕ 灵环 (Ring)</button>
+                    <button class="btn-action" id="btn-topo-free">✨ 灵群 (Swarm)</button>
+                </div>
+            </div>
+
+            <!-- 交互式受力与力矩施加 -->
+            <div class="panel-section">
+                <div class="section-title">🎯 外部力学作用注入 (Force Injector)</div>
+                <div class="form-group">
+                    <div class="form-label">
+                        <span>作用力幅值 (Magnitude)</span>
+                        <span class="val" id="val-force-mag">1.5 N</span>
+                    </div>
+                    <input type="range" class="slider-input" id="slider-force-mag" min="0.2" max="5.0" step="0.1" value="1.5">
+                </div>
+
+                <div class="form-label"><span>空间推力方向 (3D Push)</span></div>
+                <div class="dpad-container">
+                    <div></div>
+                    <button class="dpad-btn" id="btn-push-up">▲ +Z 跃升</button>
+                    <div></div>
+                    <button class="dpad-btn" id="btn-push-left">◀ -X 后退</button>
+                    <button class="dpad-btn" id="btn-push-forward">● +Y 左推</button>
+                    <button class="dpad-btn" id="btn-push-right">▶ +X 前推</button>
+                    <div></div>
+                    <button class="dpad-btn" id="btn-push-back">▼ -Y 右推</button>
+                    <div></div>
+                </div>
+
+                <div class="btn-grid" style="margin-top: 8px;">
+                    <button class="btn-action" id="btn-torque-cw">↷ +扭矩 (顺时针)</button>
+                    <button class="btn-action" id="btn-torque-ccw">↶ -扭矩 (逆时针)</button>
+                </div>
+            </div>
+
+            <!-- 执行机构直接指令触发 -->
+            <div class="panel-section">
+                <div class="section-title">⚡ 内部执行机构触发 (Actuators)</div>
+                <div class="btn-grid">
+                    <button class="btn-action warning" id="btn-fire-coil">⚡ 触发线圈脉冲</button>
+                    <button class="btn-action danger" id="btn-impulse-brake">🛑 动量轮脉冲制动</button>
+                </div>
+                <div class="btn-grid" style="margin-top: 6px;">
+                    <button class="btn-action highlight" id="btn-toggle-epm">🧲 切换 EPM 锁止</button>
+                    <button class="btn-action highlight" id="btn-trigger-climb">🪜 触发双体爬升</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 中央 3D 物理视口 -->
+        <section class="viewport-container">
+            <canvas id="webgl-canvas"></canvas>
+
+            <!-- 实时悬浮 HUD 状态卡片 -->
+            <div class="viewport-hud">
+                <div class="hud-card">
+                    <div class="hud-label">仿真时间 (Time)</div>
+                    <div class="hud-value blue" id="hud-time">0.000 s</div>
+                </div>
+                <div class="hud-card">
+                    <div class="hud-label">状态机 (State)</div>
+                    <div class="hud-value green" id="hud-state">IDLE</div>
+                </div>
+                <div class="hud-card">
+                    <div class="hud-label">核心姿态 (Attitude)</div>
+                    <div class="hud-value orange" id="hud-attitude">0.00°</div>
+                </div>
+                <div class="hud-card">
+                    <div class="hud-label">能效指数 (CCUI / Stress)</div>
+                    <div class="hud-value" id="hud-metric">0.000</div>
+                </div>
+                <div class="hud-card" id="hud-card-slip">
+                    <div class="hud-label">地表接触滑移 (Slip)</div>
+                    <div class="hud-value green" id="hud-slip">LOCKED 0.0mm</div>
+                </div>
+                <div class="hud-card" id="hud-card-bat">
+                    <div class="hud-label">电芯端电压 (V_bat)</div>
+                    <div class="hud-value blue" id="hud-voltage">4.20 V</div>
+                </div>
+                <div class="hud-card" id="hud-card-temp">
+                    <div class="hud-label">腔体温度 (Temp)</div>
+                    <div class="hud-value orange" id="hud-temp">25.0 °C</div>
+                </div>
+            </div>
+
+            <div class="viewport-tip">
+                🖱️ 鼠标左键旋转视角 | 滚轮缩放 | 右键平移 | 点击单元施加推力
+            </div>
+        </section>
+
+        <!-- 右侧面板: 阶段物理与控制参数整定 -->
+        <aside class="side-panel right">
+            <div class="panel-section">
+                <div class="section-title">🎛️ 参数动态整定 (Tuning Panel)</div>
+
+                <!-- 单体参数卡片 -->
+                <div class="param-group" id="params-single">
+                    <div class="form-group">
+                        <div class="form-label"><span>动量轮目标转速</span><span class="val" id="val-rpm">18,000 RPM</span></div>
+                        <input type="range" class="slider-input" id="slider-rpm" min="6000" max="24000" step="500" value="18000">
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label"><span>脉冲制动力矩</span><span class="val" id="val-brake-torque">0.25 N*m</span></div>
+                        <input type="range" class="slider-input" id="slider-brake-torque" min="0.10" max="0.45" step="0.01" value="0.25">
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label"><span>EPM 地面吸附力</span><span class="val" id="val-epm-force">30 N</span></div>
+                        <input type="range" class="slider-input" id="slider-epm-force" min="0" max="50" step="1" value="30">
+                    </div>
+                </div>
+
+                <!-- 双体参数卡片 -->
+                <div class="param-group" id="params-dual" style="display:none;">
+                    <div class="form-group">
+                        <div class="form-label"><span>界面 EPM 最大吸附力</span><span class="val" id="val-inter-epm">35 N</span></div>
+                        <input type="range" class="slider-input" id="slider-inter-epm" min="10" max="60" step="1" value="35">
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label"><span>基底 A 单元地表锁止</span><span class="val" id="val-anchor-a">开启</span></div>
+                        <button class="btn-action highlight" id="btn-toggle-anchor-a">切换基底锁地</button>
+                    </div>
+                </div>
+
+                <!-- 多体参数卡片 -->
+                <div class="param-group" id="params-multi" style="display:none;">
+                    <div class="form-group">
+                        <div class="form-label"><span>蠕动波频率 (Freq)</span><span class="val" id="val-wave-freq">2.0 Hz</span></div>
+                        <input type="range" class="slider-input" id="slider-wave-freq" min="0.5" max="5.0" step="0.1" value="2.0">
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label"><span>尾部拖曳载荷 (Drag)</span><span class="val" id="val-pull-load">0 N</span></div>
+                        <input type="range" class="slider-input" id="slider-pull-load" min="0" max="50" step="2" value="0">
+                    </div>
+                </div>
+
+                <!-- 集群参数卡片 -->
+                <div class="param-group" id="params-swarm" style="display:none;">
+                    <div class="form-group">
+                        <div class="form-label"><span>集群控制模式</span><span class="val" id="val-swarm-mode">⚡ 仿生群智阵列</span></div>
+                        <div class="btn-grid" style="grid-template-columns: 1fr 1fr;">
+                            <button class="btn-action" id="btn-mode-flock">🕊️ 自由游弋</button>
+                            <button class="btn-action" id="btn-mode-assemble">🧩 晶格组装</button>
+                            <button class="btn-action highlight" id="btn-mode-neuromorphic" style="grid-column: span 2; background: linear-gradient(135deg, #0284c7, #4f46e5); font-weight: bold;">⚡ FlyDrones 仿生群智阵列</button>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 8px;">
+                        <div class="form-label"><span>目标阵列形貌</span><span class="val" id="val-formation-shape">方阵 Grid</span></div>
+                        <div class="btn-grid">
+                            <button class="btn-action highlight" id="btn-shape-square">方阵</button>
+                            <button class="btn-action" id="btn-shape-hex">蜂窝六边形</button>
+                            <button class="btn-action" id="btn-shape-circle">强固圆环</button>
+                            <button class="btn-action" id="btn-shape-stair">3D立体阶梯</button>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 8px;">
+                        <div class="btn-grid" style="grid-template-columns: 1fr 1fr;">
+                            <button class="btn-action warning" id="btn-inject-fault">⚡ 故障注入</button>
+                            <button class="btn-action" id="btn-self-healing" style="background:#10b981; color:white;">🛡️ 动态自愈</button>
+                        </div>
+                    </div>
+                    <!-- 仿生神经形态监视窗口 -->
+                    <div style="font-size: 11px; color: var(--text-muted); background: #0f172a; padding: 8px; border-radius: 6px; margin-top: 8px; border: 1px solid #1e293b;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+                            <span>HS/VS 视流反射:</span><b id="val-hs-vs-pulse" style="color:#38bdf8;">ACTIVE</b>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+                            <span>DNp01 巨纤维避撞:</span><b id="val-gf-alert" style="color:#4ade80;">READY (0)</b>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+                            <span>DNp03 双侧逃逸转向:</span><b id="val-dnp03-status" style="color:#f43f5e;">STANDBY (0)</b>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+                            <span>Haltere 平衡棒陀螺阻尼:</span><b id="val-haltere-status" style="color:#06b6d4;">DAMPED</b>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+                            <span>DCBA 群策群力竞价:</span><b id="val-dcba-converged" style="color:#a855f7;">100% 零冲突</b>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+                            <span>Hardware Safety Gov:</span><b id="val-safety-gov" style="color:#10b981;">NOMINAL (2.5m)</b>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span>单机 MCU 循环开销:</span><b id="val-mcu-timing" style="color:#f59e0b;">0.65 μs (O(k))</b>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 8px;">
+                        <button class="btn-action warning" id="btn-add-obstacle" style="width: 100%;">⚠️ 放置动态避障柱</button>
+                    </div>
+                </div>
+
+                <!-- 真实高保真环境参数卡片 -->
+                <div class="param-group" id="params-realistic" style="display:none;">
+                    <div class="form-group">
+                        <div class="form-label"><span>棱边倒角半径 (Fillet R)</span><span class="val" id="val-fillet-r">1.5 mm</span></div>
+                        <input type="range" class="slider-input" id="slider-fillet-r" min="0.5" max="3.0" step="0.1" value="1.5">
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label"><span>静摩擦系数 (μ_s)</span><span class="val" id="val-mu-s">0.45</span></div>
+                        <input type="range" class="slider-input" id="slider-mu-s" min="0.15" max="0.85" step="0.05" value="0.45">
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label"><span>电池内阻 (R_internal)</span><span class="val" id="val-r-int">120 mΩ</span></div>
+                        <input type="range" class="slider-input" id="slider-r-int" min="40" max="300" step="10" value="120">
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label"><span>机体散热热阻 (R_th)</span><span class="val" id="val-r-th">28.0 K/W</span></div>
+                        <input type="range" class="slider-input" id="slider-r-th" min="10" max="60" step="2" value="28">
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label"><span>地面 EPM 抗滑锁止 (30N)</span><span class="val" id="val-realistic-epm">开启 (抗滑移)</span></div>
+                        <button class="btn-action highlight" id="btn-toggle-realistic-epm" style="width: 100%;">切换地面 EPM 锁止</button>
+                    </div>
+                </div>
+
+                <!-- 手搓原型机数字孪生参数卡片 -->
+                <div class="param-group" id="params-prototype" style="display:none;">
+                    <div class="form-group">
+                        <div class="form-label"><span>国内供应链 BOM 状态</span><span class="val" style="color:#4ade80;">现货已锁定</span></div>
+                        <div style="font-size: 11px; color: var(--text-muted); background: #1e293b; padding: 6px; border-radius: 4px; margin-bottom: 6px;">
+                            <div>• 立创: STM32H743 + ICM42688 + TMC6300</div>
+                            <div>• 嘉立创: SLA 8000树脂外壳 + 4层PCB + FPC</div>
+                            <div>• 淘宝: 1104航模电机 + 22g黄铜飞轮 + EPM</div>
+                            <div>• 单机成本: <b>¥458.85</b> | 3机预算: <b>¥1,770</b></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label"><span>五大核心假说闭环验证</span><span class="val" style="color:#38bdf8;">100% PASS</span></div>
+                        <div style="font-size: 10px; line-height: 1.5; color: #94a3b8;">
+                            <div>✅ H1 动量轮越垒裕度: <b>6.82x</b> (>4.0x)</div>
+                            <div>✅ H2 EPM 抗滑移安全: <b>1.61x</b> (零打滑)</div>
+                            <div>✅ H3 电池 IR Sag 跌落: <b>2.74V</b> (>2.6V 无误保)</div>
+                            <div>✅ H4 双稳态 EPM 翻转: <b>35N</b> (维持 0W)</div>
+                            <div>✅ H5 红外视锥滤波: <b>±30°</b> (SNR>40dB)</div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 8px;">
+                        <button class="btn-action highlight" id="btn-run-prototype-bench" style="width: 100%;">⚡ 运行手搓数字孪生联合仿真</button>
+                    </div>
+                    <div class="form-group" style="margin-top: 4px;">
+                        <a href="/outputs/prototype_telemetry_curves.png" target="_blank" class="btn-action" style="display: block; text-align: center; text-decoration: none; padding: 6px 0;">📈 查看多物理场遥测波形</a>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 系统参数总览 -->
+            <div class="panel-section">
+                <div class="section-title">📊 物理常数与基线</div>
+                <div style="font-size: 11px; color: var(--text-muted); line-height: 1.6;">
+                    <div>• 模块外形: 50×50×50 mm 立方体</div>
+                    <div>• 单机自重: 85.0 g (飞轮 22g)</div>
+                    <div>• 势垒功限: 8.63 mJ (45° Saddle)</div>
+                    <div>• EPM 保持力: 35.0 N / 零静态功耗</div>
+                    <div>• 求解引擎: Symplectic Multi-Contact</div>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <!-- 底部可收起遥测仪表盘 -->
+    <footer class="bottom-dashboard" id="bottom-dashboard">
+        <div class="dashboard-header" id="dashboard-toggle">
+            <div class="dashboard-title">
+                <span>📈</span> 实时高频动力学遥测仪表盘 (Real-Time Telemetry & Dynamics Monitor)
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted);" id="toggle-hint">▼ 收起 / 展开</div>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-card">
+                <div class="chart-card-title">姿态角与位移 (Attitude / Pos)</div>
+                <div class="chart-canvas-wrapper"><canvas id="chart-attitude"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-title">动量轮转速与驱动力矩 (Actuation)</div>
+                <div class="chart-canvas-wrapper"><canvas id="chart-actuation"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-title">功率与总电能做功 (Energy & Work)</div>
+                <div class="chart-canvas-wrapper"><canvas id="chart-energy"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-title">集群序参量与应力 (Swarm / Stress)</div>
+                <div class="chart-canvas-wrapper"><canvas id="chart-metrics"></canvas></div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 离线/CDN 兼容脚本加载 -->
+    <script src="vendor/three.min.js"></script>
+    <script src="vendor/OrbitControls.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
+    
+    <!-- 物理仿真与核心控制脚本 -->
+    <script src="js/physics_engine.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
