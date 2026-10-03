@@ -126,12 +126,11 @@ public:
             _pCharDiary->setValue((uint8_t*)json_diary.c_str(), json_diary.length());
         }
 
-        // 3. 刷新对话记忆特征
+        // 3. 刷新对话记忆特征 (单帧快照保证结构 100% 完整合法，全量历史通过 streamMemoryChunked 流式分片拉取)
         if (_pCharMemory) {
-            String mem_json = StickS3MemoryStore::getInstance().getHistoryJSON();
+            String mem_json = StickS3MemoryStore::getInstance().getLatestTurnJSON();
             if (mem_json.length() > 0) {
-                String safe_mem = StickS3MemoryStore::safeTruncateUtf8(mem_json.c_str(), 120);
-                _pCharMemory->setValue((uint8_t*)safe_mem.c_str(), safe_mem.length());
+                _pCharMemory->setValue((uint8_t*)mem_json.c_str(), mem_json.length());
             }
         }
     }

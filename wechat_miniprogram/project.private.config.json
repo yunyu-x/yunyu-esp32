@@ -1,11 +1,7 @@
 {
   "libVersion": "3.17.2",
   "projectname": "lingbuddy-miniprogram",
-  "condition": {
-    "miniprogram": {
-      "list": []
-    }
-  },
+  "condition": {},
   "setting": {
     "urlCheck": false,
     "coverView": true,
@@ -18,10 +14,10 @@
     "useStaticServer": false,
     "useLanDebug": false,
     "showES6CompileOption": false,
-    "compileHotReLoad": false,
+    "compileHotReLoad": true,
     "useGlassEaselForWxml": false,
     "checkInvalidKey": true,
     "ignoreDevUnusedFiles": true,
     "bigPackageSizeSupport": false
   }
-}
+}

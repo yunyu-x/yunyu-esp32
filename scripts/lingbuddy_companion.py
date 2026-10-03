@@ -48,8 +48,8 @@ class LingBuddySimulatorClient:
         self.mood = 0
         self.diary_history = ["今天刚刚苏醒，期待和主人一起探索世界！"]
         self.memory_turns = [
-            {"role": "user", "content": "你好呀悄悄"},
-            {"role": "assistant", "content": "[E:happy] 你好主人！随时听候你的差遣~"}
+            {"role": "user", "content": "你好呀悄悄", "user": "你好呀悄悄", "ai": "你好主人！随时听候你的差遣~"},
+            {"role": "assistant", "content": "[E:happy] 你好主人！随时听候你的差遣~", "user": "你好呀悄悄", "ai": "你好主人！随时听候你的差遣~"}
         ]
 
     def read_status(self) -> Dict[str, Any]:
@@ -328,9 +328,12 @@ def create_web_app(simulator: Optional[LingBuddySimulatorClient] = None, vector_
     async def get_pet_diary():
         return {"diary": simulator.diary_history}
 
+    @app.get("/pet/memories")
     @app.get("/pet/memory")
     async def get_pet_memory():
         return {
+            "total": len(simulator.memory_turns),
+            "next_id": len(simulator.memory_turns) + 1,
             "turns": simulator.memory_turns,
             "chunks": simulator.get_chunked_memory()
         }

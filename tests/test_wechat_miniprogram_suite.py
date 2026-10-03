@@ -177,3 +177,130 @@ def test_miniprogram_ci_upload_script():
     assert "ci.Project" in src
     assert "ci.upload" in src
     assert "wxe41eb3a86da4e4e8" in src, "必须配置合法的 AppID"
+
+
+def test_ble_utf8_cross_chunk_reassembly():
+    """公理六验证：测试 BLE 0xFFB1 记忆分片跨包边界撕裂 UTF-8 字符时的二进制组包无乱码还原"""
+    node_script = """
+    const { StickS3BLEClient } = require('./wechat_miniprogram/utils/sticks3_ble.js');
+    const client = new StickS3BLEClient();
+
+    const expectedUser = "你好悄悄，今天北京天气怎么样？";
+    const expectedAi = "北京今天晴空万里，温度适宜，微风拂面，很适合外出散步哦！";
+    const payloadJson = JSON.stringify({
+        total: 1,
+        next_id: 2,
+        turns: [{
+            id: 1,
+            time: "+10s",
+            user: expectedUser,
+            ai: expectedAi,
+            voice: "Tina"
+        }]
+    });
+
+    const fullBytes = Buffer.from(payloadJson, 'utf-8');
+    const CHUNK_SIZE = 48; // 模拟硬件 48 字节切片，精准切断 3 字节汉字
+    const totalChunks = Math.ceil(fullBytes.length / CHUNK_SIZE);
+
+    let receivedList = null;
+    client.onMemoryReceived = (list) => {
+        receivedList = list;
+    };
+
+    // 逐片推送，故意在汉字多字节内部切割
+    for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const slice = fullBytes.subarray(start, start + CHUNK_SIZE);
+        const header = Buffer.from(`[C:${i + 1}/${totalChunks}]`);
+        const packet = Buffer.concat([header, slice]);
+        client.handleMemoryChunk(packet);
+    }
+
+    if (!receivedList || receivedList.length === 0) {
+        console.error("FAIL: No memory turns received");
+        process.exit(1);
+    }
+
+    const turn = receivedList[0];
+    if (turn.user !== expectedUser) {
+        console.error(`FAIL: User text mismatch. Got '${turn.user}', expected '${expectedUser}'`);
+        process.exit(2);
+    }
+    if (turn.ai !== expectedAi) {
+        console.error(`FAIL: AI text mismatch. Got '${turn.ai}', expected '${expectedAi}'`);
+        process.exit(3);
+    }
+
+    console.log("SUCCESS: UTF-8 cross-chunk memory reassembly passed with 0 Mojibake!");
+    """
+
+    res = subprocess.run(["node", "-e", node_script], cwd=ROOT_DIR, capture_output=True, text=True)
+    assert res.returncode == 0, f"BLE 分包 UTF-8 组包测试失败: {res.stderr}\n{res.stdout}"
+    assert "SUCCESS" in res.stdout
+
+
+def test_avatar_subtitle_dynamic_rendering():
+    """公理三与公理六验证：测试微表情 Canvas 字幕气泡动态解包与中文字符边界折行保护"""
+    node_script = """
+    const { AvatarRenderer } = require('./wechat_miniprogram/utils/avatar_renderer.js');
+    const renderer = new AvatarRenderer();
+
+    const filledLines = [];
+    const mockCtx = {
+        fillStyle: "",
+        font: "",
+        strokeStyle: "",
+        lineWidth: 1,
+        clearRect: () => {},
+        fillRect: () => {},
+        save: () => {},
+        restore: () => {},
+        scale: () => {},
+        beginPath: () => {},
+        arc: () => {},
+        fill: () => {},
+        stroke: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        arcTo: () => {},
+        rect: () => {},
+        closePath: () => {},
+        measureText: (str) => {
+            let w = 0;
+            for (let c of str) {
+                w += c.charCodeAt(0) > 127 ? 10 : 5.5;
+            }
+            return { width: w };
+        },
+        fillText: (text, x, y) => {
+            filledLines.push({ text, x, y });
+        }
+    };
+
+    // 1. 测试从 JSON 日记解包并正确折行
+    const jsonDiary = JSON.stringify({
+        time: 12345,
+        diary: "今天在桌面上晒太阳，等待主人下一次唤醒我，心底暖洋洋的~"
+    });
+    renderer.drawSubtitleText(mockCtx, { diary: jsonDiary });
+
+    if (filledLines.length === 0) {
+        console.error("FAIL: No subtitle lines rendered");
+        process.exit(1);
+    }
+
+    // 校验前导行没有多余的 JSON 花括号
+    const firstLine = filledLines[0].text;
+    if (firstLine.includes("{") || firstLine.includes("diary")) {
+        console.error("FAIL: JSON was not unwrapped properly:", firstLine);
+        process.exit(2);
+    }
+
+    console.log("SUCCESS: Avatar subtitle dynamic renderer passed!");
+    """
+
+    res = subprocess.run(["node", "-e", node_script], cwd=ROOT_DIR, capture_output=True, text=True)
+    assert res.returncode == 0, f"字幕气泡动态渲染测试失败: {res.stderr}\n{res.stdout}"
+    assert "SUCCESS" in res.stdout
+

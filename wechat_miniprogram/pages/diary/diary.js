@@ -86,8 +86,27 @@ Page({
     }
   },
 
+  normalizeMemories(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map((item, idx) => {
+      if (!item || typeof item !== "object") return null;
+      let user = item.user;
+      let ai = item.ai;
+      if (!user && item.role === "user") user = item.content;
+      if (!ai && (item.role === "assistant" || item.role === "ai")) ai = item.content;
+      return {
+        id: item.id || (idx + 1),
+        time: item.time || "",
+        user: user || "（无用户输入）",
+        ai: ai || "（无回复内容）",
+        voice: item.voice || "Tina"
+      };
+    }).filter(Boolean);
+  },
+
   loadMemories() {
-    const mems = StorageManager.getMemories();
+    const raw = StorageManager.getMemories();
+    const mems = this.normalizeMemories(raw);
     this.setData({ memories: mems });
   },
 
@@ -99,7 +118,8 @@ Page({
     }
 
     try {
-      const list = await buddyService.syncMemories();
+      const rawList = await buddyService.syncMemories();
+      const list = this.normalizeMemories(rawList);
       this.setData({ 
         memories: list || [],
         isSyncingMemories: false 

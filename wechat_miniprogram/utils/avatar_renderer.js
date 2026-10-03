@@ -314,18 +314,7 @@ class AvatarRenderer {
     }
 
     // 4. 对话字幕气泡 (Y: 154 ~ 216)
-    ctx.fillStyle = "#0f172a";
-    this.drawRoundRect(ctx, 6, 158, 123, 62, 8);
-    ctx.fill();
-    ctx.strokeStyle = "#1e293b";
-    ctx.stroke();
-
-    ctx.fillStyle = "#f8fafc";
-    ctx.font = "bold 10px sans-serif";
-    ctx.fillText("微信小程序直连中", 12, 178);
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "10px sans-serif";
-    ctx.fillText("隔空互动更有趣~", 12, 196);
+    this.drawSubtitleText(ctx, petState);
 
     // 5. 底部亲密度与活力状态条 (Y: 220 ~ 240)
     ctx.fillStyle = "#f472b6";
@@ -335,7 +324,112 @@ class AvatarRenderer {
     ctx.restore();
   }
 
+  // 灵宠字幕气泡动态渲染 (多行自适应折行 + Unicode/汉字边界安全截断，杜绝字符重叠与乱码)
+  drawSubtitleText(ctx, petState) {
+    const bx = 6;
+    const by = 158;
+    const bw = 123;
+    const bh = 62;
+
+    // 绘制深色拟物卡片底
+    ctx.fillStyle = "#0f172a";
+    this.drawRoundRect(ctx, bx, by, bw, bh, 8);
+    ctx.fill();
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // 动态提取字幕内容 (优先级: subtitle -> aiReply -> userQuery -> diary -> 默认提示)
+    let rawText = "";
+    if (petState) {
+      if (typeof petState.subtitle === "string" && petState.subtitle.trim()) {
+        rawText = petState.subtitle.trim();
+      } else if (typeof petState.aiReply === "string" && petState.aiReply.trim()) {
+        rawText = petState.aiReply.trim();
+      } else if (typeof petState.userQuery === "string" && petState.userQuery.trim()) {
+        rawText = petState.userQuery.trim();
+      } else if (typeof petState.diary === "string" && petState.diary.trim()) {
+        rawText = petState.diary.trim();
+      }
+    }
+    if (!rawText) {
+      rawText = "按正面[A]键开启对话~";
+    }
+
+    // 若包含 JSON 结构，解包提取关键字段
+    if (rawText.startsWith("{") && rawText.endsWith("}")) {
+      try {
+        const obj = JSON.parse(rawText);
+        rawText = obj.diary || obj.text || obj.msg || obj.content || rawText;
+      } catch (e) {}
+    }
+
+    // 过滤可能包含的情绪协议标签如 [E:happy]
+    rawText = rawText.replace(/\[[Ee]:[a-zA-Z0-9_]+\]/g, "").trim();
+
+    // 多行自适应折行解算 (基于字符边界保护，杜绝乱码与溢出)
+    const textX = bx + 6;
+    const maxTextWidth = bw - 12; // 111px 可用宽度
+    const chars = Array.from(rawText);
+    const lines = [];
+    let curLine = "";
+
+    ctx.font = "10px sans-serif";
+    for (let i = 0; i < chars.length; i++) {
+      const c = chars[i];
+      if (c === "\n" || c === "\r") {
+        if (curLine) lines.push(curLine);
+        curLine = "";
+        continue;
+      }
+      const test = curLine + c;
+      const metrics = ctx.measureText ? ctx.measureText(test) : { width: test.length * 10 };
+      const testWidth = metrics ? metrics.width : (test.length * 10);
+      if (testWidth > maxTextWidth) {
+        if (lines.length >= 2) {
+          // 达到第 3 行上限，使用省略号安全截断
+          curLine = curLine.slice(0, Math.max(0, curLine.length - 1)) + "...";
+          lines.push(curLine);
+          curLine = "";
+          break;
+        } else {
+          lines.push(curLine);
+          curLine = c;
+        }
+      } else {
+        curLine = test;
+      }
+    }
+    if (curLine && lines.length < 3) {
+      lines.push(curLine);
+    }
+
+    // 渲染折行文本
+    const startY = by + 18;
+    const lineHeight = 15;
+    for (let i = 0; i < lines.length; i++) {
+      if (i === 0) {
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 10px sans-serif";
+      } else {
+        ctx.fillStyle = "#cbd5e1";
+        ctx.font = "10px sans-serif";
+      }
+      ctx.fillText(lines[i], textX, startY + i * lineHeight);
+    }
+  }
+
   drawRoundRect(ctx, x, y, w, h, r) {
+    if (typeof ctx.roundRect === "function") {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    if (typeof ctx.arcTo !== "function") {
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      return;
+    }
     ctx.beginPath();
     ctx.moveTo(x + r, y);
     ctx.arcTo(x + w, y, x + w, y + h, r);

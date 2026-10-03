@@ -249,6 +249,30 @@ public:
         return output;
     }
 
+    // 获取仅包含最新 1 轮对话的紧凑合法 JSON (保证 BLE 单帧 Snapshot 100% 语法合法，杜绝截断导致 JSON 崩溃)
+    String getLatestTurnJSON() const {
+        JsonDocument doc;
+        doc["total"] = _turn_count;
+        doc["next_id"] = _next_turn_id;
+        JsonArray arr = doc["turns"].to<JsonArray>();
+
+        if (_turns && _turn_count > 0) {
+            const auto& t = _turns[_turn_count - 1];
+            JsonObject item = arr.add<JsonObject>();
+            item["id"] = t.turn_id;
+            item["time"] = t.time_str;
+            item["user"] = t.user_text;
+            item["ai"] = t.ai_text;
+            item["voice"] = t.voice;
+            item["duration_ms"] = t.duration_ms;
+        }
+
+        String output;
+        output.reserve(384);
+        serializeJson(doc, output);
+        return output;
+    }
+
     // 清空全部内存与持久化历史
     void clearMemory() {
         _turn_count = 0;

@@ -255,12 +255,21 @@ class StickS3BLEClient {
     });
   }
 
-  // 特征值消息解码分发
+  // 特征值消息解码分发 (遵循公理六：自适应协议与防截断编码公理)
   handleCharacteristicValueChange(res) {
+    if (!res || !res.characteristicId || !res.value) return;
     const charId = res.characteristicId.toUpperCase();
+
+    // 1. 记忆流切片通知 (0xFFB1)
+    // 关键修复：直接传递原始 ArrayBuffer，严禁在分片边界前提前做字符串转换，杜绝多字节 UTF-8 中文撕裂乱码
+    if (charId.includes("FFB1")) {
+      this.handleMemoryChunk(res.value);
+      return;
+    }
+
     const str = this.ab2str(res.value);
 
-    // 1. 灵宠状态快照通知 (0xFFB2)
+    // 2. 灵宠状态快照通知 (0xFFB2)
     if (charId.includes("FFB2")) {
       try {
         const status = JSON.parse(str);
@@ -269,52 +278,120 @@ class StickS3BLEClient {
         console.error("[BLE] Parse FFB2 status JSON error:", e);
       }
     }
-    // 2. 灵宠心声日记通知 (0xFFB3)
+    // 3. 灵宠心声日记通知 (0xFFB3)
     else if (charId.includes("FFB3")) {
-      if (this.onDiaryReceived) this.onDiaryReceived(str);
-    }
-    // 3. 记忆流切片通知 (0xFFB1)
-    else if (charId.includes("FFB1")) {
-      this.handleMemoryChunk(str);
+      let diaryText = str;
+      try {
+        const dDoc = JSON.parse(str);
+        if (dDoc && typeof dDoc === "object") {
+          diaryText = dDoc.diary || dDoc.text || dDoc.content || str;
+        }
+      } catch (e) {
+        // 非 JSON 则直接作为纯文本日记
+      }
+      if (this.onDiaryReceived) this.onDiaryReceived(diaryText);
     }
   }
 
-  // 处理 0xFFB1 分片记忆还原算法 (兼容 "/" 与 ":" 分隔符及 1-based 序号)
+  // 处理 0xFFB1 分片记忆还原算法 (原生二进制 Uint8Array 级分片聚合，全片到达后单次 UTF-8 整体解码)
   handleMemoryChunk(chunk) {
-    if (!chunk || !chunk.startsWith("[C:")) return;
-    const endHeader = chunk.indexOf("]");
-    if (endHeader < 0) return;
+    if (!chunk) return;
 
-    const header = chunk.substring(3, endHeader);
-    const parts = header.includes("/") ? header.split("/") : header.split(":");
-    if (parts.length < 2) return;
-
-    const cur = parseInt(parts[0], 10);
-    const total = parseInt(parts[1], 10);
-    const payload = chunk.substring(endHeader + 1);
-
-    if (isNaN(cur) || isNaN(total) || total <= 0) return;
-
-    if (!this.memoryChunks || this.expectedTotalChunks !== total || cur === 1) {
-      this.memoryChunks = new Array(total);
-      this.expectedTotalChunks = total;
+    // 兼容二进制 ArrayBuffer / Uint8Array 及字符串入参
+    let bytes;
+    if (typeof chunk === "string") {
+      bytes = new Uint8Array(this.str2ab(chunk));
+    } else if (chunk instanceof Uint8Array) {
+      bytes = chunk;
+    } else if (chunk instanceof ArrayBuffer) {
+      bytes = new Uint8Array(chunk);
+    } else {
+      return;
     }
 
-    // 0-based 槽位存储 (固件 i+1 发送 1..total)
-    const slotIdx = cur >= 1 ? (cur - 1) : cur;
-    this.memoryChunks[slotIdx] = payload;
+    if (bytes.length === 0) return;
 
-    const receivedCount = this.memoryChunks.filter(c => c !== undefined).length;
-    if (receivedCount === this.expectedTotalChunks) {
-      const fullJson = this.memoryChunks.join("");
-      this.memoryChunks = [];
-      this.expectedTotalChunks = 0;
+    // 检查是否包含 [C:cur/total] 协议分片帧 (ASCII: '['=0x5B, 'C'=0x43, ':'=0x3A, ']'=0x5D)
+    if (bytes.length >= 7 && bytes[0] === 0x5B && bytes[1] === 0x43 && bytes[2] === 0x3A) {
+      let endHeader = -1;
+      for (let i = 3; i < bytes.length && i < 32; i++) {
+        if (bytes[i] === 0x5D) { // ']'
+          endHeader = i;
+          break;
+        }
+      }
+
+      if (endHeader > 3) {
+        let headerStr = "";
+        for (let i = 3; i < endHeader; i++) {
+          headerStr += String.fromCharCode(bytes[i]);
+        }
+        const parts = headerStr.includes("/") ? headerStr.split("/") : headerStr.split(":");
+        if (parts.length >= 2) {
+          const cur = parseInt(parts[0], 10);
+          const total = parseInt(parts[1], 10);
+          const payloadBytes = bytes.subarray(endHeader + 1);
+
+          if (!isNaN(cur) && !isNaN(total) && total > 0) {
+            // 新流开始或总片数不匹配时重置
+            if (!this.memoryRawChunks || this.expectedTotalChunks !== total || cur === 1) {
+              this.memoryRawChunks = new Array(total);
+              this.expectedTotalChunks = total;
+              if (this.memoryChunkTimer) clearTimeout(this.memoryChunkTimer);
+              // 设置 3 秒超时熔断，防止丢包悬挂
+              this.memoryChunkTimer = setTimeout(() => {
+                this.memoryRawChunks = null;
+                this.expectedTotalChunks = 0;
+              }, 3000);
+            }
+
+            // 0-based 槽位存储 (固件 1..total 映射到 0..total-1)
+            const slotIdx = cur >= 1 ? (cur - 1) : cur;
+            this.memoryRawChunks[slotIdx] = payloadBytes;
+
+            const receivedCount = this.memoryRawChunks.filter(c => c !== undefined).length;
+            if (receivedCount === this.expectedTotalChunks) {
+              if (this.memoryChunkTimer) clearTimeout(this.memoryChunkTimer);
+              
+              // 聚合全部原始二进制分片切片
+              const totalBytes = this.memoryRawChunks.reduce((acc, c) => acc + (c ? c.length : 0), 0);
+              const merged = new Uint8Array(totalBytes);
+              let offset = 0;
+              for (let i = 0; i < this.expectedTotalChunks; i++) {
+                const c = this.memoryRawChunks[i];
+                if (c) {
+                  merged.set(c, offset);
+                  offset += c.length;
+                }
+              }
+              this.memoryRawChunks = null;
+              this.expectedTotalChunks = 0;
+
+              // 整体执行一次完整的 UTF-8 解码，100% 杜绝跨包中文字节被撕裂破坏
+              const fullJson = this.ab2str(merged);
+              try {
+                const memData = JSON.parse(fullJson);
+                const list = Array.isArray(memData) ? memData : (memData.turns || memData.memories || []);
+                if (this.onMemoryReceived) this.onMemoryReceived(list);
+              } catch (e) {
+                console.error("[BLE] Reassemble memory JSON error:", e, "raw:", fullJson);
+              }
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    // 非分片格式：可能是单包直推的有效 JSON (例如以 '{' 或 '[' 开头)
+    const directJson = this.ab2str(bytes);
+    if (directJson && (directJson.startsWith("{") || directJson.startsWith("["))) {
       try {
-        const memData = JSON.parse(fullJson);
+        const memData = JSON.parse(directJson);
         const list = Array.isArray(memData) ? memData : (memData.turns || memData.memories || []);
         if (this.onMemoryReceived) this.onMemoryReceived(list);
       } catch (e) {
-        console.error("[BLE] Reassemble memory JSON error:", e, "raw:", fullJson);
+        console.warn("[BLE] Parse direct memory JSON error:", e);
       }
     }
   }
@@ -449,21 +526,61 @@ class StickS3BLEClient {
     }
   }
 
-  // 工具函数: ArrayBuffer <-> String
+  // 工具函数: ArrayBuffer <-> String (自适应 UTF-8 多字节保护，杜绝汉字与 Emoji 乱码)
   ab2str(buf) {
-    const uint8 = new Uint8Array(buf);
-    let str = "";
-    for (let i = 0; i < uint8.length; i++) {
-      str += String.fromCharCode(uint8[i]);
+    if (!buf) return "";
+    const uint8 = (buf instanceof Uint8Array) ? buf : new Uint8Array(buf);
+    if (typeof TextDecoder !== "undefined") {
+      try {
+        return new TextDecoder("utf-8").decode(uint8);
+      } catch (e) {}
     }
-    try {
-      return decodeURIComponent(escape(str));
-    } catch (e) {
-      return str;
+
+    // 纯 JS 原生 UTF-8 解码状态机 (完美处理 1~4 字节 Unicode 字符与 Emoji)
+    let out = "";
+    let i = 0;
+    const len = uint8.length;
+    while (i < len) {
+      const b0 = uint8[i++];
+      if (b0 < 0x80) {
+        out += String.fromCharCode(b0);
+      } else if ((b0 & 0xE0) === 0xC0) {
+        if (i < len) {
+          const b1 = uint8[i++];
+          out += String.fromCharCode(((b0 & 0x1F) << 6) | (b1 & 0x3F));
+        }
+      } else if ((b0 & 0xF0) === 0xE0) {
+        if (i + 1 < len) {
+          const b1 = uint8[i++];
+          const b2 = uint8[i++];
+          out += String.fromCharCode(((b0 & 0x0F) << 12) | ((b1 & 0x3F) << 6) | (b2 & 0x3F));
+        }
+      } else if ((b0 & 0xF8) === 0xF0) {
+        if (i + 2 < len) {
+          const b1 = uint8[i++];
+          const b2 = uint8[i++];
+          const b3 = uint8[i++];
+          let cp = ((b0 & 0x07) << 18) | ((b1 & 0x3F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
+          if (cp > 0xFFFF) {
+            cp -= 0x10000;
+            out += String.fromCharCode(0xD800 + (cp >> 10));
+            out += String.fromCharCode(0xDC00 + (cp & 0x3FF));
+          } else {
+            out += String.fromCharCode(cp);
+          }
+        }
+      }
     }
+    return out;
   }
 
   str2ab(str) {
+    if (!str) return new ArrayBuffer(0);
+    if (typeof TextEncoder !== "undefined") {
+      try {
+        return new TextEncoder().encode(str).buffer;
+      } catch (e) {}
+    }
     const utf8Str = unescape(encodeURIComponent(str));
     const buf = new ArrayBuffer(utf8Str.length);
     const bufView = new Uint8Array(buf);

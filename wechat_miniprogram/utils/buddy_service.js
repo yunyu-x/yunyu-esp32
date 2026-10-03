@@ -95,7 +95,18 @@ class BuddyService {
       if (Array.isArray(mems)) {
         this.memoryTurns = mems;
         StorageManager.saveMemories(mems);
+        if (mems.length > 0) {
+          const latest = mems[0];
+          if (latest && (latest.ai || latest.user)) {
+            this.petState.subtitle = latest.ai || latest.user;
+          }
+        }
         this.notifyListeners("memory", mems);
+        this.notifyListeners("sync", {
+          petState: this.petState,
+          hotspot: this.hotspot,
+          deviceWifi: this.deviceWifi
+        });
       }
     };
 
@@ -169,7 +180,20 @@ class BuddyService {
     if (st.grooms !== undefined) cur.grooms = st.grooms;
     if (st.pets !== undefined) cur.pets = st.pets;
     if (st.shakes !== undefined) cur.shakes = st.shakes;
-    if (st.diary) cur.diary = st.diary;
+    if (st.diary) {
+      let d = st.diary;
+      if (typeof d === "string" && d.trim().startsWith("{") && d.trim().endsWith("}")) {
+        try {
+          const parsed = JSON.parse(d.trim());
+          d = (parsed && (parsed.diary || parsed.text || parsed.content)) || d;
+        } catch (e) {}
+      }
+      cur.diary = d;
+      cur.subtitle = d;
+    }
+    if (st.subtitle) {
+      cur.subtitle = st.subtitle;
+    }
 
     // 同步热点遥测指标
     let hotspotChanged = false;
@@ -232,11 +256,32 @@ class BuddyService {
   // 接收并沉淀新日记
   handleIncomingDiary(diaryText, tag = "📖 心声") {
     if (!diaryText) return;
+    let cleanText = diaryText;
+    if (typeof cleanText === "object" && cleanText !== null) {
+      cleanText = cleanText.diary || cleanText.text || cleanText.content || JSON.stringify(cleanText);
+    } else if (typeof cleanText === "string") {
+      const trimmed = cleanText.trim();
+      if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          cleanText = (parsed && (parsed.diary || parsed.text || parsed.content)) || cleanText;
+        } catch (e) {}
+      }
+    }
+    if (!cleanText || typeof cleanText !== "string" || !cleanText.trim()) return;
+    cleanText = cleanText.trim();
+
     haptics.notification();
-    this.petState.diary = diaryText;
-    const entry = StorageManager.saveDiaryEntry(diaryText, this.petState.mood, tag);
+    this.petState.diary = cleanText;
+    this.petState.subtitle = cleanText;
+    const entry = StorageManager.saveDiaryEntry(cleanText, this.petState.mood, tag);
     this.diaries = StorageManager.getDiaries();
-    this.notifyListeners("diary", { entry, diaries: this.diaries, latest: diaryText });
+    this.notifyListeners("diary", { entry, diaries: this.diaries, latest: cleanText });
+    this.notifyListeners("sync", {
+      petState: this.petState,
+      hotspot: this.hotspot,
+      deviceWifi: this.deviceWifi
+    });
   }
 
   // 动作下发主路由
@@ -638,7 +683,16 @@ class BuddyService {
         if (Array.isArray(mems) && mems.length > 0) {
           this.memoryTurns = mems;
           StorageManager.saveMemories(mems);
+          const latest = mems[0];
+          if (latest && (latest.ai || latest.user)) {
+            this.petState.subtitle = latest.ai || latest.user;
+          }
           this.notifyListeners("memory", mems);
+          this.notifyListeners("sync", {
+            petState: this.petState,
+            hotspot: this.hotspot,
+            deviceWifi: this.deviceWifi
+          });
           return mems;
         }
       } catch (e) {
@@ -655,6 +709,17 @@ class BuddyService {
         const cleanup = (result) => {
           if (timer) clearTimeout(timer);
           this.bleClient.onMemoryReceived = originalOnMemory;
+          if (Array.isArray(result) && result.length > 0) {
+            const latest = result[0];
+            if (latest && (latest.ai || latest.user)) {
+              this.petState.subtitle = latest.ai || latest.user;
+            }
+            this.notifyListeners("sync", {
+              petState: this.petState,
+              hotspot: this.hotspot,
+              deviceWifi: this.deviceWifi
+            });
+          }
           resolve(result);
         };
 

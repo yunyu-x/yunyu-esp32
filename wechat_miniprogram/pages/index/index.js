@@ -167,7 +167,14 @@ Page({
     const connText = evt.connectionStatusText || this.buddyService.connectionStatusText;
     if (this.data.connectionStatusText !== connText) patch.connectionStatusText = connText;
 
-    if (!this.data.petState || this.data.petState.mood !== st.mood || this.data.petState.level !== st.level || this.data.petState.xp !== st.xp || this.data.petState.energy !== st.energy) {
+    if (!this.data.petState || 
+        this.data.petState.mood !== st.mood || 
+        this.data.petState.level !== st.level || 
+        this.data.petState.xp !== st.xp || 
+        this.data.petState.energy !== st.energy ||
+        this.data.petState.diary !== st.diary ||
+        this.data.petState.subtitle !== st.subtitle ||
+        this.data.petState.name !== st.name) {
       patch.petState = st;
     }
 
@@ -188,7 +195,15 @@ Page({
   refreshMemories() {
     const mems = StorageManager.getMemories();
     const count = mems.length;
-    const latest = count > 0 ? mems[count - 1] : null;
+    let latest = null;
+    if (count > 0) {
+      // 兼容固件倒序 (mems[0] 最新) 与正序存储模式
+      if (mems[0] && mems[0].id !== undefined && mems[count - 1] && mems[count - 1].id !== undefined) {
+        latest = (mems[0].id >= mems[count - 1].id) ? mems[0] : mems[count - 1];
+      } else {
+        latest = mems[0] || mems[count - 1];
+      }
+    }
     this.setData({
       memoryCount: count,
       latestMemory: latest
