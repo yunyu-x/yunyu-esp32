@@ -314,7 +314,7 @@ public:
         int16_t buf[buf_samples];
         float phase = 0.0f;
         float phase_inc = 2.0f * 3.14159265f * freq_hz / SAMPLE_RATE;
-        float amp = volume * 32767.0f;
+        float amp = volume * ((float)_speaker_volume / 100.0f) * 32767.0f;
 
         uint32_t total_samples = (uint32_t)SAMPLE_RATE * duration_ms / 1000;
         uint32_t samples_generated = 0;
@@ -671,7 +671,7 @@ public:
     }
 
     // 设置喇叭播放音量 (0~100%, 默认 70% 黄金防破音区间)
-    void setSpeakerVolume(uint8_t volume_pct) {
+    void setSpeakerVolume(uint8_t volume_pct, bool play_feedback = false) {
         if (volume_pct > 100) volume_pct = 100;
         _speaker_volume = volume_pct;
         if (_initialized) {
@@ -679,6 +679,9 @@ public:
             writeESReg(0x32, dac_val);
             Serial.printf("[AUDIO] Speaker volume updated to %u%% (ES8311 Reg 0x32: 0x%02X)\n",
                           (unsigned)_speaker_volume, dac_val);
+            if (play_feedback && !_is_streaming_llm && !_is_recording) {
+                playTone(1200, 60, 0.45f);
+            }
         }
     }
     uint8_t getSpeakerVolume() const { return _speaker_volume; }
@@ -716,12 +719,18 @@ public:
                     n &= ~1;
 
                     if (n > 0) {
+                        // 1. 软件数字增益动态缩放 (以 70% 为标准 0dB 基准，辅以感知线性缩放)
+                        int32_t vol = (int32_t)_speaker_volume;
+                        if (vol < 0) vol = 0;
+                        if (vol > 100) vol = 100;
+
                         // 2. 16-bit 样本级防破音软饱和限幅器 (Soft-Knee Peak Limiter):
                         // 保护微型喇叭振膜物理冲程，消除大模型极端 TTS 峰值导致的机械硬失真破音
                         int16_t* s_ptr = (int16_t*)chunk;
                         size_t samples = n / sizeof(int16_t);
                         for (size_t i = 0; i < samples; ++i) {
-                            int32_t val = s_ptr[i];
+                            int32_t val = (int32_t)s_ptr[i];
+                            val = (val * vol) / 70; // 70% 保持 1.0 原生增益，10%~100% 具备明显人耳感知动态
                             if (val > 26000) {
                                 val = 26000 + ((val - 26000) >> 2);
                                 if (val > 32500) val = 32500;
@@ -1020,9 +1029,13 @@ private:
     bool _codec_full_duplex;
 
     uint8_t calcDacVolume() const {
-        // ES8311 Reg 0x32: 0x00 (-95.5dB) to 0xBF (0dB, 191)
-        // 映射 0~100% 至最佳无破音区间 (默认 70% 对应 176 / 0xB0, 约 -7.5dB)
-        return (uint8_t)(((uint32_t)_speaker_volume * 191) / 100);
+        if (_speaker_volume == 0) return 0x00;
+        // 0~100 映射至 0x40 (64, -63.5dB) ~ 0xBF (191, 0dB)，70% 精确对应 0xB0 (176, -7.5dB)
+        if (_speaker_volume <= 70) {
+            return (uint8_t)(64 + ((uint32_t)_speaker_volume * (176 - 64)) / 70);
+        } else {
+            return (uint8_t)(176 + (((uint32_t)_speaker_volume - 70) * (191 - 176)) / 30);
+        }
     }
 
     void ensureRecordBuffer() {

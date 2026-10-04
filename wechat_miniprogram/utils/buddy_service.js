@@ -925,8 +925,8 @@ class BuddyService {
     StorageManager.saveSettings(settings);
 
     let devSent = false;
-    // 2. BLE 下发
-    if (this.isBleMode && this.bleClient.isConnected) {
+    // 2. BLE 下发 (无论当前是否标记为 isBleMode，只要 BLE 物理连接在线均实时推送)
+    if (this.bleClient && this.bleClient.isConnected) {
       try {
         await this.bleClient.injectAction("volume", { action: "volume", volume: vol });
         devSent = true;
@@ -935,7 +935,7 @@ class BuddyService {
       }
     }
 
-    // 3. HTTP 下发
+    // 3. HTTP 下发 (如果处于 Wi-Fi 模式或已配置合法设备 host)
     if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
       try {
         await this.httpClient.setSpeakerVolume(vol);
@@ -948,6 +948,36 @@ class BuddyService {
     }
 
     return { success: true, volume: vol, deviceTriggered: devSent };
+  }
+
+  // --- 试听伴侣播音音量 (发送测试和弦/提示音，直观感受当前响度) ---
+  async testSpeakerVolume(volume) {
+    if (volume !== undefined) {
+      await this.setSpeakerVolume(volume);
+    }
+
+    let devSent = false;
+    if (this.bleClient && this.bleClient.isConnected) {
+      try {
+        await this.bleClient.injectAction("test_volume", { action: "test_volume" });
+        devSent = true;
+      } catch (e) {
+        console.warn("[BuddyService] BLE testSpeakerVolume failed:", e);
+      }
+    }
+
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      try {
+        await this.httpClient.testSpeakerVolume();
+        devSent = true;
+      } catch (e) {
+        if (!devSent) {
+          console.warn("[BuddyService] HTTP testSpeakerVolume failed:", e);
+        }
+      }
+    }
+
+    return { success: true, deviceTriggered: devSent };
   }
 
   // --- 查询百炼状态 ---

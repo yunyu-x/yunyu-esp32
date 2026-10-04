@@ -451,7 +451,7 @@ class StickS3HttpClient {
         url: `http://${this.host}/audio/volume`,
         method: "POST",
         header: { "Content-Type": "application/x-www-form-urlencoded" },
-        data: `volume=${volume}`,
+        data: `volume=${parseInt(volume, 10)}`,
         timeout: 4000,
         success: (res) => {
           if (res.statusCode === 200 && res.data) {
@@ -463,6 +463,19 @@ class StickS3HttpClient {
         fail: (err) => {
           reject(err);
         }
+      });
+    });
+  }
+
+  // 18.1 试听当前播音音量 (POST /audio/test)
+  testSpeakerVolume() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/audio/test`,
+        method: "POST",
+        timeout: 3000,
+        success: (res) => resolve(res.data),
+        fail: (err) => reject(err)
       });
     });
   }

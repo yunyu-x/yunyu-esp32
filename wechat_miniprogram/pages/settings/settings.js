@@ -880,6 +880,17 @@ Page({
     wx.showToast({ title: `伴侣音量已设为 ${val}%`, icon: "none", duration: 1000 });
   },
 
+  async handleTestVolume() {
+    const vol = this.data.speakerVolume || 70;
+    haptics.vibrate("medium");
+    wx.showToast({ title: `正在测试 ${vol}% 音量...`, icon: "none", duration: 1200 });
+    try {
+      await buddyService.testSpeakerVolume(vol);
+    } catch (e) {
+      console.warn("handleTestVolume err:", e);
+    }
+  },
+
   // ================= 6. 离线唤醒词「悄悄」配置 =================
   onToggleWakeword(e) {
     const val = e.detail.value;

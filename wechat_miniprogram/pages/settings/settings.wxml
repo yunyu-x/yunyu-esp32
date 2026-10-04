@@ -568,7 +568,10 @@
     <view class="input-row" style="margin-top: 14rpx;">
       <view class="label-with-action">
         <text class="input-label">硬件播音音量 (Speaker Volume)</text>
-        <text class="volume-val-badge">{{speakerVolume}}%</text>
+        <view style="display: flex; align-items: center; gap: 12rpx;">
+          <text class="volume-val-badge">{{speakerVolume}}%</text>
+          <button class="btn-preset-chip" style="margin: 0; padding: 4rpx 14rpx; font-size: 20rpx; height: 44rpx; line-height: 44rpx; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1rpx solid rgba(56, 189, 248, 0.4);" bindtap="handleTestVolume">🔊 试听音量</button>
+        </view>
       </view>
       <slider 
         class="volume-slider" 

@@ -1582,20 +1582,36 @@ private:
             if (_web_server.hasArg("volume")) {
                 vol = _web_server.arg("volume").toInt();
             } else if (_web_server.hasArg("plain")) {
-                JsonDocument doc;
-                if (!deserializeJson(doc, _web_server.arg("plain"))) {
-                    if (!doc["volume"].isNull()) vol = doc["volume"].as<int>();
-                    else if (!doc["value"].isNull()) vol = doc["value"].as<int>();
+                String plain = _web_server.arg("plain");
+                plain.trim();
+                if (plain.startsWith("{")) {
+                    JsonDocument doc;
+                    if (!deserializeJson(doc, plain)) {
+                        if (!doc["volume"].isNull()) vol = doc["volume"].as<int>();
+                        else if (!doc["value"].isNull()) vol = doc["value"].as<int>();
+                    }
+                } else if (plain.indexOf("volume=") >= 0) {
+                    int idx = plain.indexOf("volume=");
+                    vol = plain.substring(idx + 7).toInt();
+                } else if (plain.toInt() > 0) {
+                    vol = plain.toInt();
                 }
             }
             if (vol >= 0 && vol <= 100) {
                 cfg_mgr.saveSpeakerVolume((uint8_t)vol);
+                StickS3Audio::getInstance().playTone(1200, 70, 0.50f);
                 _web_server.send(200, "application/json; charset=utf-8",
                                  "{\"ok\":true,\"volume\":" + String(vol) + "}");
             } else {
                 _web_server.send(400, "application/json; charset=utf-8",
                                  "{\"ok\":false,\"msg\":\"invalid_volume\"}");
             }
+        });
+
+        // 播音音量即时试听 (测试当前音量下的响度与音质)
+        _web_server.on("/audio/test", HTTP_POST, [this]() {
+            StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
+            _web_server.send(200, "application/json; charset=utf-8", "{\"ok\":true,\"msg\":\"chime_played\"}");
         });
 
         _web_server.on("/audio/status", HTTP_GET, [this]() {
