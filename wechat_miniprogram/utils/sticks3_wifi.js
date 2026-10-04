@@ -444,38 +444,80 @@ class StickS3HttpClient {
     });
   }
 
-  // 18. 设置播音音量 (POST /audio/volume)
+  // 18. 设置播音音量 (GET/POST 自适应容灾，零 CORS 预检阻断)
   setSpeakerVolume(volume) {
+    const vol = parseInt(volume, 10);
     return new Promise((resolve, reject) => {
+      // 优先简单 GET 请求 (避免模拟器/浏览器 CORS OPTIONS 阻断)
       wx.request({
-        url: `http://${this.host}/audio/volume`,
-        method: "POST",
-        header: { "Content-Type": "application/x-www-form-urlencoded" },
-        data: `volume=${parseInt(volume, 10)}`,
-        timeout: 4000,
+        url: `http://${this.host}/audio/volume?volume=${vol}`,
+        method: "GET",
+        enableHttp2: false,
+        timeout: 3000,
         success: (res) => {
           if (res.statusCode === 200 && res.data) {
             resolve(res.data);
           } else {
-            reject(new Error(`Set volume failed status ${res.statusCode}`));
+            this._postSpeakerVolume(vol).then(resolve).catch(reject);
           }
         },
-        fail: (err) => {
-          reject(err);
+        fail: () => {
+          this._postSpeakerVolume(vol).then(resolve).catch(reject);
         }
       });
     });
   }
 
-  // 18.1 试听当前播音音量 (POST /audio/test)
+  _postSpeakerVolume(vol) {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/audio/volume`,
+        method: "POST",
+        enableHttp2: false,
+        header: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: `volume=${vol}`,
+        timeout: 3000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) resolve(res.data);
+          else reject(new Error(`Set volume failed: ${res.statusCode}`));
+        },
+        fail: reject
+      });
+    });
+  }
+
+  // 18.1 试听当前播音音量 (GET/POST 自适应容灾)
   testSpeakerVolume() {
+    return new Promise((resolve, reject) => {
+      // 优先简单 GET 请求
+      wx.request({
+        url: `http://${this.host}/audio/test`,
+        method: "GET",
+        enableHttp2: false,
+        timeout: 3000,
+        success: (res) => {
+          if (res.statusCode === 200) {
+            resolve(res.data || { ok: true });
+          } else {
+            this._postTestVolume().then(resolve).catch(reject);
+          }
+        },
+        fail: () => {
+          this._postTestVolume().then(resolve).catch(reject);
+        }
+      });
+    });
+  }
+
+  _postTestVolume() {
     return new Promise((resolve, reject) => {
       wx.request({
         url: `http://${this.host}/audio/test`,
         method: "POST",
+        enableHttp2: false,
         timeout: 3000,
-        success: (res) => resolve(res.data),
-        fail: (err) => reject(err)
+        success: (res) => resolve(res.data || { ok: true }),
+        fail: reject
       });
     });
   }

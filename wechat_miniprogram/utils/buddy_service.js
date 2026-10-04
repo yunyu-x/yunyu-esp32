@@ -931,29 +931,33 @@ class BuddyService {
     }
 
     let devSent = false;
+    let lastError = null;
+
     // 2. BLE 下发 (无论当前是否标记为 isBleMode，只要 BLE 物理连接在线均实时推送)
     if (this.bleClient && this.bleClient.isConnected) {
       try {
         await this.bleClient.injectAction("volume", { action: "volume", volume: vol });
         devSent = true;
       } catch (e) {
+        lastError = e;
         console.warn("[BuddyService] BLE setSpeakerVolume failed:", e);
       }
     }
 
     // 3. HTTP 下发 (如果处于 Wi-Fi 模式或已配置合法设备 host)
-    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+    const host = (this.httpClient && this.httpClient.host) || settings.wifiHost || "192.168.110.67";
+    if (this.httpClient) {
+      this.httpClient.setHost(host);
       try {
         await this.httpClient.setSpeakerVolume(vol);
         devSent = true;
       } catch (e) {
-        if (!devSent) {
-          console.warn("[BuddyService] HTTP setSpeakerVolume failed:", e);
-        }
+        if (!devSent) lastError = e;
+        console.warn("[BuddyService] HTTP setSpeakerVolume failed:", e);
       }
     }
 
-    return { success: true, volume: vol, deviceTriggered: devSent };
+    return { success: devSent, volume: vol, deviceTriggered: devSent, error: lastError };
   }
 
   // --- 试听伴侣播音音量 (发送测试和弦/提示音，直观感受当前响度) ---
@@ -963,27 +967,31 @@ class BuddyService {
     }
 
     let devSent = false;
+    let lastError = null;
+
     if (this.bleClient && this.bleClient.isConnected) {
       try {
         await this.bleClient.injectAction("test_volume", { action: "test_volume" });
         devSent = true;
       } catch (e) {
+        lastError = e;
         console.warn("[BuddyService] BLE testSpeakerVolume failed:", e);
       }
     }
 
-    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+    const host = (this.httpClient && this.httpClient.host) || StorageManager.getSettings().wifiHost || "192.168.110.67";
+    if (this.httpClient) {
+      this.httpClient.setHost(host);
       try {
         await this.httpClient.testSpeakerVolume();
         devSent = true;
       } catch (e) {
-        if (!devSent) {
-          console.warn("[BuddyService] HTTP testSpeakerVolume failed:", e);
-        }
+        if (!devSent) lastError = e;
+        console.warn("[BuddyService] HTTP testSpeakerVolume failed:", e);
       }
     }
 
-    return { success: true, deviceTriggered: devSent };
+    return { success: devSent, deviceTriggered: devSent, error: lastError };
   }
 
   // --- 查询百炼状态 ---

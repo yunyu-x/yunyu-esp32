@@ -872,22 +872,43 @@ Page({
     this.setData({ speakerVolume: val });
   },
 
-  onVolumeChange(e) {
+  async onVolumeChange(e) {
     const val = parseInt(e.detail.value, 10);
     this.setData({ speakerVolume: val });
     haptics.selection();
-    buddyService.setSpeakerVolume(val);
-    wx.showToast({ title: `伴侣音量已设为 ${val}%`, icon: "none", duration: 1000 });
+    try {
+      const res = await buddyService.setSpeakerVolume(val);
+      if (res && res.deviceTriggered) {
+        wx.showToast({ title: `🔊 设备音量已同步: ${val}%`, icon: "none", duration: 1500 });
+      } else {
+        wx.showToast({ 
+          title: `⚠️ 本地已设为 ${val}% (设备离线未同步，请连接蓝牙或Wi-Fi)`, 
+          icon: "none", 
+          duration: 2500 
+        });
+      }
+    } catch (err) {
+      wx.showToast({ title: `❌ 音量同步失败: ${err.message || '网络异常'}`, icon: "none", duration: 2000 });
+    }
   },
 
   async handleTestVolume() {
     const vol = this.data.speakerVolume || 70;
     haptics.vibrate("medium");
-    wx.showToast({ title: `正在测试 ${vol}% 音量...`, icon: "none", duration: 1200 });
+    wx.showToast({ title: `正在测试 ${vol}% 音量...`, icon: "none", duration: 1000 });
     try {
-      await buddyService.testSpeakerVolume(vol);
+      const res = await buddyService.testSpeakerVolume(vol);
+      if (res && res.deviceTriggered) {
+        wx.showToast({ title: `🔊 设备正在以 ${vol}% 音量试听发声`, icon: "none", duration: 1500 });
+      } else {
+        wx.showToast({ 
+          title: `⚠️ 试听失败: 设备未连接 (请在上方连接蓝牙或直连Wi-Fi)`, 
+          icon: "none", 
+          duration: 2500 
+        });
+      }
     } catch (e) {
-      console.warn("handleTestVolume err:", e);
+      wx.showToast({ title: `❌ 试听失败: ${e.message || '网络超时'}`, icon: "none", duration: 2000 });
     }
   },
 

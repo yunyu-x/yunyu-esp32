@@ -1182,6 +1182,20 @@ public:
 
 private:
     void setupWebServer() {
+        // 允许 CORS 跨域通信 (全面消除微信小程序、开发工具模拟器与跨域控制台的 CORS 阻断)
+        _web_server.enableCORS(true);
+
+        _web_server.onNotFound([this]() {
+            if (_web_server.method() == HTTP_OPTIONS) {
+                _web_server.sendHeader("Access-Control-Allow-Origin", "*");
+                _web_server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
+                _web_server.sendHeader("Access-Control-Allow-Headers", "*");
+                _web_server.send(204);
+                return;
+            }
+            _web_server.send(404, "text/plain", "Not Found");
+        });
+
         // 主页
         _web_server.on("/", HTTP_GET, [this]() {
             _web_server.send_P(200, "text/html; charset=utf-8", INDEX_HTML);
@@ -1569,18 +1583,19 @@ private:
         // 双向音频端点：设备录音流出与网页音频上传
         // ==========================================
 
-        // 播音音量获取与动态设置
-        _web_server.on("/audio/volume", HTTP_GET, [this]() {
-            auto& cfg_mgr = StickS3ConfigManager::getInstance();
-            _web_server.send(200, "application/json; charset=utf-8",
-                             "{\"volume\":" + String((unsigned)cfg_mgr.getSpeakerVolume()) + "}");
-        });
-
-        _web_server.on("/audio/volume", HTTP_POST, [this]() {
+        // 播音音量获取与动态设置 (支持 GET / POST 全动词与 CORS 跨域)
+        auto handleVolumeReq = [this]() {
+            _web_server.sendHeader("Access-Control-Allow-Origin", "*");
+            _web_server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            _web_server.sendHeader("Access-Control-Allow-Headers", "*");
             auto& cfg_mgr = StickS3ConfigManager::getInstance();
             int vol = -1;
             if (_web_server.hasArg("volume")) {
                 vol = _web_server.arg("volume").toInt();
+            } else if (_web_server.hasArg("val")) {
+                vol = _web_server.arg("val").toInt();
+            } else if (_web_server.hasArg("v")) {
+                vol = _web_server.arg("v").toInt();
             } else if (_web_server.hasArg("plain")) {
                 String plain = _web_server.arg("plain");
                 plain.trim();
@@ -1603,16 +1618,24 @@ private:
                 _web_server.send(200, "application/json; charset=utf-8",
                                  "{\"ok\":true,\"volume\":" + String(vol) + "}");
             } else {
-                _web_server.send(400, "application/json; charset=utf-8",
-                                 "{\"ok\":false,\"msg\":\"invalid_volume\"}");
+                _web_server.send(200, "application/json; charset=utf-8",
+                                 "{\"ok\":true,\"volume\":" + String((unsigned)cfg_mgr.getSpeakerVolume()) + "}");
             }
-        });
+        };
 
-        // 播音音量即时试听 (测试当前音量下的响度与音质)
-        _web_server.on("/audio/test", HTTP_POST, [this]() {
+        _web_server.on("/audio/volume", HTTP_POST, handleVolumeReq);
+        _web_server.on("/audio/volume", HTTP_GET, handleVolumeReq);
+
+        // 播音音量即时试听 (支持 GET / POST，满足浏览器直测与小程序无阻调用)
+        auto handleTestReq = [this]() {
+            _web_server.sendHeader("Access-Control-Allow-Origin", "*");
+            _web_server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            _web_server.sendHeader("Access-Control-Allow-Headers", "*");
             StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
             _web_server.send(200, "application/json; charset=utf-8", "{\"ok\":true,\"msg\":\"chime_played\"}");
-        });
+        };
+        _web_server.on("/audio/test", HTTP_POST, handleTestReq);
+        _web_server.on("/audio/test", HTTP_GET, handleTestReq);
 
         _web_server.on("/audio/status", HTTP_GET, [this]() {
             auto& audio = StickS3Audio::getInstance();
