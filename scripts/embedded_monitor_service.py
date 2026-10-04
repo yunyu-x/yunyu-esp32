@@ -377,10 +377,13 @@ class EmbeddedMonitor:
             self.log("STOP", f"监控服务已终止。全部日志已归档至 {RAW_LOG_FILE}")
             self.save_summary()
 
-if __name__ == "__main__":
+def main():
     monitor = EmbeddedMonitor()
     def sig_handler(sig, frame):
         monitor.running = False
     signal.signal(signal.SIGINT, sig_handler)
     signal.signal(signal.SIGTERM, sig_handler)
     monitor.run()
+
+if __name__ == "__main__":
+    main()
