@@ -1329,6 +1329,20 @@ private:
                 }
                 cfg_mgr.saveBailianConfig(key, model, voice, "", prompt);
 
+                int vol = -1;
+                if (_web_server.hasArg("volume")) vol = _web_server.arg("volume").toInt();
+                else if (_web_server.hasArg("speaker_volume")) vol = _web_server.arg("speaker_volume").toInt();
+                else if (_web_server.hasArg("plain")) {
+                    JsonDocument pdoc;
+                    if (!deserializeJson(pdoc, _web_server.arg("plain"))) {
+                        if (!pdoc["volume"].isNull()) vol = pdoc["volume"].as<int>();
+                        else if (!pdoc["speaker_volume"].isNull()) vol = pdoc["speaker_volume"].as<int>();
+                    }
+                }
+                if (vol >= 10 && vol <= 100) {
+                    cfg_mgr.saveSpeakerVolume((uint8_t)vol);
+                }
+
                 auto& bl = StickS3BailianClient::getInstance();
                 if (need_reconnect || !bl.isConnected()) {
                     if (cfg_mgr.isStaConnected() && cfg_mgr.hasBailianKey()) {
@@ -1631,6 +1645,12 @@ private:
             _web_server.sendHeader("Access-Control-Allow-Origin", "*");
             _web_server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
             _web_server.sendHeader("Access-Control-Allow-Headers", "*");
+            if (_web_server.hasArg("volume")) {
+                int v = _web_server.arg("volume").toInt();
+                if (v >= 0 && v <= 100) {
+                    StickS3ConfigManager::getInstance().saveSpeakerVolume((uint8_t)v);
+                }
+            }
             StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
             _web_server.send(200, "application/json; charset=utf-8", "{\"ok\":true,\"msg\":\"chime_played\"}");
         };

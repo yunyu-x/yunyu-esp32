@@ -101,6 +101,8 @@ public:
 
         // 手机共享热点状态与网络状态遥测 (精简适配 BLE MTU)
         const auto& cfg = StickS3ConfigManager::getInstance();
+        doc_status["volume"] = (int)cfg.getSpeakerVolume();
+        doc_status["speaker_volume"] = (int)cfg.getSpeakerVolume();
         doc_status["is_hotspot"] = cfg.isHotspot();
         doc_status["hs_used_mb"] = (float)((int)(cfg.getHotspotUsedMB() * 100)) / 100.0f;
         doc_status["hs_limit_mb"] = cfg.getHotspotLimitMB();
@@ -418,6 +420,12 @@ public:
                 Serial.printf("[BLE-INJECT] Volume adjusted to %d%% via BLE.\n", vol);
             }
         } else if (action == "test_volume") {
+            if (doc["volume"].is<int>()) {
+                int vol = doc["volume"].as<int>();
+                if (vol >= 0 && vol <= 100) {
+                    StickS3ConfigManager::getInstance().saveSpeakerVolume((uint8_t)vol);
+                }
+            }
             StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
             Serial.println("[BLE-INJECT] Volume test chime played via BLE.");
         } else if (action == "clear_memory") {
@@ -451,6 +459,9 @@ public:
             if (!doc["model"].isNull()) model = doc["model"].as<String>();
             if (!doc["voice"].isNull()) voice = doc["voice"].as<String>();
             if (!doc["prompt"].isNull()) prompt = doc["prompt"].as<String>();
+            int vol = -1;
+            if (!doc["volume"].isNull()) vol = doc["volume"].as<int>();
+            else if (!doc["speaker_volume"].isNull()) vol = doc["speaker_volume"].as<int>();
 
             // 兼容 value 嵌套对象
             if (doc["value"].is<JsonObjectConst>()) {
@@ -460,6 +471,13 @@ public:
                 if (!sub["model"].isNull()) model = sub["model"].as<String>();
                 if (!sub["voice"].isNull()) voice = sub["voice"].as<String>();
                 if (!sub["prompt"].isNull()) prompt = sub["prompt"].as<String>();
+                if (!sub["volume"].isNull()) vol = sub["volume"].as<int>();
+                else if (!sub["speaker_volume"].isNull()) vol = sub["speaker_volume"].as<int>();
+            }
+
+            if (vol >= 10 && vol <= 100) {
+                cfg_mgr.saveSpeakerVolume((uint8_t)vol);
+                Serial.printf("[BLE-INJECT] Volume adjusted via bailian_cfg to %d%%\n", vol);
             }
 
             if (key.length() == 0) {

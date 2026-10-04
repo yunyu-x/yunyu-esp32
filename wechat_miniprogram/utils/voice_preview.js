@@ -186,6 +186,72 @@ class VoicePreviewEngine {
   }
 
   /**
+   * 播放音量试听提示和弦 (结合当前音量百分比)
+   * @param {number} volumePct 音量百分比 10~100
+   * @param {function} onEnd 播放结束回调
+   */
+  playVolumeChime(volumePct = 70, onEnd = null) {
+    this.stop();
+    this.isPlaying = true;
+    const vol = Math.max(0.08, Math.min(1.0, (Number(volumePct) || 70) / 100));
+
+    try {
+      if (typeof wx !== "undefined" && wx.createWebAudioContext) {
+        if (!this.webAudioCtx) {
+          this.webAudioCtx = wx.createWebAudioContext();
+        }
+        const ctx = this.webAudioCtx;
+        if (ctx.state === "suspended" && ctx.resume) {
+          ctx.resume();
+        }
+        this.activeNodes = [];
+        const now = ctx.currentTime;
+
+        const masterGain = ctx.createGain();
+        masterGain.gain.setValueAtTime(vol * 0.45, now);
+        masterGain.connect(ctx.destination);
+        this.activeNodes.push(masterGain);
+
+        // 双音清亮和弦 (1046.5Hz C6 -> 1318.5Hz E6)
+        [1046.5, 1318.5].forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now);
+
+          const start = now + idx * 0.12;
+          const end = start + 0.38;
+          gain.gain.setValueAtTime(0.001, start);
+          gain.gain.exponentialRampToValueAtTime(0.32, start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+          osc.connect(gain);
+          gain.connect(masterGain);
+          osc.start(start);
+          osc.stop(end);
+          this.activeNodes.push(osc, gain);
+        });
+
+        setTimeout(() => {
+          this.isPlaying = false;
+          if (onEnd) onEnd();
+        }, 550);
+        return;
+      }
+    } catch (e) {
+      console.warn("[VoicePreview] WebAudio chime failed:", e);
+    }
+
+    if (typeof wx !== "undefined" && wx.vibrateShort) {
+      wx.vibrateShort({ type: "light" });
+    }
+    setTimeout(() => {
+      this.isPlaying = false;
+      if (onEnd) onEnd();
+    }, 400);
+  }
+
+  /**
    * 停止当前试听发声
    */
   stop() {
@@ -198,12 +264,6 @@ class VoicePreviewEngine {
         } catch (e) {}
       });
       this.activeNodes = [];
-    }
-    if (this.webAudioCtx) {
-      try {
-        this.webAudioCtx.close();
-      } catch (e) {}
-      this.webAudioCtx = null;
     }
   }
 

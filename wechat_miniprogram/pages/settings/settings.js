@@ -18,8 +18,8 @@ Page({
     wifiPwd: "",
     showPwd: false,
 
-    networkMode: "wifi", // 'wifi' | 'hotspot'
-    selectedPreset: 100, // 50 | 100 | 200 | 500 | 'custom'
+    networkMode: "wifi",
+    selectedPreset: 100,
     customLimitInput: "",
     hotspotLimitMb: 100,
     hotspotCutoffEnabled: true,
@@ -36,9 +36,7 @@ Page({
     },
     trafficPercent: 0,
 
-    petState: {
-      level: 1
-    },
+    petState: { level: 1 },
 
     isScanning: false,
     devices: [],
@@ -49,12 +47,11 @@ Page({
     isProvisioning: false,
     isTestingWifi: false,
 
-    // 配网后验证设备联网状态
     isVerifyingNetwork: false,
-    verifyProgress: '',
-    deviceStaState: '',
-    deviceStaIp: '',
-    deviceStaSsid: '',
+    verifyProgress: "",
+    deviceStaState: "",
+    deviceStaIp: "",
+    deviceStaSsid: "",
     deviceStaRssi: 0,
     showLanDirectConnect: false,
 
@@ -88,6 +85,7 @@ Page({
     selectedVoiceIndex: 0,
     bailianVoice: "Tina",
     speakerVolume: 70,
+    displayVolume: 70,
 
     bailianPrompt: "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。",
     promptPresets: [
@@ -130,6 +128,7 @@ Page({
     const toutIdx = Math.max(0, this.data.timeoutOptions.indexOf(tout));
     const hasKey = Boolean(settings.bailianKey && settings.bailianKey.length > 10);
     const maskedKey = hasKey ? (settings.bailianKey.substring(0, 4) + "••••••••" + settings.bailianKey.slice(-4)) : "";
+    const vol = Number(settings.speakerVolume) || 70;
 
     this.setData({
       wifiHost: settings.wifiHost || "192.168.110.67",
@@ -143,7 +142,6 @@ Page({
       hotspotCutoffEnabled: settings.hotspotCutoffEnabled !== false,
       hotspotWarningEnabled: settings.hotspotWarningEnabled !== false,
 
-      // 百炼大模型初始化
       bailianKey: settings.bailianKey || "",
       bailianKeyInput: settings.bailianKey || "",
       hasBailianKey: hasKey,
@@ -152,19 +150,17 @@ Page({
       selectedModelIndex: modelIdx >= 0 ? modelIdx : 0,
       bailianVoice: blVoice,
       selectedVoiceIndex: voiceIdx >= 0 ? voiceIdx : 0,
-      speakerVolume: Number(settings.speakerVolume) || 70,
+      speakerVolume: vol,
+      displayVolume: vol,
       bailianPrompt: settings.bailianPrompt || "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。",
 
-      // 离线唤醒词初始化
       wakewordEnabled: settings.wakewordEnabled !== false,
       wakewordSensitivity: Number(settings.wakewordSensitivity) || 75,
       wakewordTimeoutSec: tout,
       selectedTimeoutIndex: toutIdx >= 0 ? toutIdx : 1
     });
 
-    this.stateListener = (evt) => {
-      this.syncState(evt);
-    };
+    this.stateListener = (evt) => this.syncState(evt);
     buddyService.subscribe(this.stateListener);
   },
 
@@ -207,9 +203,7 @@ Page({
     const limit = hs && hs.limitMb > 0 ? Number(hs.limitMb) : this.data.hotspotLimitMb;
     const percent = Math.min(100, Math.round((used / (limit || 1)) * 100));
 
-    // 合并批量 Patch，杜绝单帧多次调用 setData 引发全屏重绘频闪
     const patch = {};
-
     if (this.data.isConnected !== isConn) patch.isConnected = isConn;
     if (this.data.isBleConnected !== isBle) patch.isBleConnected = isBle;
     if (this.data.isSimMode !== isSim) patch.isSimMode = isSim;
@@ -224,7 +218,6 @@ Page({
     const host = buddyService.httpClient.host;
     if (this.data.wifiHost !== host && host && host !== "192.168.110.67") patch.wifiHost = host;
 
-    // 热点数据
     if (hs) {
       if (!this.data.hotspot || this.data.hotspot.usedMb !== hs.usedMb || this.data.hotspot.isHotspot !== hs.isHotspot || this.data.hotspot.cutoffActive !== hs.cutoffActive || this.data.hotspot.limitMb !== hs.limitMb) {
         patch.hotspot = { ...hs };
@@ -232,7 +225,6 @@ Page({
       if (this.data.trafficPercent !== percent) patch.trafficPercent = percent;
     }
 
-    // 硬件 Wi-Fi STA 联网状态
     if (dw) {
       const isOnline = Boolean(dw.sta_connected || dw.sta_state === "connected");
       const ip = dw.sta_ip && dw.sta_ip !== "0.0.0.0" ? dw.sta_ip : this.data.deviceStaIp;
@@ -253,12 +245,19 @@ Page({
       if (this.data.isWifiConnected !== isWifi) patch.isWifiConnected = isWifi;
     }
 
+    // 从设备状态同步当前播音音量 (如果用户未处于手动拖拽状态)
+    const curVol = (evt.petState && evt.petState.volume) || (buddyService.petState && buddyService.petState.volume);
+    if (curVol !== undefined && curVol !== this.data.speakerVolume && !this._isSliding) {
+      patch.speakerVolume = curVol;
+      patch.displayVolume = curVol;
+    }
+
     if (Object.keys(patch).length > 0) {
       this.setData(patch);
     }
   },
 
-  // 1. BLE 扫描
+  // 1. BLE 扫描与连接
   handleStartBleScan() {
     if (this.data.isScanning) return;
     this.setData({ isScanning: true, devices: [] });
@@ -267,48 +266,36 @@ Page({
     buddyService.bleClient.startScan((device) => {
       let list = [...this.data.devices];
       const idx = list.findIndex(d => d.deviceId === device.deviceId);
-      if (idx >= 0) {
-        list[idx] = device;
-      } else {
-        list.push(device);
-      }
-      // 优先将 StickS3 伴侣排在最前面
+      if (idx >= 0) list[idx] = device;
+      else list.push(device);
       list.sort((a, b) => (b.isTarget ? 1 : 0) - (a.isTarget ? 1 : 0));
       this.setData({ devices: list });
     }, (err) => {
       this.setData({ isScanning: false });
-      let errMsg = "请确保手机蓝牙及定位已开启";
-      if (err && err.errCode === 10001) {
-        errMsg = "请在手机系统设置中开启蓝牙";
-      }
-      wx.showToast({ title: errMsg, icon: "none" });
+      wx.showToast({ title: (err && err.errCode === 10001) ? "请开启手机蓝牙" : "请确保蓝牙与定位已开启", icon: "none" });
     });
 
-    // 扫描 12 秒后自动结束
     setTimeout(() => {
       if (this.data.isScanning) {
         buddyService.bleClient.stopScan();
         this.setData({ isScanning: false });
         if (this.data.devices.length === 0) {
-          wx.showToast({ title: "未发现 StickS3，请将设备靠近手机并确保通电", icon: "none" });
+          wx.showToast({ title: "未发现 StickS3，请将设备靠近手机并通电", icon: "none" });
         }
       }
     }, 12000);
   },
 
-  // 切换扫描设备列表展开/折叠
   onToggleDeviceListExpanded() {
     this.setData({ isDeviceListExpanded: !this.data.isDeviceListExpanded });
     haptics.vibrate("light");
   },
 
-  // 切换 Wi-Fi 配网避坑常见指南展开/折叠
   onToggleWifiFaq() {
     this.setData({ showWifiFaq: !this.data.showWifiFaq });
     haptics.vibrate("light");
   },
 
-  // 连接选定 BLE 设备
   handleConnectDevice(e) {
     const devId = e.currentTarget.dataset.deviceId;
     if (!devId) return;
@@ -323,12 +310,12 @@ Page({
       this.setData({ 
         connectingId: "", 
         isScanning: false,
-        isDeviceListExpanded: false, // 连接成功后自动收起设备列表，保持界面清爽
+        isDeviceListExpanded: false,
         connectedDeviceName: devName
       });
       haptics.levelUp();
       wx.showToast({ title: "BLE 连接成功！", icon: "success" });
-    }).catch(err => {
+    }).catch(() => {
       this.setData({ connectingId: "" });
       wx.showToast({ title: "连接握手失败", icon: "none" });
     });
@@ -341,7 +328,7 @@ Page({
     wx.showToast({ title: "已断开 BLE 蓝牙", icon: "none" });
   },
 
-  // 2. Wi-Fi / 手机热点智能配网与流量保护交互
+  // 2. Wi-Fi / 热点配网设置
   onInputSsid(e) { this.setData({ wifiSsid: e.detail.value }); },
   onInputPwd(e)  { this.setData({ wifiPwd: e.detail.value }); },
   onToggleShowPwd() { this.setData({ showPwd: !this.data.showPwd }); },
@@ -358,27 +345,17 @@ Page({
       isHotspot: isHs,
       dataLimitMb: this.data.hotspotLimitMb,
       cutoffEnabled: this.data.hotspotCutoffEnabled
-    }).then(() => {
-      console.log(`[NETWORK-MODE] Synced mode '${mode}' (isHotspot=${isHs}) to device`);
-    }).catch(err => {
-      console.warn("[NETWORK-MODE] Sync mode failed:", err);
-    });
+    }).catch(() => {});
   },
 
   onSelectPreset(e) {
     const p = e.currentTarget.dataset.preset;
     haptics.vibrate("light");
     if (p === "custom") {
-      this.setData({
-        selectedPreset: "custom",
-        customLimitInput: String(this.data.hotspotLimitMb)
-      });
+      this.setData({ selectedPreset: "custom", customLimitInput: String(this.data.hotspotLimitMb) });
     } else {
       const mb = Number(p);
-      this.setData({
-        selectedPreset: mb,
-        hotspotLimitMb: mb
-      });
+      this.setData({ selectedPreset: mb, hotspotLimitMb: mb });
     }
   },
 
@@ -386,18 +363,13 @@ Page({
     const raw = e.detail.value;
     const val = parseInt(raw, 10);
     this.setData({ customLimitInput: raw });
-    if (!isNaN(val) && val > 0) {
-      this.setData({ hotspotLimitMb: val });
-    }
+    if (!isNaN(val) && val > 0) this.setData({ hotspotLimitMb: val });
   },
 
   onToggleCutoff(e) {
     const val = e.detail.value;
     this.setData({ hotspotCutoffEnabled: val });
-    buddyService.updateHotspotConfig({
-      cutoffEnabled: val,
-      dataLimitMb: this.data.hotspotLimitMb
-    });
+    buddyService.updateHotspotConfig({ cutoffEnabled: val, dataLimitMb: this.data.hotspotLimitMb });
     haptics.vibrate("light");
   },
 
@@ -419,14 +391,10 @@ Page({
               wx.showToast({ title: `已填入: ${res.wifi.SSID}`, icon: "none" });
             }
           },
-          fail: () => {
-            wx.showToast({ title: "请手动输入 Wi-Fi 名称", icon: "none" });
-          }
+          fail: () => wx.showToast({ title: "请手动输入 Wi-Fi 名称", icon: "none" })
         });
       },
-      fail: () => {
-        wx.showToast({ title: "无法获取当前 Wi-Fi，请手动输入", icon: "none" });
-      }
+      fail: () => wx.showToast({ title: "无法获取当前 Wi-Fi，请手动输入", icon: "none" })
     });
   },
 
@@ -448,12 +416,9 @@ Page({
       }
     }
 
-    this.setData({
-      isProvisioning: true,
-      verifyProgress: "正在通过蓝牙分片写入网络凭证..."
-    });
+    this.setData({ isProvisioning: true, verifyProgress: "正在通过蓝牙分片写入网络凭证..." });
     haptics.vibrate("medium");
-    wx.showLoading({ title: "20字节安全分片注入中..." });
+    wx.showLoading({ title: "安全分片注入中..." });
 
     const isHs = networkMode === "hotspot";
     try {
@@ -473,7 +438,6 @@ Page({
         hotspotCutoffEnabled: hotspotCutoffEnabled
       });
 
-      // 凭证写入成功，自动切入设备连网状态轮询阶段
       this.setData({
         isProvisioning: false,
         isVerifyingNetwork: true,
@@ -483,11 +447,7 @@ Page({
         deviceStaSsid: wifiSsid.trim()
       });
 
-      haptics.vibrate("light");
-
-      // 启动异步轮询校验设备是否连网成功
       this._pollNetworkStatus(wifiSsid.trim(), isHs);
-
     } catch (e) {
       wx.hideLoading();
       this.setData({ isProvisioning: false, isVerifyingNetwork: false, verifyProgress: "" });
@@ -495,22 +455,15 @@ Page({
     }
   },
 
-  // 轮询验证设备连网状态
   async _pollNetworkStatus(ssid, isHotspot) {
     const maxAttempts = 15;
-    const intervalMs = 2000;
-
     for (let i = 0; i < maxAttempts; i++) {
-      this.setData({
-        verifyProgress: `正在验证设备联网状态... (${i + 1}/${maxAttempts} 轮)`
-      });
-
-      await new Promise(r => setTimeout(r, intervalMs));
+      this.setData({ verifyProgress: `正在验证设备联网状态... (${i + 1}/${maxAttempts} 轮)` });
+      await new Promise(r => setTimeout(r, 2000));
 
       try {
         const status = await buddyService.checkDeviceNetworkStatus();
         if (status && (status.sta_connected || (status.sta_state === "connected" && status.sta_ip && status.sta_ip !== "0.0.0.0"))) {
-          // 设备联网成功！
           const ip = status.sta_ip && status.sta_ip !== "0.0.0.0" ? status.sta_ip : "已获取内网IP";
           this.setData({
             isVerifyingNetwork: false,
@@ -533,43 +486,30 @@ Page({
           haptics.levelUp();
           wx.showModal({
             title: isHotspot ? "📱 手机热点连接成功！" : "🎉 Wi-Fi 联网成功！",
-            content: `StickS3 硬件已成功连入 [${status.sta_ssid || ssid}]！\n• 设备 IP: ${ip}\n• 信号强度: ${status.sta_rssi || -50} dBm\n• 硬件屏幕: ${isHotspot ? "已点亮暖橙色 HOT 热点标志" : "已点亮亮绿色 WiFi 宽带标志"}\n\n${isHotspot ? "设备现已就绪，可直接对硬件说「悄悄」开启大模型语音对话！" : "可直接点击下方「直连局域网通道」建立高速全双工连接。"}`,
+            content: `StickS3 硬件已成功连入 [${status.sta_ssid || ssid}]！\n• 设备 IP: ${ip}\n• 信号强度: ${status.sta_rssi || -50} dBm\n• 硬件屏幕: ${isHotspot ? "已点亮暖橙色 HOT 标志" : "已点亮亮绿色 WiFi 标志"}`,
             showCancel: false
           });
           return;
         } else if (status && status.sta_state === "failed") {
-          this.setData({
-            isVerifyingNetwork: false,
-            verifyProgress: "",
-            deviceStaState: "failed",
-            showLanDirectConnect: false
-          });
+          this.setData({ isVerifyingNetwork: false, verifyProgress: "", deviceStaState: "failed", showLanDirectConnect: false });
           wx.showModal({
             title: "❌ 设备联网失败",
-            content: `StickS3 无法连接到 [${ssid}]。\n\n请排查：\n1. 手机热点是否开启，且名称/密码输入正确\n2. 苹果 iPhone 需开启「最大化兼容性」\n3. 安卓手机需确保热点频段为「2.4GHz」\n4. 确认设备与手机距离在 3 米以内`,
+            content: `StickS3 无法连接到 [${ssid}]，请检查密码与2.4GHz频段。`,
             showCancel: false
           });
           return;
         }
-      } catch (e) {
-        // 继续轮询
-      }
+      } catch (e) {}
     }
 
-    // 轮询超时
-    this.setData({
-      isVerifyingNetwork: false,
-      verifyProgress: "",
-      deviceStaState: "timeout"
-    });
+    this.setData({ isVerifyingNetwork: false, verifyProgress: "", deviceStaState: "timeout" });
     wx.showModal({
       title: "⏳ 联网确认超时",
-      content: `已等待 30 秒尚未收到设备联网回执。\n\n• 如果设备屏幕右上角已亮起绿色 Wi-Fi 标志，说明已经联网成功，可点击下方「刷新」按钮同步状态。\n• 如果设备屏幕 Wi-Fi 标志依然为红色，请检查热点或 Wi-Fi 密码。`,
+      content: "已等待30秒尚未收到设备回执。如果屏幕已显示绿色 WiFi 标志，说明已连网，可点击刷新同步。",
       showCancel: false
     });
   },
 
-  // 手动检测刷新设备网络状态
   async handleCheckDeviceNetwork() {
     haptics.vibrate("light");
     this.setData({ isVerifyingNetwork: true, verifyProgress: "正在向设备查询最新网络状态..." });
@@ -596,11 +536,7 @@ Page({
         haptics.vibrate("medium");
         wx.showToast({ title: `设备已在线! IP: ${ip}`, icon: "success" });
       } else {
-        this.setData({
-          isVerifyingNetwork: false,
-          verifyProgress: "",
-          deviceStaState: (status && status.sta_state) || "failed"
-        });
+        this.setData({ isVerifyingNetwork: false, verifyProgress: "", deviceStaState: (status && status.sta_state) || "failed" });
         wx.showToast({ title: "设备当前未联网", icon: "none" });
       }
     } catch (e) {
@@ -609,7 +545,6 @@ Page({
     }
   },
 
-  // 手机热点流量看板操作
   async handleRefreshTraffic() {
     haptics.vibrate("light");
     wx.showLoading({ title: "刷新流量中..." });
@@ -640,7 +575,7 @@ Page({
         customLimitInput: String(newLimit)
       });
       haptics.levelUp();
-      wx.showToast({ title: `已成功追加 50MB (新上限: ${newLimit}MB)`, icon: "none" });
+      wx.showToast({ title: `已追加 50MB (新上限: ${newLimit}MB)`, icon: "none" });
     } catch (e) {
       wx.showToast({ title: "配额更新失败", icon: "none" });
     }
@@ -666,7 +601,6 @@ Page({
     });
   },
 
-  // 3. Wi-Fi 局域网高速通道配置
   onInputHost(e) { this.setData({ wifiHostInput: e.detail.value }); },
 
   async handleTestWifiConnection() {
@@ -684,14 +618,13 @@ Page({
       const res = await buddyService.httpClient.getPetStatus();
       this.setData({ isTestingWifi: false, wifiHost: host });
       StorageManager.saveSettings({ wifiHost: host });
-
       haptics.vibrate("medium");
       wx.showToast({ title: `连通正常! Lv.${res.level || 1}`, icon: "success" });
     } catch (e) {
       this.setData({ isTestingWifi: false });
       wx.showModal({
         title: "连通性测试未通过",
-        content: `无法在局域网内访问 http://${host}/pet/status。请确保手机与 StickS3 在同一 Wi-Fi 下，且已在微信开发者工具或真机中允许局域网权限。`,
+        content: `无法在局域网内访问 http://${host}/pet/status。请确保手机与 StickS3 在同一 Wi-Fi 下。`,
         showCancel: false
       });
     }
@@ -712,7 +645,6 @@ Page({
     }
   },
 
-  // 4. 偏好与系统设置
   onToggleVibration(e) {
     const val = e.detail.value;
     this.setData({ vibrationEnabled: val });
@@ -746,7 +678,7 @@ Page({
     });
   },
 
-  // ================= 5. 阿里云百炼大模型交互设置 =================
+  // 3. 阿里云百炼大模型交互设置
   onInputBailianKey(e) {
     const val = e.detail.value;
     this.setData({
@@ -765,10 +697,7 @@ Page({
     const idx = Number(e.detail.value);
     const model = this.data.modelOptions[idx];
     if (model) {
-      this.setData({
-        selectedModelIndex: idx,
-        bailianModel: model.id
-      });
+      this.setData({ selectedModelIndex: idx, bailianModel: model.id });
       haptics.vibrate("light");
     }
   },
@@ -777,17 +706,12 @@ Page({
     const idx = Number(e.detail.value);
     const voice = this.data.voiceOptions[idx];
     if (voice) {
-      this.setData({
-        selectedVoiceIndex: idx,
-        bailianVoice: voice.id
-      });
+      this.setData({ selectedVoiceIndex: idx, bailianVoice: voice.id });
       haptics.vibrate("light");
     }
   },
 
-  onInputPrompt(e) {
-    this.setData({ bailianPrompt: e.detail.value });
-  },
+  onInputPrompt(e) { this.setData({ bailianPrompt: e.detail.value }); },
 
   handleApplyPromptPreset(e) {
     const preset = e.currentTarget.dataset.prompt;
@@ -803,6 +727,7 @@ Page({
     const model = this.data.bailianModel;
     const voice = this.data.bailianVoice;
     const prompt = this.data.bailianPrompt.trim();
+    const volume = this.data.speakerVolume;
 
     if (!key && !this.data.bailianKey) {
       wx.showToast({ title: "请输入百炼 API Key", icon: "none" });
@@ -817,7 +742,8 @@ Page({
         key: key || this.data.bailianKey,
         model,
         voice,
-        prompt
+        prompt,
+        volume
       });
       this.setData({
         isSavingBailian: false,
@@ -825,12 +751,12 @@ Page({
         hasBailianKey: true
       });
       haptics.levelUp();
-      wx.showToast({ title: "大模型配置已生效", icon: "success" });
+      wx.showToast({ title: "大模型与音量配置已生效", icon: "success" });
     } catch (e) {
       this.setData({ isSavingBailian: false });
       wx.showModal({
         title: "配置写入失败",
-        content: e.message || "无法写入百炼配置，请确保已连接 StickS3 设备",
+        content: e.message || "无法写入配置，请确保已连接 StickS3 设备",
         showCancel: false
       });
     }
@@ -838,8 +764,6 @@ Page({
 
   async handlePreviewVoice() {
     const voice = this.data.bailianVoice;
-    
-    // 若当前正在播放，再次点击执行停止
     if (this.data.isPreviewingVoice) {
       voicePreviewEngine.stop();
       this.setData({ isPreviewingVoice: false });
@@ -849,12 +773,10 @@ Page({
     this.setData({ isPreviewingVoice: true });
     haptics.vibrate("medium");
 
-    // 1. 手机端原生声学即时发声试听 (微信 WebAudio 100% 毫秒级发声)
     voicePreviewEngine.playPreview(voice, () => {
       this.setData({ isPreviewingVoice: false });
     });
 
-    // 2. 硬件端多通道联动播报 (BLE 0xFFB4 或 Wi-Fi 局域网)
     try {
       const res = await buddyService.previewVoice(voice);
       if (res && res.deviceTriggered) {
@@ -868,51 +790,69 @@ Page({
   },
 
   onVolumeChanging(e) {
+    this._isSliding = true;
     const val = parseInt(e.detail.value, 10);
-    this.setData({ speakerVolume: val });
+    if (!isNaN(val) && val !== this.data.displayVolume) {
+      this.setData({ displayVolume: val });
+    }
   },
 
   async onVolumeChange(e) {
+    this._isSliding = false;
     const val = parseInt(e.detail.value, 10);
-    this.setData({ speakerVolume: val });
+    if (isNaN(val)) return;
+    this.setData({ speakerVolume: val, displayVolume: val });
     haptics.selection();
+
     try {
       const res = await buddyService.setSpeakerVolume(val);
       if (res && res.deviceTriggered) {
-        wx.showToast({ title: `🔊 设备音量已同步: ${val}%`, icon: "none", duration: 1500 });
+        wx.showToast({ title: `🔊 设备音量: ${val}%`, icon: "none", duration: 1000 });
       } else {
-        wx.showToast({ 
-          title: `⚠️ 本地已设为 ${val}% (设备离线未同步，请连接蓝牙或Wi-Fi)`, 
-          icon: "none", 
-          duration: 2500 
+        wx.showToast({
+          title: `⚠️ 已设为 ${val}% (设备离线未同步)`,
+          icon: "none",
+          duration: 1500
         });
       }
     } catch (err) {
-      wx.showToast({ title: `❌ 音量同步失败: ${err.message || '网络异常'}`, icon: "none", duration: 2000 });
+      wx.showToast({ title: `❌ 音量同步失败: ${err.message || "网络异常"}`, icon: "none", duration: 1500 });
     }
+  },
+
+  handleSetVolumePreset(e) {
+    const val = parseInt(e.currentTarget.dataset.volume, 10);
+    if (isNaN(val)) return;
+    this.setData({ speakerVolume: val, displayVolume: val });
+    haptics.selection();
+    buddyService.setSpeakerVolume(val).then((res) => {
+      if (res && res.deviceTriggered) {
+        wx.showToast({ title: `🔊 设备音量: ${val}%`, icon: "none", duration: 1000 });
+      }
+    }).catch(() => {});
   },
 
   async handleTestVolume() {
-    const vol = this.data.speakerVolume || 70;
+    const vol = this.data.displayVolume || this.data.speakerVolume || 70;
     haptics.vibrate("medium");
-    wx.showToast({ title: `正在测试 ${vol}% 音量...`, icon: "none", duration: 1000 });
+
+    // 1. 手机端 WebAudio 零延迟立即和弦发声试听
+    voicePreviewEngine.playVolumeChime(vol);
+
+    // 2. 硬件设备端和弦发声试听 (并发下发，绝无阻塞)
     try {
       const res = await buddyService.testSpeakerVolume(vol);
       if (res && res.deviceTriggered) {
-        wx.showToast({ title: `🔊 设备正在以 ${vol}% 音量试听发声`, icon: "none", duration: 1500 });
+        wx.showToast({ title: `🔊 设备正在以 ${vol}% 试听发声`, icon: "none", duration: 1200 });
       } else {
-        wx.showToast({ 
-          title: `⚠️ 试听失败: 设备未连接 (请在上方连接蓝牙或直连Wi-Fi)`, 
-          icon: "none", 
-          duration: 2500 
-        });
+        wx.showToast({ title: `🔊 正在试听 ${vol}% 音量 (手机发声)`, icon: "none", duration: 1200 });
       }
     } catch (e) {
-      wx.showToast({ title: `❌ 试听失败: ${e.message || '网络超时'}`, icon: "none", duration: 2000 });
+      wx.showToast({ title: `🔊 正在试听 ${vol}% 音量 (手机发声)`, icon: "none", duration: 1200 });
     }
   },
 
-  // ================= 6. 离线唤醒词「悄悄」配置 =================
+  // 4. 离线唤醒词配置
   onToggleWakeword(e) {
     const val = e.detail.value;
     this.setData({ wakewordEnabled: val });
@@ -920,18 +860,14 @@ Page({
   },
 
   onWakewordSensitivityChange(e) {
-    const val = Number(e.detail.value);
-    this.setData({ wakewordSensitivity: val });
+    this.setData({ wakewordSensitivity: Number(e.detail.value) });
   },
 
   onTimeoutChange(e) {
     const idx = Number(e.detail.value);
     const tout = this.data.timeoutOptions[idx];
     if (tout !== undefined) {
-      this.setData({
-        selectedTimeoutIndex: idx,
-        wakewordTimeoutSec: tout
-      });
+      this.setData({ selectedTimeoutIndex: idx, wakewordTimeoutSec: tout });
       haptics.vibrate("light");
     }
   },
@@ -973,7 +909,7 @@ Page({
     }
   },
 
-  // ================= 7. 设备运维、信息重置与出厂恢复 =================
+  // 5. 设备运维与重置
   handleClearDeviceMemory() {
     wx.showModal({
       title: "清空设备对话记忆",
@@ -1000,7 +936,7 @@ Page({
   handleDeviceReboot() {
     wx.showModal({
       title: "软重启设备",
-      content: "即将向 StickS3 发送软重启指令，系统将在 300 毫秒后重新初始化（Wi-Fi与Key配置仍会保留）。",
+      content: "即将向 StickS3 发送软重启指令，系统将在 300 毫秒后重新初始化。",
       confirmText: "立即重启",
       confirmColor: "#0A84FF",
       success: async (res) => {
@@ -1025,14 +961,14 @@ Page({
   handleDeviceFactoryReset() {
     wx.showModal({
       title: "⚠️ 恢复出厂设置确认",
-      content: "此操作将彻底抹除 StickS3 设备上的 Wi-Fi 密码、百炼 API Key、人格提示词、流量配额统计以及所有历史对话记忆，并重启设备。确定要继续吗？",
+      content: "此操作将彻底抹除设备上的全部配置、Wi-Fi密码与记忆，并重启设备。确定要继续吗？",
       confirmText: "彻底清除",
       confirmColor: "#ef4444",
       success: (res1) => {
         if (res1.confirm) {
           wx.showModal({
             title: "二次确认 · 无法撤销",
-            content: "恢复出厂后需要重新通过蓝牙进行 Wi-Fi 配网并配置大模型 API Key。是否立即执行？",
+            content: "恢复出厂后需要重新通过蓝牙配网。是否立即执行？",
             confirmText: "确认出厂重置",
             confirmColor: "#ef4444",
             success: async (res2) => {

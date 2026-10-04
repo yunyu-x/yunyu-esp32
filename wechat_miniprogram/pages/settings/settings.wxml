@@ -50,7 +50,6 @@
       <text class="panel-subtitle">GATT 0xFFB0 专属低功耗信道</text>
     </view>
 
-    <!-- 蓝牙当前已连接状态精简摘要卡片 (连接成功后优先展示) -->
     <view class="ble-connected-summary" wx:if="{{isBleConnected}}">
       <view class="ble-summary-left">
         <text class="ble-success-icon">✨</text>
@@ -65,16 +64,11 @@
     </view>
 
     <view class="ble-action-row" wx:if="{{!isBleConnected}}">
-      <button 
-        class="btn-primary {{isScanning ? 'btn-scanning' : ''}}" 
-        bindtap="handleStartBleScan" 
-        loading="{{isScanning}}"
-      >
+      <button class="btn-primary {{isScanning ? 'btn-scanning' : ''}}" bindtap="handleStartBleScan" loading="{{isScanning}}">
         {{isScanning ? '正在扫描设备...' : '🔍 扫描 StickS3-Buddy'}}
       </button>
     </view>
 
-    <!-- 发现的设备列表 (支持折叠与展开收起) -->
     <view class="device-section" wx:if="{{devices.length > 0}}">
       <view class="device-list-header">
         <text class="device-list-count">已扫描到 {{devices.length}} 台蓝牙设备</text>
@@ -84,12 +78,8 @@
       </view>
 
       <view class="device-list">
-        <!-- 默认只展示前 2 台推荐设备，展开后显示全部 -->
         <block wx:for="{{devices}}" wx:key="deviceId">
-          <view 
-            class="device-item {{item.isTarget ? 'device-item-target' : ''}}" 
-            wx:if="{{index < 2 || isDeviceListExpanded}}"
-          >
+          <view class="device-item {{item.isTarget ? 'device-item-target' : ''}}" wx:if="{{index < 2 || isDeviceListExpanded}}">
             <view class="device-info">
               <view class="device-name-row">
                 <text class="device-name">{{item.name || item.localName || 'StickS3-Buddy'}}</text>
@@ -98,12 +88,7 @@
               <text class="device-id">{{item.deviceId}}</text>
               <text class="device-rssi">信号 RSSI: {{item.RSSI}} dBm</text>
             </view>
-            <button 
-              class="btn-connect-item" 
-              bindtap="handleConnectDevice" 
-              data-device-id="{{item.deviceId}}"
-              loading="{{connectingId === item.deviceId}}"
-            >
+            <button class="btn-connect-item" bindtap="handleConnectDevice" data-device-id="{{item.deviceId}}" loading="{{connectingId === item.deviceId}}">
               连接
             </button>
           </view>
@@ -169,18 +154,10 @@
 
     <!-- 网络模式切换分段器 -->
     <view class="segmented-control">
-      <view 
-        class="segment-item {{networkMode === 'wifi' ? 'segment-active' : ''}}" 
-        bindtap="onSelectNetworkMode" 
-        data-mode="wifi"
-      >
+      <view class="segment-item {{networkMode === 'wifi' ? 'segment-active' : ''}}" bindtap="onSelectNetworkMode" data-mode="wifi">
         <text>🏠 常规 Wi-Fi 宽带</text>
       </view>
-      <view 
-        class="segment-item {{networkMode === 'hotspot' ? 'segment-active segment-hotspot' : ''}}" 
-        bindtap="onSelectNetworkMode" 
-        data-mode="hotspot"
-      >
+      <view class="segment-item {{networkMode === 'hotspot' ? 'segment-active segment-hotspot' : ''}}" bindtap="onSelectNetworkMode" data-mode="hotspot">
         <text>📱 手机共享移动热点</text>
       </view>
     </view>
@@ -190,31 +167,18 @@
       <view class="input-row">
         <text class="input-label">{{networkMode === 'hotspot' ? '手机热点名称 (SSID)' : 'Wi-Fi 名称 (SSID)'}}</text>
         <view class="input-with-action">
-          <input 
-            class="form-input" 
-            placeholder="{{networkMode === 'hotspot' ? '输入个人热点名称' : '输入 2.4GHz Wi-Fi 名称'}}" 
-            placeholder-class="input-placeholder"
-            value="{{wifiSsid}}" 
-            bindinput="onInputSsid"
-          />
+          <input class="form-input" placeholder="{{networkMode === 'hotspot' ? '输入个人热点名称' : '输入 2.4GHz Wi-Fi 名称'}}" placeholder-class="input-placeholder" value="{{wifiSsid}}" bindinput="onInputSsid" />
           <button class="btn-get-wifi" bindtap="handleGetConnectedWifi">获取当前</button>
         </view>
       </view>
 
       <!-- 密码输入 -->
-      <view class="input-row" style="margin-top: 14rpx;">
+      <view class="input-row mt-14">
         <view class="label-with-action">
           <text class="input-label">{{networkMode === 'hotspot' ? '个人热点密码' : 'Wi-Fi 密码'}}</text>
           <text class="pwd-toggle" bindtap="onToggleShowPwd">{{showPwd ? '🙈 隐藏' : '👁️ 显示'}}</text>
         </view>
-        <input 
-          class="form-input" 
-          password="{{!showPwd}}" 
-          placeholder="输入连接密码（无密码可留空）" 
-          placeholder-class="input-placeholder"
-          value="{{wifiPwd}}" 
-          bindinput="onInputPwd"
-        />
+        <input class="form-input" password="{{!showPwd}}" placeholder="输入连接密码（无密码可留空）" placeholder-class="input-placeholder" value="{{wifiPwd}}" bindinput="onInputPwd" />
       </view>
 
       <!-- 手机热点专属流量配额配置区 (仅在热点模式下显示) -->
@@ -226,43 +190,23 @@
 
         <!-- 流量预设档位选择器 -->
         <view class="quota-presets-row">
-          <view 
-            class="quota-chip {{selectedPreset === 50 ? 'quota-chip-active' : ''}}" 
-            bindtap="onSelectPreset" 
-            data-preset="50"
-          >
+          <view class="quota-chip {{selectedPreset === 50 ? 'quota-chip-active' : ''}}" bindtap="onSelectPreset" data-preset="50">
             <text class="chip-val">50MB</text>
             <text class="chip-desc">轻度体验</text>
           </view>
-          <view 
-            class="quota-chip {{selectedPreset === 100 ? 'quota-chip-active' : ''}}" 
-            bindtap="onSelectPreset" 
-            data-preset="100"
-          >
+          <view class="quota-chip {{selectedPreset === 100 ? 'quota-chip-active' : ''}}" bindtap="onSelectPreset" data-preset="100">
             <text class="chip-val">100MB</text>
             <text class="chip-desc">推荐档位</text>
           </view>
-          <view 
-            class="quota-chip {{selectedPreset === 200 ? 'quota-chip-active' : ''}}" 
-            bindtap="onSelectPreset" 
-            data-preset="200"
-          >
+          <view class="quota-chip {{selectedPreset === 200 ? 'quota-chip-active' : ''}}" bindtap="onSelectPreset" data-preset="200">
             <text class="chip-val">200MB</text>
             <text class="chip-desc">畅聊陪伴</text>
           </view>
-          <view 
-            class="quota-chip {{selectedPreset === 500 ? 'quota-chip-active' : ''}}" 
-            bindtap="onSelectPreset" 
-            data-preset="500"
-          >
+          <view class="quota-chip {{selectedPreset === 500 ? 'quota-chip-active' : ''}}" bindtap="onSelectPreset" data-preset="500">
             <text class="chip-val">500MB</text>
             <text class="chip-desc">长途出行</text>
           </view>
-          <view 
-            class="quota-chip {{selectedPreset === 'custom' ? 'quota-chip-active' : ''}}" 
-            bindtap="onSelectPreset" 
-            data-preset="custom"
-          >
+          <view class="quota-chip {{selectedPreset === 'custom' ? 'quota-chip-active' : ''}}" bindtap="onSelectPreset" data-preset="custom">
             <text class="chip-val">自定义</text>
             <text class="chip-desc">MB 上限</text>
           </view>
@@ -271,14 +215,7 @@
         <!-- 自定义输入 -->
         <view class="custom-limit-row" wx:if="{{selectedPreset === 'custom'}}">
           <text class="custom-limit-label">自定义上限:</text>
-          <input 
-            class="custom-limit-input" 
-            type="number" 
-            placeholder="输入 MB 数 (如 150)" 
-            placeholder-class="input-placeholder"
-            value="{{customLimitInput}}" 
-            bindinput="onInputCustomLimit"
-          />
+          <input class="custom-limit-input" type="number" placeholder="输入 MB 数 (如 150)" placeholder-class="input-placeholder" value="{{customLimitInput}}" bindinput="onInputCustomLimit" />
           <text class="custom-limit-unit">MB</text>
         </view>
 
@@ -296,7 +233,7 @@
           <switch checked="{{hotspotCutoffEnabled}}" bindchange="onToggleCutoff" color="#ec4899" />
         </view>
 
-        <view class="policy-switch-row" style="border-top: 1px dashed #1e293b; padding-top: 12rpx;">
+        <view class="policy-switch-row policy-switch-bordered">
           <view class="policy-switch-info">
             <text class="policy-switch-title">80% 临界预警心声提醒</text>
             <text class="policy-switch-desc">流量达 80% 时在日记中播报温馨提醒</text>
@@ -329,12 +266,7 @@
       </view>
 
       <!-- 配网注入按钮 -->
-      <button 
-        class="btn-provision {{networkMode === 'hotspot' ? 'btn-provision-hotspot' : ''}} {{!isBleConnected ? 'btn-provision-disabled' : ''}}" 
-        bindtap="handleSmartProvision" 
-        loading="{{isProvisioning}}"
-        disabled="{{isVerifyingNetwork}}"
-      >
+      <button class="btn-provision {{networkMode === 'hotspot' ? 'btn-provision-hotspot' : ''}} {{!isBleConnected ? 'btn-provision-disabled' : ''}}" bindtap="handleSmartProvision" loading="{{isProvisioning}}" disabled="{{isVerifyingNetwork}}">
         {{!isBleConnected ? '⚠️ 请先连接上方 BLE 蓝牙再配网' : (isVerifyingNetwork ? '⏳ 正在验证设备联网...' : (networkMode === 'hotspot' ? '🚀 写入热点配置并连接共享网络' : '🚀 注入凭证并一键配网'))}}
       </button>
 
@@ -378,9 +310,7 @@
         </view>
       </view>
 
-      <!-- 连续性动作 第 4 步：连接通道建立 (根据模式自适应展示) -->
-
-      <!-- 4A. 手机热点专属通道就绪卡片 (热点模式下自动生效，免去局域网直连门槛) -->
+      <!-- 4A. 手机热点专属通道就绪卡片 -->
       <view class="hotspot-ready-flow-box" wx:if="{{networkMode === 'hotspot'}}">
         <view class="lan-flow-header">
           <view class="lan-flow-title-group">
@@ -408,7 +338,7 @@
         </view>
       </view>
 
-      <!-- 4B. 常规 Wi-Fi 宽带模式：局域网高速通道直连 (配网与直连一体化) -->
+      <!-- 4B. 常规 Wi-Fi 宽带模式：局域网高速通道直连 -->
       <view class="lan-direct-flow-box" wx:if="{{networkMode === 'wifi'}}">
         <view class="lan-flow-header">
           <view class="lan-flow-title-group">
@@ -421,15 +351,9 @@
         </view>
         <text class="lan-flow-desc">{{deviceStaState === 'connected' ? '设备已在局域网内分配到 IP，已自动填入，点击下方按钮即可建立全双工高速通道' : '配网注入后设备将自动联网并获取局域网 IP，输入 IP 即可建立全双工极速通道'}}</text>
 
-        <view class="input-row" style="margin-top: 10rpx;">
+        <view class="input-row mt-10">
           <text class="input-label">硬件局域网 IP</text>
-          <input 
-            class="form-input" 
-            placeholder="如 192.168.1.100" 
-            placeholder-class="input-placeholder"
-            value="{{wifiHostInput}}" 
-            bindinput="onInputHost"
-          />
+          <input class="form-input" placeholder="如 192.168.1.100" placeholder-class="input-placeholder" value="{{wifiHostInput}}" bindinput="onInputHost" />
         </view>
 
         <view class="wifi-action-grid">
@@ -463,10 +387,7 @@
         <text class="gauge-percent {{hotspot.cutoffActive ? 'text-red' : (trafficPercent >= 80 ? 'text-amber' : 'text-cyan')}}">{{trafficPercent}}%</text>
       </view>
       <view class="gauge-bar-bg">
-        <view 
-          class="gauge-bar-fill {{hotspot.cutoffActive ? 'bar-red' : (trafficPercent >= 80 ? 'bar-amber' : 'bar-cyan')}}" 
-          style="width: {{trafficPercent}}%;"
-        ></view>
+        <view class="gauge-bar-fill {{hotspot.cutoffActive ? 'bar-red' : (trafficPercent >= 80 ? 'bar-amber' : 'bar-cyan')}}" style="width: {{trafficPercent}}%;"></view>
       </view>
     </view>
 
@@ -522,23 +443,16 @@
     </view>
 
     <!-- API Key 输入框 -->
-    <view class="input-row" style="margin-top: 8rpx;">
+    <view class="input-row mt-8">
       <view class="label-with-action">
         <text class="input-label">DashScope API Key</text>
         <text class="pwd-toggle" bindtap="onToggleShowBailianKey">{{showBailianKey ? '🙈 隐藏' : '👁️ 显示'}}</text>
       </view>
-      <input 
-        class="form-input" 
-        password="{{!showBailianKey}}" 
-        placeholder="{{maskedBailianKey ? ('已保存: ' + maskedBailianKey) : '输入百炼 API Key (sk-xxxx...)'}}" 
-        placeholder-class="input-placeholder"
-        value="{{bailianKeyInput}}" 
-        bindinput="onInputBailianKey"
-      />
+      <input class="form-input" password="{{!showBailianKey}}" placeholder="{{maskedBailianKey ? ('已保存: ' + maskedBailianKey) : '输入百炼 API Key (sk-xxxx...)'}}" placeholder-class="input-placeholder" value="{{bailianKeyInput}}" bindinput="onInputBailianKey" />
     </view>
 
     <!-- 实时大模型选择 (Picker) -->
-    <view class="input-row" style="margin-top: 14rpx;">
+    <view class="input-row mt-14">
       <text class="input-label">实时语音大模型 (Model)</text>
       <picker bindchange="onModelChange" value="{{selectedModelIndex}}" range="{{modelOptions}}" range-key="label">
         <view class="picker-display-box">
@@ -549,7 +463,7 @@
     </view>
 
     <!-- 对话音色选择 (Picker + 试听按钮) -->
-    <view class="input-row" style="margin-top: 14rpx;">
+    <view class="input-row mt-14">
       <text class="input-label">拟人发声音色 (Voice)</text>
       <view class="voice-picker-row">
         <picker class="voice-picker" bindchange="onVoiceChange" value="{{selectedVoiceIndex}}" range="{{voiceOptions}}" range-key="label">
@@ -565,57 +479,46 @@
     </view>
 
     <!-- 伴侣硬件播音音量调节 (Slider + 防破音黄金区间提示) -->
-    <view class="input-row" style="margin-top: 14rpx;">
+    <view class="input-row mt-14">
       <view class="label-with-action">
         <text class="input-label">硬件播音音量 (Speaker Volume)</text>
-        <view style="display: flex; align-items: center; gap: 12rpx;">
-          <text class="volume-val-badge">{{speakerVolume}}%</text>
-          <button class="btn-preset-chip" style="margin: 0; padding: 4rpx 14rpx; font-size: 20rpx; height: 44rpx; line-height: 44rpx; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1rpx solid rgba(56, 189, 248, 0.4);" bindtap="handleTestVolume">🔊 试听音量</button>
+        <view class="volume-actions-row">
+          <text class="volume-val-badge">{{displayVolume || speakerVolume}}%</text>
+          <button class="btn-test-volume" bindtap="handleTestVolume">🔊 试听音量</button>
         </view>
       </view>
-      <slider 
-        class="volume-slider" 
-        min="10" 
-        max="100" 
-        step="5" 
-        value="{{speakerVolume}}" 
-        bindchange="onVolumeChange"
-        bindchanging="onVolumeChanging"
-        activeColor="#06b6d4" 
-        backgroundColor="#334155" 
-        block-size="20"
-        block-color="#38bdf8"
-      />
-      <text class="prompt-hint" style="margin-top: -6rpx;">💡 建议 65%~75% 黄金区间：保护微型扬声器防止机械破音，并消除回声干扰</text>
+      <slider class="volume-slider" min="10" max="100" step="5" value="{{speakerVolume}}" bindchange="onVolumeChange" bindchanging="onVolumeChanging" activeColor="#06b6d4" backgroundColor="#334155" block-size="20" block-color="#38bdf8" />
+      <view class="volume-presets-row">
+        <view class="vol-preset-chip {{(displayVolume || speakerVolume) === 30 ? 'vol-preset-active' : ''}}" bindtap="handleSetVolumePreset" data-volume="30">
+          <text>30% 柔和</text>
+        </view>
+        <view class="vol-preset-chip {{(displayVolume || speakerVolume) === 50 ? 'vol-preset-active' : ''}}" bindtap="handleSetVolumePreset" data-volume="50">
+          <text>50% 适中</text>
+        </view>
+        <view class="vol-preset-chip {{(displayVolume || speakerVolume) === 75 ? 'vol-preset-active' : ''}}" bindtap="handleSetVolumePreset" data-volume="75">
+          <text>75% 推荐</text>
+        </view>
+        <view class="vol-preset-chip {{(displayVolume || speakerVolume) === 100 ? 'vol-preset-active' : ''}}" bindtap="handleSetVolumePreset" data-volume="100">
+          <text>100% 洪亮</text>
+        </view>
+      </view>
+      <text class="prompt-hint hint-tight">💡 建议 65%~75% 黄金区间：保护微型扬声器防止机械破音，并消除回声干扰</text>
     </view>
 
     <!-- 人格提示词 (Prompt) 输入与预设标签 -->
-    <view class="input-row" style="margin-top: 14rpx;">
+    <view class="input-row mt-14">
       <view class="label-with-action">
         <text class="input-label">人格提示词 (System Prompt)</text>
         <text class="prompt-hint">控制伴侣说话口吻与长度</text>
       </view>
-      <textarea 
-        class="form-textarea" 
-        placeholder="设定灵宠的人格提示词..." 
-        placeholder-class="input-placeholder"
-        value="{{bailianPrompt}}" 
-        bindinput="onInputPrompt"
-        maxlength="250"
-      />
+      <textarea class="form-textarea" placeholder="设定灵宠的人格提示词..." placeholder-class="input-placeholder" value="{{bailianPrompt}}" bindinput="onInputPrompt" maxlength="250" />
     </view>
 
     <!-- 预设标签快速填入 -->
     <view class="prompt-presets-row">
       <text class="preset-label">快捷预设:</text>
       <view class="preset-tags">
-        <view 
-          class="preset-tag" 
-          wx:for="{{promptPresets}}" 
-          wx:key="name" 
-          bindtap="handleApplyPromptPreset" 
-          data-prompt="{{item.prompt}}"
-        >
+        <view class="preset-tag" wx:for="{{promptPresets}}" wx:key="name" bindtap="handleApplyPromptPreset" data-prompt="{{item.prompt}}">
           <text>{{item.name}}</text>
         </view>
       </view>
@@ -653,21 +556,12 @@
         <text class="slider-title">唤醒识别灵敏度</text>
         <text class="slider-val highlight-cyan">{{wakewordSensitivity}}%</text>
       </view>
-      <slider 
-        min="20" 
-        max="100" 
-        step="5" 
-        value="{{wakewordSensitivity}}" 
-        bindchange="onWakewordSensitivityChange"
-        activeColor="#00f2fe"
-        backgroundColor="rgba(255,255,255,0.15)"
-        block-size="20"
-      />
+      <slider min="20" max="100" step="5" value="{{wakewordSensitivity}}" bindchange="onWakewordSensitivityChange" activeColor="#00f2fe" backgroundColor="rgba(255,255,255,0.15)" block-size="20" />
       <text class="slider-desc">灵敏度过高可能引发环境噪音误触，推荐设定在 70% ~ 80%</text>
     </view>
 
     <!-- 对话等待推流窗口 -->
-    <view class="input-row" style="margin-top: 14rpx;" wx:if="{{wakewordEnabled}}">
+    <view class="input-row mt-14" wx:if="{{wakewordEnabled}}">
       <text class="input-label">唤醒后等待说话推流窗口</text>
       <picker bindchange="onTimeoutChange" value="{{selectedTimeoutIndex}}" range="{{timeoutOptions}}">
         <view class="picker-display-box">
@@ -716,7 +610,7 @@
     </view>
 
     <!-- 3. 一键恢复出厂设置 -->
-    <view class="setting-row" style="border-bottom: none;">
+    <view class="setting-row row-no-border">
       <view class="setting-info">
         <text class="setting-title text-red">一键恢复出厂设置 (Factory Reset)</text>
         <text class="setting-desc">抹除所有 Wi-Fi、Key、流量统计与全部配置，恢复初始待命态</text>
@@ -761,7 +655,7 @@
     </view>
   </view>
 
-  <!-- 6. 固件契约与版本诊断 -->
+  <!-- 9. 固件契约与版本诊断 -->
   <view class="panel-card info-card">
     <text class="info-title">🛠️ 固件与通信契约诊断</text>
     <view class="info-item">
