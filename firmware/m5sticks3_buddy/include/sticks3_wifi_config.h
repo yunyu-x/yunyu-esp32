@@ -56,7 +56,8 @@ public:
         : _sta_state(STA_STATE_IDLE), _conn_start_time(0),
           _conn_timeout_ms(15000), _last_reconnect_attempt(0),
           _auto_reconnect(true), _sta_ip("0.0.0.0"), _sta_rssi(0),
-          _traffic_byte_accumulator(0), _last_nvs_flush_kb(0) {
+          _traffic_byte_accumulator(0), _last_nvs_flush_kb(0),
+          _pending_traffic_nvs_flush(false) {
         _cfg.bailian_model = "qwen3.8-omni-flash-realtime";
         _cfg.bailian_voice = "Tina";
         _cfg.bailian_ws_url = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
@@ -224,9 +225,10 @@ public:
                 }
             }
 
-            // 每增加 256KB 自动沉淀 NVS，保护 Flash 擦写寿命同时兼顾掉电保存
+            // 遵循工程公理二：严禁在 websocket_task (Core 0) 或网络数据接收回调中直接写 Flash
+            // 标记待沉淀标记，由 loopTask (Core 1) 异步安全写入，彻底消除 Cache 禁用引发的 Panic 重启
             if (_cfg.hotspot_used_kb - _last_nvs_flush_kb >= 256) {
-                flushTrafficToNVS();
+                _pending_traffic_nvs_flush = true;
             }
         }
     }
@@ -459,6 +461,15 @@ public:
                 startConnectSTA(_cfg.wifi_ssid, _cfg.wifi_pass);
             }
         }
+
+        // 遵循工程公理二：在 loopTask 主循环中安全异步沉淀热点流量至 NVS Flash (杜绝在中断/ws_task中写Flash)
+        static uint32_t s_last_traffic_flush_tick = 0;
+        if (_pending_traffic_nvs_flush || 
+            (_cfg.is_hotspot && (_cfg.hotspot_used_kb != _last_nvs_flush_kb) && (millis() - s_last_traffic_flush_tick >= 15000))) {
+            _pending_traffic_nvs_flush = false;
+            s_last_traffic_flush_tick = millis();
+            flushTrafficToNVS();
+        }
     }
 
     // Getters
@@ -484,6 +495,7 @@ private:
     int _sta_rssi;
     uint32_t _traffic_byte_accumulator;
     uint32_t _last_nvs_flush_kb;
+    volatile bool _pending_traffic_nvs_flush;
 };
 
 } // namespace sticks3

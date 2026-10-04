@@ -48,6 +48,7 @@
     "avatar-canvas": "./components/avatar-canvas/avatar-canvas"
   },
   "__usePrivacyCheck__": true,
+  "lazyCodeLoading": "requiredComponents",
   "requiredBackgroundModes": [],
   "sitemapLocation": "sitemap.json"
 }

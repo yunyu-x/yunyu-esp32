@@ -188,8 +188,8 @@ static const char* DASHSCOPE_ROOT_CA =
         ws_cfg.headers = _auth_header.c_str();
         ws_cfg.cert_pem = DASHSCOPE_ROOT_CA;
         ws_cfg.cert_len = strlen(DASHSCOPE_ROOT_CA) + 1;
-        ws_cfg.buffer_size = 28672; // 28KB 接收缓冲，容纳完整 audio.delta (20.8KB)
-        ws_cfg.task_stack = 20480;  // 20KB 堆栈确保 mbedTLS 握手与消息解析
+        ws_cfg.buffer_size = 8192;  // 8KB 接收分片缓冲，充分满足 TCP MSS 分包交付并释放内部 SRAM
+        ws_cfg.task_stack = 8192;   // 8KB 堆栈确保轻量事件分发并释放内部 SRAM
         ws_cfg.pingpong_timeout_sec = 120;
         ws_cfg.ping_interval_sec = 10;
         ws_cfg.disable_pingpong_discon = true;
@@ -271,7 +271,11 @@ static const char* DASHSCOPE_ROOT_CA =
             StickS3Audio::getInstance().interruptPlayback();
 
             // 2. 标记界面显示已打断
-            _ai_reply += " [已打断]";
+            portENTER_CRITICAL(&_text_mux);
+            if (_ai_reply.indexOf("[已打断]") == -1) {
+                _ai_reply += " [已打断]";
+            }
+            portEXIT_CRITICAL(&_text_mux);
             _rx_text_dirty = true;
             _total_interrupts++;
 
@@ -489,8 +493,18 @@ static const char* DASHSCOPE_ROOT_CA =
             default: return "未知";
         }
     }
-    String getUserQuery() const { return _user_query; }
-    String getAiReply() const { return _ai_reply; }
+    String getUserQuery() const {
+        portENTER_CRITICAL(&_text_mux);
+        String copy = _user_query;
+        portEXIT_CRITICAL(&_text_mux);
+        return copy;
+    }
+    String getAiReply() const {
+        portENTER_CRITICAL(&_text_mux);
+        String copy = _ai_reply;
+        portEXIT_CRITICAL(&_text_mux);
+        return copy;
+    }
     uint32_t getTotalInterrupts() const { return _total_interrupts; }
     String getLastError() const {
         if (_state == BL_STATE_LISTENING || _state == BL_STATE_SPEAKING || _state == BL_STATE_THINKING || _state == BL_STATE_CONNECTED_IDLE) {
@@ -518,8 +532,10 @@ static const char* DASHSCOPE_ROOT_CA =
         StickS3Audio::getInstance().playTone(1760, 40, 0.45f);
 
         // 4. 刷新屏幕为倾听提示
+        portENTER_CRITICAL(&_text_mux);
         _user_query = "";
         _ai_reply = "在呢，请吩咐！";
+        portEXIT_CRITICAL(&_text_mux);
         _rx_text_dirty = true;
 
         if (_state != BL_STATE_SPEAKING) {
@@ -537,8 +553,10 @@ static const char* DASHSCOPE_ROOT_CA =
     }
 
     void startNewConversation() {
+        portENTER_CRITICAL(&_text_mux);
         _user_query = "";
         _ai_reply = "";
+        portEXIT_CRITICAL(&_text_mux);
         _rx_text_dirty = true;
         _response_done_received = false;
         interrupt("NewConversation");
@@ -576,8 +594,11 @@ static const char* DASHSCOPE_ROOT_CA =
 
         _last_activity_time = millis();
         _last_error = "";
+        portENTER_CRITICAL(&_text_mux);
         _user_query = text;
         _ai_reply = "";
+        _ai_reply.reserve(1024);
+        portEXIT_CRITICAL(&_text_mux);
         _rx_text_dirty = true;
         _response_done_received = false;
         _is_response_cancelled = false;
@@ -627,8 +648,10 @@ static const char* DASHSCOPE_ROOT_CA =
         cfg_mgr.saveBailianVoice(new_voice);
 
         // 关键：清空上一轮问答陈旧文本，避免用户产生“输出相同”的误解
+        portENTER_CRITICAL(&_text_mux);
         _user_query = "";
         _ai_reply = "已切换为 " + new_voice + " 音色";
+        portEXIT_CRITICAL(&_text_mux);
         _rx_text_dirty = true;
 
         if (speak_preview) {
@@ -651,8 +674,10 @@ static const char* DASHSCOPE_ROOT_CA =
     // 清空人机对话记忆 (RAM + Flash NVS)
     void clearMemory() {
         StickS3MemoryStore::getInstance().clearMemory();
+        portENTER_CRITICAL(&_text_mux);
         _user_query = "";
         _ai_reply = "对话记忆已清空";
+        portEXIT_CRITICAL(&_text_mux);
         _rx_text_dirty = true;
         if (isConnected()) {
             sendSessionUpdate();
@@ -1020,8 +1045,10 @@ private:
             // 收到新一轮回答创建事件，重置打断取消标记与挂起请求，确保新一轮语音和文本正常输出
             _is_response_cancelled = false;
             _pending_cancel = false;
+            portENTER_CRITICAL(&_text_mux);
             _ai_reply = ""; // 关键：每轮新回答生成时清空上一轮回答并预分配内存，防止碎片化
             _ai_reply.reserve(1024);
+            portEXIT_CRITICAL(&_text_mux);
             _rx_text_dirty = true;
             Serial.println("[BAILIAN] response.created received. Ready for streaming response.");
         }
@@ -1053,7 +1080,11 @@ private:
                 if (_state != BL_STATE_SPEAKING) {
                     setState(BL_STATE_SPEAKING);
                 }
-                _ai_reply += delta;
+                portENTER_CRITICAL(&_text_mux);
+                if (_ai_reply.length() + strlen(delta) < 1024) {
+                    _ai_reply += delta;
+                }
+                portEXIT_CRITICAL(&_text_mux);
                 _rx_text_dirty = true;
             }
         }
@@ -1087,9 +1118,11 @@ private:
         else if (strcmp(type, "conversation.item.input_audio_transcription.completed") == 0) {
             const char* user_text = doc["transcript"] | "";
             if (user_text && strlen(user_text) > 0) {
+                portENTER_CRITICAL(&_text_mux);
                 _user_query = user_text;
                 _ai_reply = ""; // 清空上一轮回答准备流式刷新
                 _ai_reply.reserve(1024);
+                portEXIT_CRITICAL(&_text_mux);
                 _rx_text_dirty = true;
                 _is_response_cancelled = false; // 用户新提问确认，清除任何旧取消状态
                 _pending_cancel = false;
@@ -1109,16 +1142,21 @@ private:
             _last_activity_time = millis();
             Serial.println("[BAILIAN] LLM response streaming complete.");
 
+            portENTER_CRITICAL(&_text_mux);
+            String u_copy = _user_query;
+            String a_copy = _ai_reply;
+            portEXIT_CRITICAL(&_text_mux);
+
             // 关键：不在 websocket_task 中直接执行 Flash NVS 写入与 session.update (遵循工程公理二)
             // 标记记忆持久化待处理，在 loopTask 中安全执行，彻底杜绝 Flash 禁用导致 Cache Panic 异常重启
-            if (_user_query.length() > 0 && _ai_reply.length() > 0 && !was_cancelled) {
-                _pending_turn_user = _user_query;
-                _pending_turn_ai = _ai_reply;
+            if (u_copy.length() > 0 && a_copy.length() > 0 && !was_cancelled) {
+                _pending_turn_user = u_copy;
+                _pending_turn_ai = a_copy;
                 _pending_memory_save = true;
             }
 
             if (_on_text) {
-                _on_text(_user_query, _ai_reply, true);
+                _on_text(u_copy, a_copy, true);
             }
         }
         // 8. 错误报文
@@ -1183,6 +1221,7 @@ private:
     String _last_error;
     String _auth_header;
 
+    mutable portMUX_TYPE _text_mux = portMUX_INITIALIZER_UNLOCKED;
     String _user_query;
     String _ai_reply;
     volatile bool _rx_text_dirty;

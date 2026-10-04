@@ -164,6 +164,19 @@ public:
         return res;
     }
 
+    esp_err_t safeI2SRead(void* dest, size_t size, size_t* bytes_read, TickType_t timeout) {
+        if (!_i2s_mutex) {
+            return i2s_read(I2S_NUM_0, dest, size, bytes_read, timeout);
+        }
+        if (xSemaphoreTake(_i2s_mutex, timeout) != pdTRUE) {
+            if (bytes_read) *bytes_read = 0;
+            return ESP_ERR_TIMEOUT;
+        }
+        esp_err_t res = i2s_read(I2S_NUM_0, dest, size, bytes_read, timeout);
+        xSemaphoreGive(_i2s_mutex);
+        return res;
+    }
+
     static void generateWavHeader(uint8_t* header, uint32_t pcm_len, uint32_t sample_rate = SAMPLE_RATE) {
         uint32_t total_size = pcm_len + 36;
         uint32_t byte_rate = sample_rate * 2; // 16-bit Mono = 2 bytes/sample
@@ -229,7 +242,7 @@ public:
             .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT, // ES8311 Mono
             .communication_format = I2S_COMM_FORMAT_STAND_I2S,
             .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-            .dma_buf_count = 6, // 优化 DMA 缓冲为 6x256 (96ms)，兼顾零欠载与极低放音前滚延迟
+            .dma_buf_count = 8, // 优化 DMA 缓冲为 8x256 (128ms)，彻底消除 Wi-Fi 突发收发抖动引起的 DMA 欠载断续与破音
             .dma_buf_len = 256,
             .use_apll = false,
             .tx_desc_auto_clear = true,
@@ -465,7 +478,7 @@ public:
         size_t bytes_read = 0;
         
         while (_is_recording && _recorded_pcm_bytes < MAX_RECORD_PCM_BYTES) {
-            esp_err_t res = i2s_read(I2S_NUM_0, temp_buf, READ_CHUNK, &bytes_read, 0);
+            esp_err_t res = safeI2SRead(temp_buf, READ_CHUNK, &bytes_read, 0);
             if (res != ESP_OK || bytes_read == 0) break;
 
             size_t space_left = MAX_RECORD_PCM_BYTES - _recorded_pcm_bytes;
@@ -751,18 +764,24 @@ public:
                         for (size_t i = 0; i < samples; ++i) {
                             int32_t val = (int32_t)s_ptr[i];
                             val = (val * vol) / 100; // 线性平滑缩放，最大 1.0，彻底消除 1.43 倍过载削波与方波失真
-                            if (val > 26000) {
-                                val = 26000 + ((val - 26000) >> 2);
-                                if (val > 32000) val = 32000;
-                            } else if (val < -26000) {
-                                val = -26000 + ((val + 26000) >> 2);
-                                if (val < -32000) val = -32000;
+                            if (val > 22000) {
+                                val = 22000 + ((val - 22000) >> 2);
+                                if (val > 28000) val = 28000;
+                            } else if (val < -22000) {
+                                val = -22000 + ((val + 22000) >> 2);
+                                if (val < -28000) val = -28000;
                             }
                             s_ptr[i] = (int16_t)val;
                         }
 
+                        // 3. 完整循环推入 DMA，严禁丢弃未写入样本 (彻底消除因部分写入丢包导致的波形撕裂与破音)
                         size_t bytes_written = 0;
-                        safeI2SWrite(chunk, n, &bytes_written, 25 / portTICK_PERIOD_MS);
+                        while (bytes_written < n) {
+                            size_t w = 0;
+                            esp_err_t res = safeI2SWrite(chunk + bytes_written, n - bytes_written, &w, pdMS_TO_TICKS(40));
+                            if (res != ESP_OK || w == 0) break;
+                            bytes_written += w;
+                        }
 
                         // 实时解算喇叭写入能量，采用 Fast Attack & Slow Decay 包络跟踪
                         // 补偿 I2S DMA 128ms 硬件延迟，防止因物理声学滞后导致参考信号过低
@@ -861,7 +880,7 @@ public:
         const size_t CHUNK_SAMPLES = 256; // 16ms 采样窗
         int16_t mic_buf[CHUNK_SAMPLES];
         size_t bytes_read = 0;
-        esp_err_t res = i2s_read(I2S_NUM_0, mic_buf, sizeof(mic_buf), &bytes_read, 0);
+        esp_err_t res = safeI2SRead(mic_buf, sizeof(mic_buf), &bytes_read, 0);
         if (res != ESP_OK || bytes_read < 64) return false;
 
         size_t samples = bytes_read / sizeof(int16_t);
@@ -972,7 +991,7 @@ public:
         if (!_initialized || !dest || max_samples == 0) return false;
 
         size_t bytes_read = 0;
-        esp_err_t res = i2s_read(I2S_NUM_0, dest, max_samples * sizeof(int16_t), &bytes_read, 0);
+        esp_err_t res = safeI2SRead(dest, max_samples * sizeof(int16_t), &bytes_read, 0);
         if (res == ESP_OK && bytes_read > 0) {
             samples_read = bytes_read / sizeof(int16_t);
             // 同步解算麦克风实时能量 RMS 驱动屏幕 VU 表和本地 VAD

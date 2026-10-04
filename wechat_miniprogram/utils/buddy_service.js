@@ -271,7 +271,8 @@ class BuddyService {
       }
     }
 
-    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+    const isHotspot = Boolean(this.hotspot && this.hotspot.isHotspot);
+    if (!isHotspot && (this.isWifiMode || (this.httpClient && this.httpClient.host))) {
       try {
         const res = await this.httpClient.sendPetAction(action, value);
         if (res) {
@@ -377,13 +378,17 @@ class BuddyService {
       this.wifiPollTimer = null;
     }
 
-    const pollInterval = (this.hotspot && this.hotspot.isHotspot) ? 6000 : 2500;
+    // 手机热点且 BLE 已连接时，完全由 BLE 状态机接管，杜绝向热点客户端发 HTTP 产生 3.5s 超时卡顿
+    if (this.hotspot && this.hotspot.isHotspot && this.bleClient && this.bleClient.isConnected) {
+      return;
+    }
+
+    const pollInterval = (this.hotspot && this.hotspot.isHotspot) ? 8000 : 2500;
     let consecutiveFailures = 0;
 
     const runPoll = async () => {
       if (this._isWifiPolling || !this.isWifiMode || !this.httpClient) return;
-      // 手机热点下若连续失败两次，暂停激进请求，信赖 BLE 广播通道
-      if (this.hotspot && this.hotspot.isHotspot && consecutiveFailures >= 2) {
+      if (this.hotspot && this.hotspot.isHotspot && (consecutiveFailures >= 1 || (this.bleClient && this.bleClient.isConnected))) {
         return;
       }
       this._isWifiPolling = true;
@@ -581,7 +586,21 @@ class BuddyService {
   }
 
   async fetchHotspotTraffic() {
-    if (this.isWifiMode) {
+    const isHotspot = Boolean(this.hotspot && this.hotspot.isHotspot);
+
+    if (this.isBleMode && this.bleClient.isConnected) {
+      try {
+        await this.bleClient.injectAction("get_status", "");
+        await this.bleClient.readStatus();
+        await new Promise(r => setTimeout(r, 60));
+        this.notifyListeners("hotspot", this.hotspot);
+        return this.hotspot;
+      } catch (e) {
+        console.warn("[BuddyService] fetchHotspotTraffic BLE error:", e);
+      }
+    }
+
+    if (!isHotspot && this.isWifiMode) {
       try {
         const data = await this.httpClient.getHotspotTraffic();
         if (data) {
@@ -597,18 +616,6 @@ class BuddyService {
         }
       } catch (e) {
         console.warn("[BuddyService] fetchHotspotTraffic HTTP error:", e);
-      }
-    }
-
-    if (this.isBleMode && this.bleClient.isConnected) {
-      try {
-        await this.bleClient.injectAction("get_status", "");
-        await this.bleClient.readStatus();
-        await new Promise(r => setTimeout(r, 200));
-        this.notifyListeners("hotspot", this.hotspot);
-        return this.hotspot;
-      } catch (e) {
-        console.warn("[BuddyService] fetchHotspotTraffic BLE error:", e);
       }
     }
 
@@ -684,30 +691,14 @@ class BuddyService {
   }
 
   async checkDeviceNetworkStatus() {
-    try {
-      const data = await this.httpClient.getWifiStatus();
-      if (data && data.sta_state) {
-        const isDeviceOnline = (data.sta_state === "connected");
-        if (isDeviceOnline && data.sta_ip && data.sta_ip !== "0.0.0.0") {
-          this.httpClient.setHost(data.sta_ip);
-          StorageManager.saveSettings({ wifiHost: data.sta_ip });
-        }
-        if (data.is_hotspot !== undefined) {
-          this.hotspot.isHotspot = Boolean(data.is_hotspot);
-          if (data.hs_used_mb !== undefined) this.hotspot.usedMb = Number(data.hs_used_mb);
-          if (data.hs_limit_mb !== undefined) this.hotspot.limitMb = Number(data.hs_limit_mb);
-          this.hotspot.remainingMb = Math.max(0, parseFloat((this.hotspot.limitMb - this.hotspot.usedMb).toFixed(2)));
-          this.notifyListeners("hotspot", this.hotspot);
-        }
-        return data;
-      }
-    } catch (e) {}
+    const isHotspot = Boolean(this.hotspot && this.hotspot.isHotspot);
 
+    // 1. 若处于 BLE 模式或热点模式且 BLE 在线，优先直通 BLE 极速快路 (杜绝 iOS/Android 热点局域网阻断 HTTP 引发的 3 秒 UI 挂起卡顿)
     if (this.isBleMode && this.bleClient.isConnected) {
       try {
         await this.bleClient.injectAction("query_wifi_status", "");
         await this.bleClient.readStatus();
-        await new Promise(r => setTimeout(r, 250));
+        await new Promise(r => setTimeout(r, 80));
         return {
           sta_state: this.deviceWifi.sta_state,
           sta_ip: this.deviceWifi.sta_ip,
@@ -718,6 +709,30 @@ class BuddyService {
           hs_used_mb: this.hotspot.usedMb,
           hs_limit_mb: this.hotspot.limitMb
         };
+      } catch (e) {
+        console.warn("[BuddyService] checkDeviceNetworkStatus BLE error:", e);
+      }
+    }
+
+    // 2. 仅在非热点且 Wi-Fi 模式下，才尝试 HTTP 请求
+    if (!isHotspot && (this.isWifiMode || (this.httpClient && this.httpClient.host))) {
+      try {
+        const data = await this.httpClient.getWifiStatus();
+        if (data && data.sta_state) {
+          const isDeviceOnline = (data.sta_state === "connected");
+          if (isDeviceOnline && data.sta_ip && data.sta_ip !== "0.0.0.0") {
+            this.httpClient.setHost(data.sta_ip);
+            StorageManager.saveSettings({ wifiHost: data.sta_ip });
+          }
+          if (data.is_hotspot !== undefined) {
+            this.hotspot.isHotspot = Boolean(data.is_hotspot);
+            if (data.hs_used_mb !== undefined) this.hotspot.usedMb = Number(data.hs_used_mb);
+            if (data.hs_limit_mb !== undefined) this.hotspot.limitMb = Number(data.hs_limit_mb);
+            this.hotspot.remainingMb = Math.max(0, parseFloat((this.hotspot.limitMb - this.hotspot.usedMb).toFixed(2)));
+            this.notifyListeners("hotspot", this.hotspot);
+          }
+          return data;
+        }
       } catch (e) {}
     }
 

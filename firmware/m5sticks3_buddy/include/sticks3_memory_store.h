@@ -113,6 +113,7 @@ public:
         }
         _turn_count--;
         Serial.printf("[MEMORY] Compaction complete. New turn count: %u\n", (unsigned)_turn_count);
+        saveToNVS();
     }
 
     // 追加一轮新的人机对话记忆并异步持久化至 NVS Flash (全流程 PSRAM 操作，零内部 SRAM 堆碎片)
@@ -156,9 +157,15 @@ public:
             snprintf(turn.time_str, sizeof(turn.time_str), "+%lus", (unsigned long)(millis() / 1000));
         }
 
-        strncpy(turn.user_text, clean_user.c_str(), sizeof(turn.user_text) - 1);
+        // 遵循工程公理六：严禁跨字节撕裂截断多字节 UTF-8 中文字符
+        // 用户问题截断至 38 字 (约 114 字节，安全容纳于 128 字节槽位)
+        // AI 回复截断至 78 字 (约 234 字节，安全容纳于 256 字节槽位)，永不截断多字节且 100% 合法
+        String safe_u = safeTruncateUtf8(clean_user.c_str(), 38);
+        String safe_a = safeTruncateUtf8(clean_ai.c_str(), 78);
+
+        strncpy(turn.user_text, safe_u.c_str(), sizeof(turn.user_text) - 1);
         turn.user_text[sizeof(turn.user_text) - 1] = '\0';
-        strncpy(turn.ai_text, clean_ai.c_str(), sizeof(turn.ai_text) - 1);
+        strncpy(turn.ai_text, safe_a.c_str(), sizeof(turn.ai_text) - 1);
         turn.ai_text[sizeof(turn.ai_text) - 1] = '\0';
         const char* v = voice.length() > 0 ? voice.c_str() : "Tina";
         strncpy(turn.voice, v, sizeof(turn.voice) - 1);
@@ -296,27 +303,40 @@ private:
 
     void saveToNVS() {
         if (!_turns) return;
+        static uint32_t s_last_save_time = 0;
+        if (millis() - s_last_save_time < 3000 && _turn_count > 0) {
+            return; // 3 秒防抖节流，避免高频擦写 Flash
+        }
+        s_last_save_time = millis();
+
         Preferences prefs;
         if (!prefs.begin(NVS_MEM_NAMESPACE, false)) return;
 
-        // 存储条目总数与下个ID
         size_t count_to_save = (_turn_count > MAX_TURNS_IN_FLASH) ? MAX_TURNS_IN_FLASH : _turn_count;
-        prefs.putUInt("turn_count", (uint32_t)count_to_save);
-        prefs.putUInt("next_id", _next_turn_id);
+        JsonDocument doc;
+        doc["c"] = (uint32_t)count_to_save;
+        doc["nid"] = _next_turn_id;
+        JsonArray arr = doc["t"].to<JsonArray>();
 
-        // 仅持久化最近的 MAX_TURNS_IN_FLASH 轮问答
         size_t start_idx = _turn_count - count_to_save;
         for (size_t i = 0; i < count_to_save; ++i) {
             const auto& t = _turns[start_idx + i];
-            String prefix = "t" + String(i) + "_";
-            prefs.putUInt((prefix + "id").c_str(), t.turn_id);
-            prefs.putUInt((prefix + "ts").c_str(), t.timestamp);
-            prefs.putString((prefix + "tm").c_str(), t.time_str);
-            prefs.putString((prefix + "u").c_str(), t.user_text);
-            prefs.putString((prefix + "a").c_str(), t.ai_text);
-            prefs.putString((prefix + "v").c_str(), t.voice);
-            prefs.putUShort((prefix + "dur").c_str(), t.duration_ms);
+            JsonObject item = arr.add<JsonObject>();
+            item["id"] = t.turn_id;
+            item["ts"] = t.timestamp;
+            item["tm"] = t.time_str;
+            item["u"] = t.user_text;
+            item["a"] = t.ai_text;
+            item["v"] = t.voice;
+            item["d"] = t.duration_ms;
         }
+
+        String json_str;
+        json_str.reserve(1024);
+        serializeJson(doc, json_str);
+
+        // 单键原子写入，彻底消除 35 次 Preference 频繁写入引发的 Flash 阻塞与 Panic
+        prefs.putString("turns_v2", json_str);
         prefs.end();
     }
 
@@ -325,6 +345,40 @@ private:
         Preferences prefs;
         if (!prefs.begin(NVS_MEM_NAMESPACE, true)) return;
 
+        // 优先加载 v2 单键原子紧凑格式
+        String json_v2 = prefs.getString("turns_v2", "");
+        if (json_v2.length() > 0) {
+            JsonDocument doc;
+            DeserializationError err = deserializeJson(doc, json_v2);
+            if (!err) {
+                _next_turn_id = doc["nid"] | 1;
+                JsonArray arr = doc["t"].as<JsonArray>();
+                _turn_count = 0;
+                for (JsonObject item : arr) {
+                    if (_turn_count >= MAX_TURNS_IN_MEMORY) break;
+                    DialogueTurn& turn = _turns[_turn_count];
+                    memset(&turn, 0, sizeof(DialogueTurn));
+                    turn.turn_id = item["id"] | (_turn_count + 1);
+                    turn.timestamp = item["ts"] | 0;
+                    const char* tm = item["tm"] | "--:--";
+                    const char* u = item["u"] | "";
+                    const char* a = item["a"] | "";
+                    const char* v = item["v"] | "Tina";
+                    turn.duration_ms = item["d"] | 0;
+                    strncpy(turn.time_str, tm, sizeof(turn.time_str) - 1);
+                    strncpy(turn.user_text, u, sizeof(turn.user_text) - 1);
+                    strncpy(turn.ai_text, a, sizeof(turn.ai_text) - 1);
+                    strncpy(turn.voice, v, sizeof(turn.voice) - 1);
+                    if (strlen(turn.user_text) > 0 && strlen(turn.ai_text) > 0) {
+                        _turn_count++;
+                    }
+                }
+                prefs.end();
+                return;
+            }
+        }
+
+        // 降级回退加载旧版 v1 格式 (保障向后兼容)
         uint32_t count = prefs.getUInt("turn_count", 0);
         _next_turn_id = prefs.getUInt("next_id", 1);
         if (count == 0) {
