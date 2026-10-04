@@ -20,6 +20,8 @@
 #include "sticks3_avatar.h"
 #include "sticks3_wifi_config.h"
 #include "sticks3_audio.h"
+#include "sticks3_bailian_client.h"
+#include "sticks3_wakeword.h"
 
 namespace sticks3 {
 
@@ -403,6 +405,107 @@ public:
             StickS3ConfigManager::getInstance().resetHotspotTraffic();
             StickS3Avatar::getInstance().generateDiaryEntry("手机热点流量统计已重置为 0 MB。");
             notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+        } else if (action == "clear_memory") {
+            StickS3BailianClient::getInstance().clearMemory();
+            StickS3Audio::getInstance().playTone(1500, 50, 0.4f);
+            StickS3Avatar::getInstance().generateDiaryEntry("主人清空了全部历史对话记忆。");
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+            Serial.println("[BLE-INJECT] Conversation memory cleared via BLE.");
+        } else if (action == "reboot") {
+            StickS3Audio::getInstance().playTone(1200, 60, 0.4f);
+            Serial.println("[BLE-INJECT] Reboot triggered via BLE! Rebooting in 300ms...");
+            delay(300);
+            esp_restart();
+        } else if (action == "factory_reset") {
+            StickS3Audio::getInstance().playTone(1000, 100, 0.5f);
+            StickS3ConfigManager::getInstance().clearAllConfig();
+            StickS3MemoryStore::getInstance().clearMemory();
+            Serial.println("[BLE-INJECT] Factory reset triggered via BLE! Rebooting in 400ms...");
+            delay(400);
+            esp_restart();
+        } else if (action == "bailian_cfg") {
+            auto& cfg_mgr = StickS3ConfigManager::getInstance();
+            auto& bl = StickS3BailianClient::getInstance();
+            String key = "";
+            String model = "";
+            String voice = "";
+            String prompt = "";
+
+            if (!doc["key"].isNull()) key = doc["key"].as<String>();
+            if (!doc["api_key"].isNull()) key = doc["api_key"].as<String>();
+            if (!doc["model"].isNull()) model = doc["model"].as<String>();
+            if (!doc["voice"].isNull()) voice = doc["voice"].as<String>();
+            if (!doc["prompt"].isNull()) prompt = doc["prompt"].as<String>();
+
+            // 兼容 value 嵌套对象
+            if (doc["value"].is<JsonObjectConst>()) {
+                JsonObjectConst sub = doc["value"].as<JsonObjectConst>();
+                if (!sub["key"].isNull()) key = sub["key"].as<String>();
+                if (!sub["api_key"].isNull()) key = sub["api_key"].as<String>();
+                if (!sub["model"].isNull()) model = sub["model"].as<String>();
+                if (!sub["voice"].isNull()) voice = sub["voice"].as<String>();
+                if (!sub["prompt"].isNull()) prompt = sub["prompt"].as<String>();
+            }
+
+            if (key.length() == 0) {
+                key = cfg_mgr.getConfig().bailian_key;
+            }
+            if (model.length() == 0) {
+                model = cfg_mgr.getConfig().bailian_model;
+            }
+            if (voice.length() == 0) {
+                voice = cfg_mgr.getConfig().bailian_voice;
+            }
+
+            cfg_mgr.saveBailianConfig(key, model, voice, "", prompt);
+            if (bl.isConnected()) {
+                bl.switchVoice(voice, false);
+            } else if (cfg_mgr.isStaConnected() && cfg_mgr.hasBailianKey()) {
+                bl.connect();
+            }
+            StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
+            StickS3Avatar::getInstance().generateDiaryEntry(String("主人通过蓝牙更新了阿里云百炼配置：模型[") + model + "]，音色[" + voice + "]。");
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+            Serial.printf("[BLE-INJECT] bailian_cfg applied: model='%s', voice='%s'\n", model.c_str(), voice.c_str());
+        } else if (action == "preview_voice") {
+            String voice = doc["voice"] | (doc["value"] | "");
+            if (voice.length() > 0 && StickS3ConfigManager::isVoiceSupported(voice)) {
+                StickS3BailianClient::getInstance().switchVoice(voice, true);
+                Serial.printf("[BLE-INJECT] preview_voice triggered: %s\n", voice.c_str());
+            }
+        } else if (action == "wakeword_cfg") {
+            auto& ww = StickS3WakeWordEngine::getInstance();
+            auto& cfg_mgr = StickS3ConfigManager::getInstance();
+            auto& cfg = cfg_mgr.getConfig();
+
+            bool enabled = cfg.wakeword_enabled;
+            if (!doc["enabled"].isNull()) enabled = parseJsonBool(doc["enabled"], enabled);
+            uint8_t sens = cfg.wakeword_sensitivity;
+            if (!doc["sensitivity"].isNull()) sens = (uint8_t)doc["sensitivity"].as<int>();
+            uint16_t tout = cfg.wakeword_timeout_sec;
+            if (!doc["timeout_sec"].isNull()) tout = (uint16_t)doc["timeout_sec"].as<int>();
+
+            // 兼容 value 嵌套对象
+            if (doc["value"].is<JsonObjectConst>()) {
+                JsonObjectConst sub = doc["value"].as<JsonObjectConst>();
+                if (!sub["enabled"].isNull()) enabled = parseJsonBool(sub["enabled"], enabled);
+                if (!sub["sensitivity"].isNull()) sens = (uint8_t)sub["sensitivity"].as<int>();
+                if (!sub["timeout_sec"].isNull()) tout = (uint16_t)sub["timeout_sec"].as<int>();
+            }
+
+            ww.setEnabled(enabled);
+            ww.setSensitivity(sens);
+            cfg_mgr.saveWakeWordConfig(enabled, sens, tout);
+            StickS3Audio::getInstance().playTone(1600, 40, 0.4f);
+            StickS3Avatar::getInstance().generateDiaryEntry(String("主人通过蓝牙配置了离线唤醒词：") + (enabled ? "开启" : "关闭") + "，灵敏度 " + String(sens) + "%");
+            notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+            Serial.printf("[BLE-INJECT] wakeword_cfg applied: enabled=%d, sens=%d, tout=%d\n", enabled, sens, tout);
+        } else if (action == "trigger_wake") {
+            float conf = 98.0f;
+            if (!doc["confidence"].isNull()) conf = doc["confidence"].as<float>();
+            StickS3WakeWordEngine::getInstance().forceTrigger(conf);
+            StickS3BailianClient::getInstance().onWakeWordDetected(conf, 650);
+            Serial.println("[BLE-INJECT] Wake simulated via BLE.");
         } else if (action == "query_wifi_status" || action == "get_status") {
             // 立即刷新并推送特征值
             updateSnapshots();

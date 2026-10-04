@@ -198,7 +198,7 @@ class StickS3HttpClient {
     });
   }
 
-  // 8. 查询设备端 Wi-Fi STA 连接状态 (GET /wifi/status)
+  // 8. 查询设备端 Wi-Fi STA 联网状态 (GET /wifi/status)
   getWifiStatus() {
     return new Promise((resolve, reject) => {
       wx.request({
@@ -215,6 +215,230 @@ class StickS3HttpClient {
         fail: (err) => {
           console.warn("[HTTP] getWifiStatus failed:", err);
           reject(err);
+        }
+      });
+    });
+  }
+
+  // 9. 查询阿里云百炼实时大模型状态 (GET /bailian/status)
+  getBailianStatus() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/bailian/status`,
+        method: "GET",
+        timeout: 3000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Get bailian status failed with status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.warn("[HTTP] getBailianStatus failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 10. 保存阿里云百炼大模型配置 (POST /bailian/config)
+  saveBailianConfig({ key = "", model = "qwen3.8-omni-flash-realtime", voice = "Tina", prompt = "" }) {
+    return new Promise((resolve, reject) => {
+      let data = `model=${encodeURIComponent(model)}&voice=${encodeURIComponent(voice)}`;
+      if (key && key.trim().length > 0) {
+        data += `&key=${encodeURIComponent(key.trim())}`;
+      }
+      if (prompt && prompt.trim().length > 0) {
+        data += `&prompt=${encodeURIComponent(prompt.trim())}`;
+      }
+      wx.request({
+        url: `http://${this.host}/bailian/config`,
+        method: "POST",
+        header: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: data,
+        timeout: 5000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(res.data && res.data.message ? res.data.message : `Config failed status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.error("[HTTP] saveBailianConfig failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 11. 即时音色试听 (POST /bailian/preview_voice)
+  previewVoice(voice = "Tina") {
+    return new Promise((resolve, reject) => {
+      const data = `voice=${encodeURIComponent(voice)}`;
+      wx.request({
+        url: `http://${this.host}/bailian/preview_voice`,
+        method: "POST",
+        header: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: data,
+        timeout: 4000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Preview voice failed status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.error("[HTTP] previewVoice failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 12. 查询离线唤醒词状态 (GET /wakeword/status)
+  getWakewordStatus() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/wakeword/status`,
+        method: "GET",
+        timeout: 3000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Get wakeword status failed status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.warn("[HTTP] getWakewordStatus failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 13. 配置离线唤醒词 (POST /wakeword/config)
+  saveWakewordConfig({ enabled = true, sensitivity = 75, timeoutSec = 8 }) {
+    return new Promise((resolve, reject) => {
+      const data = `enabled=${enabled ? "true" : "false"}&sensitivity=${sensitivity}&timeout_sec=${timeoutSec}`;
+      wx.request({
+        url: `http://${this.host}/wakeword/config`,
+        method: "POST",
+        header: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: data,
+        timeout: 4000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Wakeword config failed status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.error("[HTTP] saveWakewordConfig failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 14. 模拟离线唤醒词触发测试 (POST /wakeword/trigger)
+  triggerWakeSim(confidence = 98.0) {
+    return new Promise((resolve, reject) => {
+      const data = `confidence=${confidence}`;
+      wx.request({
+        url: `http://${this.host}/wakeword/trigger`,
+        method: "POST",
+        header: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: data,
+        timeout: 3000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Trigger wake failed status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.error("[HTTP] triggerWakeSim failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 15. 清空设备端 Flash 对话记忆 (POST /memory/clear)
+  clearDeviceMemory() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/memory/clear`,
+        method: "POST",
+        header: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: "",
+        timeout: 4000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Clear memory failed status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          console.error("[HTTP] clearDeviceMemory failed:", err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 16. 系统软重启 (POST /system/reboot)
+  reboot() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/system/reboot`,
+        method: "POST",
+        header: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: "",
+        timeout: 4000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Reboot failed status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          // 设备重启可能瞬间断开连接，也视为发起成功
+          console.warn("[HTTP] reboot request completed or disconnected:", err);
+          resolve({ status: "ok", msg: "rebooting" });
+        }
+      });
+    });
+  }
+
+  // 17. 恢复出厂设置 (POST /system/factory_reset)
+  factoryReset() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/system/factory_reset`,
+        method: "POST",
+        header: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: "",
+        timeout: 4000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Factory reset failed status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          // 设备重启可能瞬间断开连接，视为发起成功
+          console.warn("[HTTP] factoryReset request completed or disconnected:", err);
+          resolve({ status: "ok", msg: "factory_reset" });
         }
       });
     });

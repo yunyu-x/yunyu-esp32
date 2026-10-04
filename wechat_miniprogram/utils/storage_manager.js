@@ -52,7 +52,14 @@ const DEFAULT_SETTINGS = {
   isHotspot: false,
   hotspotLimitMb: 100,
   hotspotCutoffEnabled: true,
-  hotspotWarningEnabled: true
+  hotspotWarningEnabled: true,
+  bailianKey: "",
+  bailianModel: "qwen3.8-omni-flash-realtime",
+  bailianVoice: "Tina",
+  bailianPrompt: "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。",
+  wakewordEnabled: true,
+  wakewordSensitivity: 75,
+  wakewordTimeoutSec: 8
 };
 
 class StorageManager {
@@ -212,6 +219,19 @@ class StorageManager {
     } catch (e) {
       console.error("[Storage] saveSettings error:", e);
       return DEFAULT_SETTINGS;
+    }
+  }
+
+  static resetAllData() {
+    try {
+      wx.removeStorageSync(STORAGE_KEY_DIARIES);
+      wx.removeStorageSync(STORAGE_KEY_MEMORIES);
+      wx.removeStorageSync(STORAGE_KEY_PET_STATE);
+      wx.setStorageSync(STORAGE_KEY_SETTINGS, DEFAULT_SETTINGS);
+      return true;
+    } catch (e) {
+      console.error("[Storage] resetAllData error:", e);
+      return false;
     }
   }
 

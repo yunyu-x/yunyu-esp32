@@ -304,3 +304,56 @@ def test_avatar_subtitle_dynamic_rendering():
     assert res.returncode == 0, f"字幕气泡动态渲染测试失败: {res.stderr}\n{res.stdout}"
     assert "SUCCESS" in res.stdout
 
+
+def test_device_management_and_bailian_endpoints_contract():
+    """验证设备运维、出厂重置与阿里云百炼大模型双通道契约完整性"""
+    ble_sync_path = os.path.join(ROOT_DIR, "firmware", "m5sticks3_buddy", "include", "sticks3_ble_sync.h")
+    wifi_server_path = os.path.join(ROOT_DIR, "firmware", "m5sticks3_buddy", "include", "sticks3_wifi.h")
+    buddy_service_path = os.path.join(MP_DIR, "utils", "buddy_service.js")
+    wifi_client_path = os.path.join(MP_DIR, "utils", "sticks3_wifi.js")
+    settings_wxml_path = os.path.join(MP_DIR, "pages", "settings", "settings.wxml")
+    settings_js_path = os.path.join(MP_DIR, "pages", "settings", "settings.js")
+
+    # 1. 固件 BLE 0xFFB4 注入动作契约
+    with open(ble_sync_path, "r", encoding="utf-8") as f:
+        ble_src = f.read()
+    for action in ["factory_reset", "reboot", "clear_memory", "bailian_cfg", "preview_voice", "wakeword_cfg", "trigger_wake"]:
+        assert f'action == "{action}"' in ble_src, f"sticks3_ble_sync.h 必须支持 {action} 指令注入"
+
+    # 2. 固件 HTTP REST API 契约
+    with open(wifi_server_path, "r", encoding="utf-8") as f:
+        wifi_src = f.read()
+    for endpoint in ["/bailian/config", "/bailian/status", "/bailian/preview_voice", "/wakeword/config", "/wakeword/status", "/wakeword/trigger", "/memory/clear", "/system/factory_reset", "/system/reboot"]:
+        assert f'"{endpoint}"' in wifi_src, f"sticks3_wifi.h 必须提供 {endpoint} 路由"
+
+    # 3. 小程序客户端网络与服务契约
+    with open(wifi_client_path, "r", encoding="utf-8") as f:
+        wifi_js = f.read()
+    for method in ["getBailianStatus", "saveBailianConfig", "previewVoice", "getWakewordStatus", "saveWakewordConfig", "triggerWakeSim", "clearDeviceMemory", "reboot", "factoryReset"]:
+        assert method in wifi_js, f"sticks3_wifi.js 必须实现 {method} 方法"
+
+    with open(buddy_service_path, "r", encoding="utf-8") as f:
+        buddy_js = f.read()
+    for method in ["setBailianConfig", "previewVoice", "getBailianStatus", "setWakewordConfig", "triggerWakeSim", "clearDeviceMemory", "rebootDevice", "factoryResetDevice"]:
+        assert method in buddy_js, f"buddy_service.js 必须实现 {method} 方法"
+
+    # 4. 小程序设置页面 UI 与交互契约
+    with open(settings_wxml_path, "r", encoding="utf-8") as f:
+        wxml_src = f.read()
+    assert "bailian-panel" in wxml_src, "settings.wxml 必须包含阿里云百炼大模型配置面板"
+    assert "wakeword-panel" in wxml_src, "settings.wxml 必须包含离线唤醒词配置面板"
+    assert "maintenance-panel" in wxml_src, "settings.wxml 必须包含设备运维重置面板"
+    assert "handleSaveBailianConfig" in wxml_src, "settings.wxml 必须绑定百炼保存按钮"
+    assert "handleDeviceFactoryReset" in wxml_src, "settings.wxml 必须绑定恢复出厂设置按钮"
+
+    with open(settings_js_path, "r", encoding="utf-8") as f:
+        js_src = f.read()
+    assert "handleSaveBailianConfig" in js_src
+    assert "handlePreviewVoice" in js_src
+    assert "handleSaveWakewordConfig" in js_src
+    assert "handleTriggerWakeSim" in js_src
+    assert "handleClearDeviceMemory" in js_src
+    assert "handleDeviceReboot" in js_src
+    assert "handleDeviceFactoryReset" in js_src
+
+

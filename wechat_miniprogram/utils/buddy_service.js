@@ -829,6 +829,242 @@ class BuddyService {
     }
     return { success: false, attempt: maxAttempts };
   }
+
+  // --- 阿里云百炼大模型双通道统一配置 (BLE / HTTP) ---
+  async setBailianConfig({ key, model, voice, prompt }) {
+    // 1. 同步保存到本地 settings
+    const settings = StorageManager.getSettings();
+    if (key !== undefined && key.trim().length > 0) settings.bailianKey = key.trim();
+    if (model) settings.bailianModel = model;
+    if (voice) settings.bailianVoice = voice;
+    if (prompt !== undefined) settings.bailianPrompt = prompt;
+    StorageManager.saveSettings(settings);
+
+    const payload = {
+      action: "bailian_cfg",
+      key: key || settings.bailianKey || "",
+      model: model || settings.bailianModel || "qwen3.8-omni-flash-realtime",
+      voice: voice || settings.bailianVoice || "Tina",
+      prompt: prompt !== undefined ? prompt : (settings.bailianPrompt || "")
+    };
+
+    let bleOk = false;
+    let wifiOk = false;
+
+    // 2. 若 BLE 已连接，安全分片注入
+    if (this.isBleMode && this.bleClient.isConnected) {
+      try {
+        await this.bleClient.injectAction("bailian_cfg", payload);
+        bleOk = true;
+      } catch (e) {
+        console.warn("[BuddyService] BLE setBailianConfig failed:", e);
+      }
+    }
+
+    // 3. 若 Wi-Fi 模式在线，通过 HTTP 下发
+    if (this.isWifiMode) {
+      try {
+        await this.httpClient.saveBailianConfig(payload);
+        wifiOk = true;
+      } catch (e) {
+        console.warn("[BuddyService] HTTP setBailianConfig failed:", e);
+      }
+    }
+
+    if (!bleOk && !wifiOk && !this.isSimMode) {
+      throw new Error("请先连接 StickS3 设备 (BLE 或 Wi-Fi) 后再保存大模型配置");
+    }
+
+    this.handleIncomingDiary(`[系统配置] 已成功更新阿里云百炼大模型配置：${payload.model}，音色 ${payload.voice}`, "🤖 模型");
+    return { success: true, ...payload };
+  }
+
+  // --- 实时音色即时试听 ---
+  async previewVoice(voice = "Tina") {
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("preview_voice", { action: "preview_voice", voice });
+      return { success: true, mode: "ble" };
+    }
+    if (this.isWifiMode) {
+      await this.httpClient.previewVoice(voice);
+      return { success: true, mode: "wifi" };
+    }
+    throw new Error("请先连接 StickS3 设备后再试听音色");
+  }
+
+  // --- 查询百炼状态 ---
+  async getBailianStatus() {
+    if (this.isWifiMode) {
+      try {
+        return await this.httpClient.getBailianStatus();
+      } catch (e) {
+        console.warn("[BuddyService] getBailianStatus failed:", e);
+      }
+    }
+    const settings = StorageManager.getSettings();
+    return {
+      configured_voice: settings.bailianVoice || "Tina",
+      configured_model: settings.bailianModel || "qwen3.8-omni-flash-realtime",
+      prompt: settings.bailianPrompt || "",
+      has_key: Boolean(settings.bailianKey && settings.bailianKey.length > 10),
+      masked_key: settings.bailianKey ? (settings.bailianKey.substring(0, 4) + "••••••••" + settings.bailianKey.slice(-4)) : ""
+    };
+  }
+
+  // --- 离线唤醒词「悄悄」配置 ---
+  async setWakewordConfig({ enabled = true, sensitivity = 75, timeoutSec = 8 }) {
+    const settings = StorageManager.getSettings();
+    settings.wakewordEnabled = Boolean(enabled);
+    settings.wakewordSensitivity = Number(sensitivity);
+    settings.wakewordTimeoutSec = Number(timeoutSec);
+    StorageManager.saveSettings(settings);
+
+    const payload = {
+      action: "wakeword_cfg",
+      enabled: settings.wakewordEnabled,
+      sensitivity: settings.wakewordSensitivity,
+      timeout_sec: settings.wakewordTimeoutSec
+    };
+
+    let bleOk = false;
+    let wifiOk = false;
+
+    if (this.isBleMode && this.bleClient.isConnected) {
+      try {
+        await this.bleClient.injectAction("wakeword_cfg", payload);
+        bleOk = true;
+      } catch (e) {
+        console.warn("[BuddyService] BLE setWakewordConfig failed:", e);
+      }
+    }
+
+    if (this.isWifiMode) {
+      try {
+        await this.httpClient.saveWakewordConfig({
+          enabled: payload.enabled,
+          sensitivity: payload.sensitivity,
+          timeoutSec: payload.timeout_sec
+        });
+        wifiOk = true;
+      } catch (e) {
+        console.warn("[BuddyService] HTTP setWakewordConfig failed:", e);
+      }
+    }
+
+    if (!bleOk && !wifiOk && !this.isSimMode) {
+      throw new Error("请先连接 StickS3 设备后再配置唤醒词");
+    }
+
+    this.handleIncomingDiary(`[系统配置] 离线唤醒词配置已生效：${payload.enabled ? "已开启" : "已关闭"}，灵敏度 ${payload.sensitivity}%`, "🗣️ 唤醒");
+    return { success: true, ...payload };
+  }
+
+  // --- 模拟离线唤醒词触发测试 ---
+  async triggerWakeSim(confidence = 98.0) {
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("trigger_wake", { action: "trigger_wake", confidence });
+      return { success: true, mode: "ble" };
+    }
+    if (this.isWifiMode) {
+      await this.httpClient.triggerWakeSim(confidence);
+      return { success: true, mode: "wifi" };
+    }
+    if (this.isSimMode) {
+      this.handleIncomingDiary("[仿真测试] 唤醒词「悄悄」触发成功！", "🗣️ 唤醒");
+      return { success: true, mode: "sim" };
+    }
+    throw new Error("请先连接设备后再进行唤醒模拟测试");
+  }
+
+  // --- 清空设备端与小程序端全部多轮对话记忆 ---
+  async clearDeviceMemory() {
+    this.clearMemories();
+
+    let bleOk = false;
+    let wifiOk = false;
+
+    if (this.isBleMode && this.bleClient.isConnected) {
+      try {
+        await this.bleClient.injectAction("clear_memory", { action: "clear_memory" });
+        bleOk = true;
+      } catch (e) {
+        console.warn("[BuddyService] BLE clear_memory failed:", e);
+      }
+    }
+
+    if (this.isWifiMode) {
+      try {
+        await this.httpClient.clearDeviceMemory();
+        wifiOk = true;
+      } catch (e) {
+        console.warn("[BuddyService] HTTP clearDeviceMemory failed:", e);
+      }
+    }
+
+    this.handleIncomingDiary("已清空设备全部历史长程对话记忆。", "🗑️ 记忆");
+    return { success: true, bleOk, wifiOk };
+  }
+
+  // --- 硬件设备软重启 ---
+  async rebootDevice() {
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("reboot", { action: "reboot" });
+      return { success: true, mode: "ble" };
+    }
+    if (this.isWifiMode) {
+      await this.httpClient.reboot();
+      return { success: true, mode: "wifi" };
+    }
+    throw new Error("请先连接设备后再执行重启");
+  }
+
+  // --- 一键恢复出厂设置 ---
+  async factoryResetDevice() {
+    let bleOk = false;
+    let wifiOk = false;
+
+    if (this.isBleMode && this.bleClient.isConnected) {
+      try {
+        await this.bleClient.injectAction("factory_reset", { action: "factory_reset" });
+        bleOk = true;
+      } catch (e) {
+        console.warn("[BuddyService] BLE factory_reset failed:", e);
+      }
+    }
+
+    if (this.isWifiMode) {
+      try {
+        await this.httpClient.factoryReset();
+        wifiOk = true;
+      } catch (e) {
+        console.warn("[BuddyService] HTTP factoryReset failed:", e);
+      }
+    }
+
+    // 重置小程序本地全部缓存数据
+    StorageManager.resetAllData();
+    this.memoryTurns = [];
+    this.diaries = [];
+    this.hotspot = {
+      isHotspot: false,
+      usedMb: 0,
+      limitMb: 100,
+      remainingMb: 100,
+      cutoffActive: false,
+      cutoffEnabled: true,
+      warningIssued: false
+    };
+
+    this.notifyListeners("memory", []);
+    this.notifyListeners("hotspot", this.hotspot);
+    this.notifyListeners("sync", {
+      petState: this.petState,
+      hotspot: this.hotspot,
+      deviceWifi: this.deviceWifi
+    });
+
+    return { success: true, bleOk, wifiOk };
+  }
 }
 
 // 单例模式全局服务

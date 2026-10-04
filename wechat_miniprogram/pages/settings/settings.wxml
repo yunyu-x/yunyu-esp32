@@ -509,7 +509,203 @@
     </view>
   </view>
 
-  <!-- 5. 偏好与系统设置 -->
+  <!-- 5. 阿里云百炼大模型交互设置 -->
+  <view class="panel-card bailian-panel">
+    <view class="panel-header">
+      <view class="panel-title-group">
+        <text class="panel-title">🤖 阿里云百炼大模型配置</text>
+        <view class="traffic-status-badge {{hasBailianKey ? 'status-normal' : 'status-warn'}}">
+          <text>{{hasBailianKey ? '🟢 Key 已配置' : '⚠️ 待输入 Key'}}</text>
+        </view>
+      </view>
+      <text class="panel-subtitle">DashScope Realtime 全双工端到端语音大模型</text>
+    </view>
+
+    <!-- API Key 输入框 -->
+    <view class="input-row" style="margin-top: 8rpx;">
+      <view class="label-with-action">
+        <text class="input-label">DashScope API Key</text>
+        <text class="pwd-toggle" bindtap="onToggleShowBailianKey">{{showBailianKey ? '🙈 隐藏' : '👁️ 显示'}}</text>
+      </view>
+      <input 
+        class="form-input" 
+        password="{{!showBailianKey}}" 
+        placeholder="{{maskedBailianKey ? ('已保存: ' + maskedBailianKey) : '输入百炼 API Key (sk-xxxx...)'}}" 
+        placeholder-class="input-placeholder"
+        value="{{bailianKeyInput}}" 
+        bindinput="onInputBailianKey"
+      />
+    </view>
+
+    <!-- 实时大模型选择 (Picker) -->
+    <view class="input-row" style="margin-top: 14rpx;">
+      <text class="input-label">实时语音大模型 (Model)</text>
+      <picker bindchange="onModelChange" value="{{selectedModelIndex}}" range="{{modelOptions}}" range-key="label">
+        <view class="picker-display-box">
+          <text class="picker-current-text">{{modelOptions[selectedModelIndex].label}}</text>
+          <text class="picker-arrow">▼</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 对话音色选择 (Picker + 试听按钮) -->
+    <view class="input-row" style="margin-top: 14rpx;">
+      <text class="input-label">拟人发声音色 (Voice)</text>
+      <view class="voice-picker-row">
+        <picker class="voice-picker" bindchange="onVoiceChange" value="{{selectedVoiceIndex}}" range="{{voiceOptions}}" range-key="label">
+          <view class="picker-display-box">
+            <text class="picker-current-text">{{voiceOptions[selectedVoiceIndex].label}}</text>
+            <text class="picker-arrow">▼</text>
+          </view>
+        </picker>
+        <button class="btn-voice-preview" bindtap="handlePreviewVoice" loading="{{isPreviewingVoice}}">
+          🔊 试听
+        </button>
+      </view>
+    </view>
+
+    <!-- 人格提示词 (Prompt) 输入与预设标签 -->
+    <view class="input-row" style="margin-top: 14rpx;">
+      <view class="label-with-action">
+        <text class="input-label">人格提示词 (System Prompt)</text>
+        <text class="prompt-hint">控制伴侣说话口吻与长度</text>
+      </view>
+      <textarea 
+        class="form-textarea" 
+        placeholder="设定灵宠的人格提示词..." 
+        placeholder-class="input-placeholder"
+        value="{{bailianPrompt}}" 
+        bindinput="onInputPrompt"
+        maxlength="250"
+      />
+    </view>
+
+    <!-- 预设标签快速填入 -->
+    <view class="prompt-presets-row">
+      <text class="preset-label">快捷预设:</text>
+      <view class="preset-tags">
+        <view 
+          class="preset-tag" 
+          wx:for="{{promptPresets}}" 
+          wx:key="name" 
+          bindtap="handleApplyPromptPreset" 
+          data-prompt="{{item.prompt}}"
+        >
+          <text>{{item.name}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 保存按钮 -->
+    <button class="btn-save-bailian" bindtap="handleSaveBailianConfig" loading="{{isSavingBailian}}">
+      💾 保存大模型配置到设备 Flash
+    </button>
+  </view>
+
+  <!-- 6. 离线唤醒词「悄悄」配置 -->
+  <view class="panel-card wakeword-panel">
+    <view class="panel-header">
+      <view class="panel-title-group">
+        <text class="panel-title">🗣️ 离线唤醒词「悄悄」配置</text>
+        <view class="traffic-status-badge {{wakewordEnabled ? 'status-normal' : 'status-cutoff'}}">
+          <text>{{wakewordEnabled ? '🟢 离线拾音监听中' : '⚪ 已停用'}}</text>
+        </view>
+      </view>
+      <text class="panel-subtitle">ESP32-S3 本地共振特征双二阶滤波毫秒级识别</text>
+    </view>
+
+    <view class="setting-row">
+      <view class="setting-info">
+        <text class="setting-title">启用离线唤醒词检测</text>
+        <text class="setting-desc">常态静默监听呼唤「悄悄」，随时唤醒并打断放音</text>
+      </view>
+      <switch checked="{{wakewordEnabled}}" bindchange="onToggleWakeword" color="#30D158" />
+    </view>
+
+    <!-- 灵敏度调节滑块 -->
+    <view class="slider-row" wx:if="{{wakewordEnabled}}">
+      <view class="slider-header">
+        <text class="slider-title">唤醒识别灵敏度</text>
+        <text class="slider-val highlight-cyan">{{wakewordSensitivity}}%</text>
+      </view>
+      <slider 
+        min="20" 
+        max="100" 
+        step="5" 
+        value="{{wakewordSensitivity}}" 
+        bindchange="onWakewordSensitivityChange"
+        activeColor="#00f2fe"
+        backgroundColor="rgba(255,255,255,0.15)"
+        block-size="20"
+      />
+      <text class="slider-desc">灵敏度过高可能引发环境噪音误触，推荐设定在 70% ~ 80%</text>
+    </view>
+
+    <!-- 对话等待推流窗口 -->
+    <view class="input-row" style="margin-top: 14rpx;" wx:if="{{wakewordEnabled}}">
+      <text class="input-label">唤醒后等待说话推流窗口</text>
+      <picker bindchange="onTimeoutChange" value="{{selectedTimeoutIndex}}" range="{{timeoutOptions}}">
+        <view class="picker-display-box">
+          <text class="picker-current-text">{{timeoutOptions[selectedTimeoutIndex]}} 秒超时关闭推流</text>
+          <text class="picker-arrow">▼</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 唤醒配置操作按钮组 -->
+    <view class="wakeword-actions-row">
+      <button class="btn-save-wakeword" bindtap="handleSaveWakewordConfig" loading="{{isSavingWakeword}}">
+        💾 保存唤醒配置
+      </button>
+      <button class="btn-test-wake" bindtap="handleTriggerWakeSim" loading="{{isTriggeringWake}}">
+        🎙️ 隔空模拟唤醒
+      </button>
+    </view>
+  </view>
+
+  <!-- 7. 设备维护、信息重置与出厂恢复 -->
+  <view class="panel-card maintenance-panel">
+    <view class="panel-header">
+      <view class="panel-title-group">
+        <text class="panel-title">🛠️ 设备维护与信息重置</text>
+      </view>
+      <text class="panel-subtitle">物理硬件多维度运维、长程记忆抹除与出厂擦除</text>
+    </view>
+
+    <!-- 1. 清空设备对话记忆 -->
+    <view class="setting-row">
+      <view class="setting-info">
+        <text class="setting-title">清空设备长程对话记忆</text>
+        <text class="setting-desc">抹除 StickS3 Flash NVS 命名空间 sticks3_mem</text>
+      </view>
+      <button class="btn-warn-sub" bindtap="handleClearDeviceMemory" loading="{{isClearingMemory}}">清空记忆</button>
+    </view>
+
+    <!-- 2. 远程软重启设备 -->
+    <view class="setting-row">
+      <view class="setting-info">
+        <text class="setting-title">远程软重启设备</text>
+        <text class="setting-desc">触发 esp_restart() 重新启动固件，保留 Wi-Fi 与 Key 配置</text>
+      </view>
+      <button class="btn-ctrl-sub" bindtap="handleDeviceReboot" loading="{{isRebootingDevice}}">重启设备</button>
+    </view>
+
+    <!-- 3. 一键恢复出厂设置 -->
+    <view class="setting-row" style="border-bottom: none;">
+      <view class="setting-info">
+        <text class="setting-title text-red">一键恢复出厂设置 (Factory Reset)</text>
+        <text class="setting-desc">抹除所有 Wi-Fi、Key、流量统计与全部配置，恢复初始待命态</text>
+      </view>
+      <button class="btn-danger-sub" bindtap="handleDeviceFactoryReset" loading="{{isFactoryResetting}}">出厂重置</button>
+    </view>
+
+    <view class="physical-reset-hint">
+      <text class="hint-title">💡 物理实体按键重置方式：</text>
+      <text class="hint-body">在 StickS3 设备开机状态下，同时长按【正面按键 A】与【侧面按键 B】保持 4 秒，听到蜂鸣提示后即可无视网络直接硬件恢复出厂设置！</text>
+    </view>
+  </view>
+
+  <!-- 8. 偏好与系统设置 -->
   <view class="panel-card">
     <view class="panel-header">
       <text class="panel-title">⚙️ 系统偏好与控制</text>

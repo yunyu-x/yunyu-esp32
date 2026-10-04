@@ -1296,6 +1296,7 @@ private:
             String key = _web_server.hasArg("key") ? _web_server.arg("key") : "";
             String voice = _web_server.hasArg("voice") ? _web_server.arg("voice") : "Tina";
             String model = _web_server.hasArg("model") ? _web_server.arg("model") : "qwen3.8-omni-flash-realtime";
+            String prompt = _web_server.hasArg("prompt") ? _web_server.arg("prompt") : "";
             key.trim();
 
             auto& cfg_mgr = StickS3ConfigManager::getInstance();
@@ -1308,7 +1309,7 @@ private:
                 if (!StickS3ConfigManager::isVoiceSupported(voice)) {
                     voice = "Tina";
                 }
-                cfg_mgr.saveBailianConfig(key, model, voice);
+                cfg_mgr.saveBailianConfig(key, model, voice, "", prompt);
 
                 auto& bl = StickS3BailianClient::getInstance();
                 if (bl.isConnected()) {
@@ -1359,7 +1360,15 @@ private:
             doc["error"] = bl.getLastError();
             doc["configured_voice"] = cfg.bailian_voice;
             doc["configured_model"] = cfg.bailian_model;
+            doc["prompt"] = cfg.bailian_prompt;
             doc["has_key"] = (cfg.bailian_key.length() > 10);
+            if (cfg.bailian_key.length() >= 8) {
+                doc["masked_key"] = cfg.bailian_key.substring(0, 4) + "••••••••" + cfg.bailian_key.substring(cfg.bailian_key.length() - 4);
+            } else if (cfg.bailian_key.length() > 0) {
+                doc["masked_key"] = "••••••••";
+            } else {
+                doc["masked_key"] = "";
+            }
             doc["is_connected"] = bl.isConnected();
             doc["memory_turns"] = StickS3MemoryStore::getInstance().getTurnCount();
 
@@ -1521,6 +1530,14 @@ private:
             StickS3ConfigManager::getInstance().clearAllConfig();
             StickS3MemoryStore::getInstance().clearMemory();
             Serial.println("[SYSTEM] Factory Reset complete! Restarting in 300ms...");
+            delay(300);
+            esp_restart();
+        });
+
+        // 6. 系统软重启 (保持 NVS 配置)
+        _web_server.on("/system/reboot", HTTP_POST, [this]() {
+            _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\",\"msg\":\"Device rebooting...\"}");
+            Serial.println("[SYSTEM] Remote reboot requested. Restarting in 300ms...");
             delay(300);
             esp_restart();
         });

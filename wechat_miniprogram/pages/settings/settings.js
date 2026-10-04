@@ -58,7 +58,60 @@ Page({
     deviceStaRssi: 0,
     showLanDirectConnect: false,
 
-    vibrationEnabled: true
+    vibrationEnabled: true,
+
+    // 阿里云百炼大模型交互设置
+    bailianKey: "",
+    bailianKeyInput: "",
+    showBailianKey: false,
+    hasBailianKey: false,
+    maskedBailianKey: "",
+
+    modelOptions: [
+      { id: "qwen3.8-omni-flash-realtime", label: "qwen3.8-omni-flash (极速端到端 推荐)" },
+      { id: "qwen-omni-turbo-realtime", label: "qwen-omni-turbo (进阶强推理)" },
+      { id: "qwen3-audio-realtime", label: "qwen3-audio (经典音频流)" }
+    ],
+    selectedModelIndex: 0,
+    bailianModel: "qwen3.8-omni-flash-realtime",
+
+    voiceOptions: [
+      { id: "Tina", label: "Tina (甜美温暖 默认)" },
+      { id: "Serena", label: "Serena (温柔亲切知性)" },
+      { id: "Cindy", label: "Cindy (活泼台湾腔)" },
+      { id: "Raymond", label: "Raymond (磁性沉稳男声)" },
+      { id: "Cherry", label: "Cherry (甜美活泼少女)" },
+      { id: "Chelsie", label: "Chelsie (清脆灵动女声)" },
+      { id: "Ethan", label: "Ethan (温和阳光少年)" }
+    ],
+    selectedVoiceIndex: 0,
+    bailianVoice: "Tina",
+
+    bailianPrompt: "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。",
+    promptPresets: [
+      { name: "🐱 傲娇猫娘", prompt: "你是一只傲娇可爱的小猫咪，说话带喵，语气轻快活泼，回答简短在两句话内。" },
+      { name: "🧠 效率管家", prompt: "你是专业高效的私人随身助手，条理清晰，回答精准凝练，每次回答在两句话内。" },
+      { name: "🌸 治愈系伴侣", prompt: "你是温柔治愈的心灵物理伴侣，倾听并给予温暖情绪价值，回答简短在两句话内。" },
+      { name: "🎓 百科学者", prompt: "你是学识渊博的随身导师，用通俗生动的比喻解答疑惑，回答控制在两句话内。" }
+    ],
+
+    isSavingBailian: false,
+    isPreviewingVoice: false,
+
+    // 离线唤醒词配置
+    wakewordEnabled: true,
+    wakewordSensitivity: 75,
+    wakewordTimeoutSec: 8,
+    timeoutOptions: [5, 8, 12, 15, 20],
+    selectedTimeoutIndex: 1,
+
+    isSavingWakeword: false,
+    isTriggeringWake: false,
+
+    // 运维操作
+    isClearingMemory: false,
+    isRebootingDevice: false,
+    isFactoryResetting: false
   },
 
   onLoad() {
@@ -66,6 +119,15 @@ Page({
     const isHs = Boolean(settings.isHotspot);
     const limit = Number(settings.hotspotLimitMb) || 100;
     const preset = [50, 100, 200, 500].includes(limit) ? limit : "custom";
+
+    const blModel = settings.bailianModel || "qwen3.8-omni-flash-realtime";
+    const blVoice = settings.bailianVoice || "Tina";
+    const modelIdx = Math.max(0, this.data.modelOptions.findIndex(m => m.id === blModel));
+    const voiceIdx = Math.max(0, this.data.voiceOptions.findIndex(v => v.id === blVoice));
+    const tout = Number(settings.wakewordTimeoutSec) || 8;
+    const toutIdx = Math.max(0, this.data.timeoutOptions.indexOf(tout));
+    const hasKey = Boolean(settings.bailianKey && settings.bailianKey.length > 10);
+    const maskedKey = hasKey ? (settings.bailianKey.substring(0, 4) + "••••••••" + settings.bailianKey.slice(-4)) : "";
 
     this.setData({
       wifiHost: settings.wifiHost || "192.168.110.67",
@@ -77,7 +139,24 @@ Page({
       selectedPreset: preset,
       customLimitInput: preset === "custom" ? String(limit) : "",
       hotspotCutoffEnabled: settings.hotspotCutoffEnabled !== false,
-      hotspotWarningEnabled: settings.hotspotWarningEnabled !== false
+      hotspotWarningEnabled: settings.hotspotWarningEnabled !== false,
+
+      // 百炼大模型初始化
+      bailianKey: settings.bailianKey || "",
+      bailianKeyInput: settings.bailianKey || "",
+      hasBailianKey: hasKey,
+      maskedBailianKey: maskedKey,
+      bailianModel: blModel,
+      selectedModelIndex: modelIdx >= 0 ? modelIdx : 0,
+      bailianVoice: blVoice,
+      selectedVoiceIndex: voiceIdx >= 0 ? voiceIdx : 0,
+      bailianPrompt: settings.bailianPrompt || "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。",
+
+      // 离线唤醒词初始化
+      wakewordEnabled: settings.wakewordEnabled !== false,
+      wakewordSensitivity: Number(settings.wakewordSensitivity) || 75,
+      wakewordTimeoutSec: tout,
+      selectedTimeoutIndex: toutIdx >= 0 ? toutIdx : 1
     });
 
     this.stateListener = (evt) => {
@@ -658,6 +737,264 @@ Page({
           StorageManager.clearAllDiaries();
           haptics.vibrate("medium");
           wx.showToast({ title: "已清空本地日记", icon: "none" });
+        }
+      }
+    });
+  },
+
+  // ================= 5. 阿里云百炼大模型交互设置 =================
+  onInputBailianKey(e) {
+    const val = e.detail.value;
+    this.setData({
+      bailianKeyInput: val,
+      hasBailianKey: val.trim().length > 10,
+      maskedBailianKey: val.trim().length > 10 ? (val.trim().substring(0, 4) + "••••••••" + val.trim().slice(-4)) : ""
+    });
+  },
+
+  onToggleShowBailianKey() {
+    this.setData({ showBailianKey: !this.data.showBailianKey });
+    haptics.vibrate("light");
+  },
+
+  onModelChange(e) {
+    const idx = Number(e.detail.value);
+    const model = this.data.modelOptions[idx];
+    if (model) {
+      this.setData({
+        selectedModelIndex: idx,
+        bailianModel: model.id
+      });
+      haptics.vibrate("light");
+    }
+  },
+
+  onVoiceChange(e) {
+    const idx = Number(e.detail.value);
+    const voice = this.data.voiceOptions[idx];
+    if (voice) {
+      this.setData({
+        selectedVoiceIndex: idx,
+        bailianVoice: voice.id
+      });
+      haptics.vibrate("light");
+    }
+  },
+
+  onInputPrompt(e) {
+    this.setData({ bailianPrompt: e.detail.value });
+  },
+
+  handleApplyPromptPreset(e) {
+    const preset = e.currentTarget.dataset.prompt;
+    if (preset) {
+      this.setData({ bailianPrompt: preset });
+      haptics.vibrate("medium");
+      wx.showToast({ title: "已填入预设人格", icon: "none" });
+    }
+  },
+
+  async handleSaveBailianConfig() {
+    const key = this.data.bailianKeyInput.trim();
+    const model = this.data.bailianModel;
+    const voice = this.data.bailianVoice;
+    const prompt = this.data.bailianPrompt.trim();
+
+    if (!key && !this.data.bailianKey) {
+      wx.showToast({ title: "请输入百炼 API Key", icon: "none" });
+      return;
+    }
+
+    this.setData({ isSavingBailian: true });
+    haptics.vibrate("light");
+
+    try {
+      await buddyService.setBailianConfig({
+        key: key || this.data.bailianKey,
+        model,
+        voice,
+        prompt
+      });
+      this.setData({
+        isSavingBailian: false,
+        bailianKey: key || this.data.bailianKey,
+        hasBailianKey: true
+      });
+      haptics.levelUp();
+      wx.showToast({ title: "大模型配置已生效", icon: "success" });
+    } catch (e) {
+      this.setData({ isSavingBailian: false });
+      wx.showModal({
+        title: "配置写入失败",
+        content: e.message || "无法写入百炼配置，请确保已连接 StickS3 设备",
+        showCancel: false
+      });
+    }
+  },
+
+  async handlePreviewVoice() {
+    const voice = this.data.bailianVoice;
+    this.setData({ isPreviewingVoice: true });
+    haptics.vibrate("light");
+
+    try {
+      await buddyService.previewVoice(voice);
+      this.setData({ isPreviewingVoice: false });
+      wx.showToast({ title: `正在试听: ${voice}`, icon: "none" });
+    } catch (e) {
+      this.setData({ isPreviewingVoice: false });
+      wx.showToast({ title: e.message || "试听失败，请连接设备", icon: "none" });
+    }
+  },
+
+  // ================= 6. 离线唤醒词「悄悄」配置 =================
+  onToggleWakeword(e) {
+    const val = e.detail.value;
+    this.setData({ wakewordEnabled: val });
+    haptics.vibrate("light");
+  },
+
+  onWakewordSensitivityChange(e) {
+    const val = Number(e.detail.value);
+    this.setData({ wakewordSensitivity: val });
+  },
+
+  onTimeoutChange(e) {
+    const idx = Number(e.detail.value);
+    const tout = this.data.timeoutOptions[idx];
+    if (tout !== undefined) {
+      this.setData({
+        selectedTimeoutIndex: idx,
+        wakewordTimeoutSec: tout
+      });
+      haptics.vibrate("light");
+    }
+  },
+
+  async handleSaveWakewordConfig() {
+    this.setData({ isSavingWakeword: true });
+    haptics.vibrate("light");
+
+    try {
+      await buddyService.setWakewordConfig({
+        enabled: this.data.wakewordEnabled,
+        sensitivity: this.data.wakewordSensitivity,
+        timeoutSec: this.data.wakewordTimeoutSec
+      });
+      this.setData({ isSavingWakeword: false });
+      haptics.levelUp();
+      wx.showToast({ title: "唤醒词配置已保存", icon: "success" });
+    } catch (e) {
+      this.setData({ isSavingWakeword: false });
+      wx.showModal({
+        title: "唤醒词配置失败",
+        content: e.message || "请确保已连接 StickS3 设备",
+        showCancel: false
+      });
+    }
+  },
+
+  async handleTriggerWakeSim() {
+    this.setData({ isTriggeringWake: true });
+    haptics.vibrate("medium");
+
+    try {
+      await buddyService.triggerWakeSim(98.0);
+      this.setData({ isTriggeringWake: false });
+      wx.showToast({ title: "唤醒模拟成功！", icon: "success" });
+    } catch (e) {
+      this.setData({ isTriggeringWake: false });
+      wx.showToast({ title: e.message || "模拟失败，请先连接伴侣", icon: "none" });
+    }
+  },
+
+  // ================= 7. 设备运维、信息重置与出厂恢复 =================
+  handleClearDeviceMemory() {
+    wx.showModal({
+      title: "清空设备对话记忆",
+      content: "确定要抹除 StickS3 硬件端保存的全部多轮对话记忆与心声回忆吗？此操作无法撤销。",
+      confirmText: "确定清空",
+      confirmColor: "#ef4444",
+      success: async (res) => {
+        if (res.confirm) {
+          this.setData({ isClearingMemory: true });
+          haptics.vibrate("medium");
+          try {
+            await buddyService.clearDeviceMemory();
+            this.setData({ isClearingMemory: false });
+            wx.showToast({ title: "硬件记忆已清空", icon: "success" });
+          } catch (e) {
+            this.setData({ isClearingMemory: false });
+            wx.showToast({ title: "清空失败", icon: "none" });
+          }
+        }
+      }
+    });
+  },
+
+  handleDeviceReboot() {
+    wx.showModal({
+      title: "软重启设备",
+      content: "即将向 StickS3 发送软重启指令，系统将在 300 毫秒后重新初始化（Wi-Fi与Key配置仍会保留）。",
+      confirmText: "立即重启",
+      confirmColor: "#0A84FF",
+      success: async (res) => {
+        if (res.confirm) {
+          this.setData({ isRebootingDevice: true });
+          haptics.vibrate("medium");
+          try {
+            await buddyService.rebootDevice();
+            setTimeout(() => {
+              this.setData({ isRebootingDevice: false });
+              wx.showToast({ title: "已下发重启指令", icon: "none" });
+            }, 600);
+          } catch (e) {
+            this.setData({ isRebootingDevice: false });
+            wx.showToast({ title: e.message || "重启指令下发失败", icon: "none" });
+          }
+        }
+      }
+    });
+  },
+
+  handleDeviceFactoryReset() {
+    wx.showModal({
+      title: "⚠️ 恢复出厂设置确认",
+      content: "此操作将彻底抹除 StickS3 设备上的 Wi-Fi 密码、百炼 API Key、人格提示词、流量配额统计以及所有历史对话记忆，并重启设备。确定要继续吗？",
+      confirmText: "彻底清除",
+      confirmColor: "#ef4444",
+      success: (res1) => {
+        if (res1.confirm) {
+          wx.showModal({
+            title: "二次确认 · 无法撤销",
+            content: "恢复出厂后需要重新通过蓝牙进行 Wi-Fi 配网并配置大模型 API Key。是否立即执行？",
+            confirmText: "确认出厂重置",
+            confirmColor: "#ef4444",
+            success: async (res2) => {
+              if (res2.confirm) {
+                this.setData({ isFactoryResetting: true });
+                haptics.vibrate("heavy");
+                try {
+                  await buddyService.factoryResetDevice();
+                  this.setData({
+                    isFactoryResetting: false,
+                    bailianKey: "",
+                    bailianKeyInput: "",
+                    hasBailianKey: false,
+                    maskedBailianKey: "",
+                    wifiSsid: "",
+                    wifiPwd: "",
+                    deviceStaState: "",
+                    deviceStaIp: ""
+                  });
+                  wx.showToast({ title: "设备已恢复出厂并重启", icon: "none", duration: 3000 });
+                } catch (e) {
+                  this.setData({ isFactoryResetting: false });
+                  wx.showToast({ title: e.message || "出厂重置失败", icon: "none" });
+                }
+              }
+            }
+          });
         }
       }
     });
