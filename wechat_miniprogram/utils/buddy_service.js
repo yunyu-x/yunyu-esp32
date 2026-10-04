@@ -377,15 +377,22 @@ class BuddyService {
       this.wifiPollTimer = null;
     }
 
-    const pollInterval = (this.hotspot && this.hotspot.isHotspot) ? 4500 : 2500;
+    const pollInterval = (this.hotspot && this.hotspot.isHotspot) ? 6000 : 2500;
+    let consecutiveFailures = 0;
 
     const runPoll = async () => {
       if (this._isWifiPolling || !this.isWifiMode || !this.httpClient) return;
+      // 手机热点下若连续失败两次，暂停激进请求，信赖 BLE 广播通道
+      if (this.hotspot && this.hotspot.isHotspot && consecutiveFailures >= 2) {
+        return;
+      }
       this._isWifiPolling = true;
       try {
         const live = await this.httpClient.getPetStatus();
+        consecutiveFailures = 0;
         this.updatePetState(live);
       } catch (e) {
+        consecutiveFailures++;
       } finally {
         this._isWifiPolling = false;
       }
@@ -841,6 +848,7 @@ class BuddyService {
     let devSent = false;
     let lastError = null;
 
+    // 1. 若 BLE 已连接，优先走 BLE 毫秒级极速通道 (仅耗时 15~25ms)
     if (this.bleClient && this.bleClient.isConnected) {
       try {
         await this.bleClient.injectAction("volume", { action: "volume", volume: vol });
@@ -851,15 +859,26 @@ class BuddyService {
       }
     }
 
+    // 2. HTTP 通道自适应：
+    // 若 BLE 未连接，或非移动热点环境，则通过 HTTP 同步
+    // 在手机热点模式下，由于 iOS 系统级拦截本机 App 对热点客户端的 HTTP 访问，绝不在此同步阻塞等待
+    const isHotspotMode = Boolean(this.hotspot && this.hotspot.isHotspot);
     const host = (this.httpClient && this.httpClient.host) || settings.wifiHost || "192.168.110.67";
-    if (this.httpClient) {
+
+    if (this.httpClient && host) {
       this.httpClient.setHost(host);
-      try {
-        await this.httpClient.setSpeakerVolume(vol);
-        devSent = true;
-      } catch (e) {
-        if (!devSent) lastError = e;
-        console.warn("[BuddyService] HTTP setSpeakerVolume failed:", e);
+      if (!devSent) {
+        // BLE 未发送成功，必须等待 HTTP 响应
+        try {
+          await this.httpClient.setSpeakerVolume(vol);
+          devSent = true;
+        } catch (e) {
+          lastError = e;
+          console.warn("[BuddyService] HTTP setSpeakerVolume failed:", e);
+        }
+      } else if (!isHotspotMode) {
+        // BLE 已发送成功且为常规局域网，后台异步通知 HTTP 无需阻塞等待
+        this.httpClient.setSpeakerVolume(vol).catch(() => {});
       }
     }
 
@@ -879,31 +898,36 @@ class BuddyService {
     let devSent = false;
     let lastError = null;
 
-    const promises = [];
-
+    // 1. 若 BLE 已连接，优先走 BLE 毫秒级极速通道触发试听发声 (彻底消灭 3.5s 等待与卡顿)
     if (this.bleClient && this.bleClient.isConnected) {
-      promises.push(
-        this.bleClient.injectAction("test_volume", { action: "test_volume", volume: vol })
-          .then(() => { devSent = true; })
-          .catch(e => { lastError = e; console.warn("[BuddyService] BLE test_volume failed:", e); })
-      );
+      try {
+        await this.bleClient.injectAction("test_volume", { action: "test_volume", volume: vol });
+        devSent = true;
+      } catch (e) {
+        lastError = e;
+        console.warn("[BuddyService] BLE test_volume failed:", e);
+      }
     }
 
+    // 2. HTTP 通道自适应
+    const isHotspotMode = Boolean(this.hotspot && this.hotspot.isHotspot);
     const host = (this.httpClient && this.httpClient.host) || StorageManager.getSettings().wifiHost || "192.168.110.67";
-    if (this.httpClient) {
-      this.httpClient.setHost(host);
-      promises.push(
-        this.httpClient.testSpeakerVolume(vol)
-          .then(() => { devSent = true; })
-          .catch(e => { if (!devSent) lastError = e; console.warn("[BuddyService] HTTP test_volume failed:", e); })
-      );
-    }
 
-    if (promises.length > 0) {
-      await Promise.race([
-        Promise.all(promises),
-        new Promise(r => setTimeout(r, 3500))
-      ]);
+    if (this.httpClient && host) {
+      this.httpClient.setHost(host);
+      if (!devSent) {
+        // BLE 未连接，通过 HTTP 同步触发试听
+        try {
+          await this.httpClient.testSpeakerVolume(vol);
+          devSent = true;
+        } catch (e) {
+          lastError = e;
+          console.warn("[BuddyService] HTTP test_volume failed:", e);
+        }
+      } else if (!isHotspotMode) {
+        // BLE 已触发，常规 Wi-Fi 宽带模式下后台轻量同步，不阻塞 UI 渲染
+        this.httpClient.testSpeakerVolume(vol).catch(() => {});
+      }
     }
 
     return { success: true, deviceTriggered: devSent, error: lastError };

@@ -142,11 +142,26 @@ public:
           _is_playing_stream(false), _playback_progress(0.0f),
           _stream_ring_buf(nullptr), _is_streaming_llm(false),
           _audio_task_handle(nullptr), _speaker_ref_rms(0.0f),
-          _voice_consecutive_frames(0), _codec_full_duplex(false) {}
+          _voice_consecutive_frames(0), _codec_full_duplex(false) {
+        _i2s_mutex = xSemaphoreCreateMutex();
+    }
 
     static StickS3Audio& getInstance() {
         static StickS3Audio instance;
         return instance;
+    }
+
+    esp_err_t safeI2SWrite(const void* src, size_t size, size_t* bytes_written, TickType_t timeout) {
+        if (!_i2s_mutex) {
+            return i2s_write(I2S_NUM_0, src, size, bytes_written, timeout);
+        }
+        if (xSemaphoreTake(_i2s_mutex, timeout) != pdTRUE) {
+            if (bytes_written) *bytes_written = 0;
+            return ESP_ERR_TIMEOUT;
+        }
+        esp_err_t res = i2s_write(I2S_NUM_0, src, size, bytes_written, timeout);
+        xSemaphoreGive(_i2s_mutex);
+        return res;
     }
 
     static void generateWavHeader(uint8_t* header, uint32_t pcm_len, uint32_t sample_rate = SAMPLE_RATE) {
@@ -302,19 +317,20 @@ public:
         }
     }
 
-    // 播放指定频率正弦波
+    // 播放指定频率正弦波 (防破音与线程安全)
     void playTone(uint16_t freq_hz, uint16_t duration_ms, float volume = 0.55f) {
         if (!_initialized) return;
-        if (volume > 0.75f) volume = 0.75f; // 电池放电保护限幅
+        if (volume > 0.70f) volume = 0.70f; // 电池放电保护限幅
 
         _playing_sound = true;
+        bool was_full_duplex = _codec_full_duplex || _is_streaming_llm;
         setCodecSpeakerMode();
 
         const size_t buf_samples = 128;
         int16_t buf[buf_samples];
         float phase = 0.0f;
         float phase_inc = 2.0f * 3.14159265f * freq_hz / SAMPLE_RATE;
-        float amp = volume * ((float)_speaker_volume / 100.0f) * 32767.0f;
+        float amp = volume * ((float)_speaker_volume / 100.0f) * 26000.0f;
 
         uint32_t total_samples = (uint32_t)SAMPLE_RATE * duration_ms / 1000;
         uint32_t samples_generated = 0;
@@ -335,16 +351,20 @@ public:
             }
 
             size_t bytes_written = 0;
-            i2s_write(I2S_NUM_0, buf, to_write * sizeof(int16_t), &bytes_written, 50 / portTICK_PERIOD_MS);
+            safeI2SWrite(buf, to_write * sizeof(int16_t), &bytes_written, 50 / portTICK_PERIOD_MS);
             samples_generated += to_write;
         }
 
         // 静音缓冲消除尾部直流偏置
         memset(buf, 0, sizeof(buf));
         size_t dummy = 0;
-        i2s_write(I2S_NUM_0, buf, sizeof(buf), &dummy, 50 / portTICK_PERIOD_MS);
+        safeI2SWrite(buf, sizeof(buf), &dummy, 50 / portTICK_PERIOD_MS);
 
-        setCodecMicMode();
+        if (was_full_duplex) {
+            setCodecFullDuplexMode();
+        } else {
+            setCodecMicMode();
+        }
         _playing_sound = false;
     }
 
@@ -574,7 +594,7 @@ public:
             size_t remaining = _playback_total_bytes - _playback_offset;
             size_t to_write = (remaining < WRITE_CHUNK) ? remaining : WRITE_CHUNK;
             size_t bytes_written = 0;
-            esp_err_t res = i2s_write(I2S_NUM_0, _playback_ptr + _playback_offset, to_write, &bytes_written, 0);
+            esp_err_t res = safeI2SWrite(_playback_ptr + _playback_offset, to_write, &bytes_written, 0);
             if (res != ESP_OK || bytes_written == 0) break; // DMA 缓冲满，下一帧继续填充
             _playback_offset += bytes_written;
             _playback_progress = (float)_playback_offset / (float)_playback_total_bytes;
@@ -590,7 +610,7 @@ public:
         // 写入轻量静音段消除直流残余爆音
         int16_t silence[64] = {0};
         size_t dummy = 0;
-        i2s_write(I2S_NUM_0, silence, sizeof(silence), &dummy, 10 / portTICK_PERIOD_MS);
+        safeI2SWrite(silence, sizeof(silence), &dummy, 10 / portTICK_PERIOD_MS);
 
         // 恢复 I2S 硬件时钟为标准 16000 Hz
         i2s_set_sample_rates(I2S_NUM_0, SAMPLE_RATE);
@@ -719,30 +739,30 @@ public:
                     n &= ~1;
 
                     if (n > 0) {
-                        // 1. 软件数字增益动态缩放 (以 70% 为标准 0dB 基准，辅以感知线性缩放)
+                        // 1. 软件数字增益动态线性缩放 (100% 对应 1.0 原生增益，杜绝超幅硬切削)
                         int32_t vol = (int32_t)_speaker_volume;
                         if (vol < 0) vol = 0;
                         if (vol > 100) vol = 100;
 
                         // 2. 16-bit 样本级防破音软饱和限幅器 (Soft-Knee Peak Limiter):
-                        // 保护微型喇叭振膜物理冲程，消除大模型极端 TTS 峰值导致的机械硬失真破音
+                        // 保护微型喇叭振膜物理冲程，消除极端 TTS 峰值导致的机械硬失真破音
                         int16_t* s_ptr = (int16_t*)chunk;
                         size_t samples = n / sizeof(int16_t);
                         for (size_t i = 0; i < samples; ++i) {
                             int32_t val = (int32_t)s_ptr[i];
-                            val = (val * vol) / 70; // 70% 保持 1.0 原生增益，10%~100% 具备明显人耳感知动态
+                            val = (val * vol) / 100; // 线性平滑缩放，最大 1.0，彻底消除 1.43 倍过载削波与方波失真
                             if (val > 26000) {
                                 val = 26000 + ((val - 26000) >> 2);
-                                if (val > 32500) val = 32500;
+                                if (val > 32000) val = 32000;
                             } else if (val < -26000) {
                                 val = -26000 + ((val + 26000) >> 2);
-                                if (val < -32500) val = -32500;
+                                if (val < -32000) val = -32000;
                             }
                             s_ptr[i] = (int16_t)val;
                         }
 
                         size_t bytes_written = 0;
-                        i2s_write(I2S_NUM_0, chunk, n, &bytes_written, 25 / portTICK_PERIOD_MS);
+                        safeI2SWrite(chunk, n, &bytes_written, 25 / portTICK_PERIOD_MS);
 
                         // 实时解算喇叭写入能量，采用 Fast Attack & Slow Decay 包络跟踪
                         // 补偿 I2S DMA 128ms 硬件延迟，防止因物理声学滞后导致参考信号过低
@@ -792,7 +812,7 @@ public:
         // 写入轻量静音段消除直流残余爆音
         int16_t silence[128] = {0};
         size_t dummy = 0;
-        i2s_write(I2S_NUM_0, silence, sizeof(silence), &dummy, 10 / portTICK_PERIOD_MS);
+        safeI2SWrite(silence, sizeof(silence), &dummy, 10 / portTICK_PERIOD_MS);
 
         setCodecMicMode();
         _is_streaming_llm = false;
@@ -813,7 +833,7 @@ public:
         // 1. 写入静音尾帧以冲刷 I2S 硬件 FIFO 与消除直流偏置
         int16_t silence[128] = {0};
         size_t dummy = 0;
-        i2s_write(I2S_NUM_0, silence, sizeof(silence), &dummy, 20 / portTICK_PERIOD_MS);
+        safeI2SWrite(silence, sizeof(silence), &dummy, 20 / portTICK_PERIOD_MS);
 
         // 2. 关键时序保护：等待 I2S 硬件 6x256 DMA 缓冲 (~96ms) 完整推送到物理扬声器
         // 严禁在此之前提前切断 DAC 时钟，彻底消除末尾吞字与切模爆音 "喀"
@@ -1027,14 +1047,16 @@ private:
     volatile float _speaker_ref_rms;
     volatile uint8_t _voice_consecutive_frames;
     bool _codec_full_duplex;
+    SemaphoreHandle_t _i2s_mutex;
 
     uint8_t calcDacVolume() const {
         if (_speaker_volume == 0) return 0x00;
-        // 0~100 映射至 0x40 (64, -63.5dB) ~ 0xBF (191, 0dB)，70% 精确对应 0xB0 (176, -7.5dB)
+        // 0~100 映射至 0x40 (64, -63.5dB) ~ 0xB8 (184, -3.5dB)，70% 精确对应 0xB0 (176, -7.5dB)
+        // 保留 3.5dB 硬件模拟动态裕度，彻底消除大音量微型振膜硬失真与 Wi-Fi 脉冲拉电引起的电源削顶破音
         if (_speaker_volume <= 70) {
             return (uint8_t)(64 + ((uint32_t)_speaker_volume * (176 - 64)) / 70);
         } else {
-            return (uint8_t)(176 + (((uint32_t)_speaker_volume - 70) * (191 - 176)) / 30);
+            return (uint8_t)(176 + (((uint32_t)_speaker_volume - 70) * (184 - 176)) / 30);
         }
     }
 

@@ -410,10 +410,10 @@ public:
 
         Serial.printf("[WIFI-STA] Initiating connection to \"%s\"...\n", ssid.c_str());
         
-        // 保证 AP+STA 模式，开启最大发射功率与自动重连 (遵循 BLE 共存机制)
+        // 保证 AP+STA 模式，设置抗饱和稳定发射功率 (+17dBm)，避免过高射频脉冲导致电源塌陷与破音
         WiFi.mode(WIFI_AP_STA);
-        WiFi.setTxPower(WIFI_POWER_19_5dBm);
-        WiFi.setAutoReconnect(true);
+        WiFi.setTxPower(WIFI_POWER_17dBm);
+        WiFi.setAutoReconnect(false); // 统一由 StickS3ConfigManager 状态机调度，杜绝并发竞争崩溃
         WiFi.disconnect(false, false);
         delay(20);
 
@@ -432,12 +432,9 @@ public:
                 Serial.printf("\n[WIFI-STA] Successfully CONNECTED! IP: %s | Gateway: %s | RSSI: %ddBm\n",
                               _sta_ip.c_str(), WiFi.gatewayIP().toString().c_str(), _sta_rssi);
 
-                // 将 SoftAP 信道与 STA 真实网络信道完全对齐，消除双信道时分跳频 (Channel Hopping) 丢包
+                // ESP32 硬件底层在 STA 连接时已自动将 SoftAP 物理信道同步对齐，无需且严禁重复调用 softAP() 以免重置 netif 导致 Panic
                 int sta_ch = WiFi.channel();
-                if (sta_ch > 0) {
-                    WiFi.softAP("StickS3-Buddy", "", sta_ch, 0, 4);
-                    Serial.printf("[WIFI] Aligned SoftAP to STA channel %d (0-hop zero-loss mode)\n", sta_ch);
-                }
+                Serial.printf("[WIFI] STA active on Channel %d (SoftAP hardware-aligned)\n", sta_ch);
 
                 configTime(8 * 3600, 0, "ntp.aliyun.com", "pool.ntp.org", "time.asia.apple.com");
                 Serial.println("[NTP] Initialized SNTP time sync with ntp.aliyun.com");

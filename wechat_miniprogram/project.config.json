@@ -46,7 +46,16 @@
     }
   },
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "file",
+        "value": "upload.js"
+      },
+      {
+        "type": "file",
+        "value": ".gitignore"
+      }
+    ],
     "include": []
   },
   "editorSetting": {}

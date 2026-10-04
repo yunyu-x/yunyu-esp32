@@ -1064,14 +1064,14 @@ public:
         if (_initialized) return;
         Serial.println("[WIFI] Initializing AP+STA Concurrent Mode...");
 
-        // 1. 设置 AP+STA 双模工作与自动重连 (遵循 BLE 共存机制)
+        // 1. 设置 AP+STA 双模工作，统一由 ConfigManager 状态机管理重连
         WiFi.mode(WIFI_AP_STA);
-        WiFi.setAutoReconnect(true);
+        WiFi.setAutoReconnect(false);
         delay(40);
 
-        // 2. 启动 SoftAP 免密热点 (默认 IP: 192.168.4.1) 并设置最大发射功率 (+19.5dBm)
+        // 2. 启动 SoftAP 免密热点 (默认 IP: 192.168.4.1)，设置平衡发射功率 (+17dBm)
         bool ap_ok = WiFi.softAP("StickS3-Buddy", "", 1, 0, 4);
-        WiFi.setTxPower(WIFI_POWER_19_5dBm);
+        WiFi.setTxPower(WIFI_POWER_17dBm);
         Serial.printf("[WIFI-AP] SoftAP 'StickS3-Buddy': %s (IP: %s)\n",
                       ap_ok ? "ONLINE" : "FAILED",
                       WiFi.softAPIP().toString().c_str());
