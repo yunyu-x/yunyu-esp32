@@ -327,17 +327,22 @@ public:
 
     // 核心矢量绘制函数 (参数化绘制在 135x240 显示屏上 - 迪士尼灵动艺术审美升级)
     template <typename DisplayType>
-    void render(DisplayType& d, const String& subtitle_text, const String& status_tag, bool ble_connected = false, bool wifi_connected = false, bool is_hotspot = false) {
+    void render(DisplayType& d, const String& subtitle_text, const String& status_tag, bool ble_connected = false, bool wifi_connected = false, bool is_hotspot = false, uint8_t speaker_vol = 70) {
         const int W = 135;
         const int H = 240;
 
-        // 1. 顶部状态指示栏 (Y: 0 ~ 18)
+        // 1. 顶部状态指示栏 (Y: 0 ~ 18) - 实时展示播音音量、蓝牙与网络状态
         d.fillRect(0, 0, W, 18, 0x0841); // 深灰蓝底
         d.setTextDatum(ML_DATUM);
-        d.setTextColor(0xFFE0, 0x0841); // 亮黄
-        char top_buf[32];
-        snprintf(top_buf, sizeof(top_buf), "%s Lv.%u", _stats.pet_name.c_str(), _stats.intimacy_level);
-        d.drawString(top_buf, 3, 9);
+        char vol_buf[16];
+        if (speaker_vol == 0) {
+            d.setTextColor(0xF800, 0x0841); // 静音红字
+            snprintf(vol_buf, sizeof(vol_buf), "VOL MUTE");
+        } else {
+            d.setTextColor(0x07FF, 0x0841); // 霓虹青字 (清晰展示当前播音音量)
+            snprintf(vol_buf, sizeof(vol_buf), "VOL %u%%", speaker_vol);
+        }
+        d.drawString(vol_buf, 4, 9);
 
         // 蓝牙连接标志 (BLE 已连蓝青标志)
         if (ble_connected) {
@@ -604,12 +609,12 @@ public:
         d.fillRoundRect(2, 154, W - 4, 62, 6, 0x10A2);
         d.drawRoundRect(2, 154, W - 4, 62, 6, 0x2965);
 
-        // 4. 底部微型亲密度与体力状态条 (Y: 220 ~ 240)
+        // 4. 底部微型活力与互动状态条 (Y: 220 ~ 240)
         d.fillRect(0, 220, W, 20, 0x0000);
         d.setTextDatum(ML_DATUM);
         d.setTextColor(0xF81F, 0x0000); // 暖紫粉
         char bot_buf[40];
-        snprintf(bot_buf, sizeof(bot_buf), "<3 Lv.%u 活力:%u%% 喂:%u 摸:%u", _stats.intimacy_level, _stats.energy, (unsigned)_stats.total_feeds, (unsigned)_stats.total_pets);
+        snprintf(bot_buf, sizeof(bot_buf), "<3 活力:%u%% 喂:%u 摸:%u", _stats.energy, (unsigned)_stats.total_feeds, (unsigned)_stats.total_pets);
         d.drawString(bot_buf, 4, 230);
     }
 

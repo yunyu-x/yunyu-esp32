@@ -1011,6 +1011,9 @@ void loop() {
             LovyanGFX& out_d = canvas_ready ? static_cast<LovyanGFX&>(canvas) : static_cast<LovyanGFX&>(display);
             out_d.startWrite();
 
+            auto& audio_inst = sticks3::StickS3Audio::getInstance();
+            uint8_t cur_speaker_vol = audio_inst.getSpeakerVolume();
+
             g_pet_avatar_mode = sticks3::StickS3Avatar::getInstance().isAvatarMode();
             if (g_pet_avatar_mode) {
                 String subtitle = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? bl.getAiReply() : (bl.getUserQuery().length() > 0 ? bl.getUserQuery() : latest_ble_msg);
@@ -1018,7 +1021,7 @@ void loop() {
                     if (bl.getState() == sticks3::BL_STATE_LISTENING && bl.isWakeWindowOpen()) {
                         subtitle = "我在听，请直接吩咐~";
                     } else {
-                        subtitle = "说“悄悄”唤醒，按[A]键说话~";
+                        subtitle = "按[A]键说话，随时开口打断~";
                     }
                 }
                 auto cur_m = sticks3::StickS3Avatar::getInstance().getMood();
@@ -1031,15 +1034,22 @@ void loop() {
                              (cur_m == sticks3::MOOD_HAPPY) ? "开心" :
                              (cur_m == sticks3::MOOD_DIZZY) ? "晕眩" :
                              (cur_m == sticks3::MOOD_SLEEP) ? "睡眠中" : "就绪";
-                sticks3::StickS3Avatar::getInstance().render(out_d, subtitle, tag, device_connected, cfg_mgr.isStaConnected(), cfg_mgr.isHotspot());
+                sticks3::StickS3Avatar::getInstance().render(out_d, subtitle, tag, device_connected, cfg_mgr.isStaConnected(), cfg_mgr.isHotspot(), cur_speaker_vol);
                 drawChineseText(out_d, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
             } else {
-        // 1. 顶部标题栏 (0 ~ 22, 展现 BLE 与 WiFi 状态指示徽章)
+        // 1. 顶部标题栏 (0 ~ 22, 展现当前播音音量、BLE 与 WiFi 状态指示徽章)
         uint16_t top_theme = cfg_mgr.isStaConnected() ? theme_color : 0x0841;
         out_d.fillRect(0, 0, SCREEN_W, 20, top_theme);
-        out_d.setTextColor(TFT_WHITE, top_theme);
         out_d.setTextDatum(ML_DATUM);
-        out_d.drawString("StickS3", 4, 10);
+        char vol_hdr[16];
+        if (cur_speaker_vol == 0) {
+            out_d.setTextColor(TFT_RED, top_theme);
+            snprintf(vol_hdr, sizeof(vol_hdr), "MUTE");
+        } else {
+            out_d.setTextColor(0x07FF, top_theme);
+            snprintf(vol_hdr, sizeof(vol_hdr), "Vol %u%%", cur_speaker_vol);
+        }
+        out_d.drawString(vol_hdr, 4, 10);
 
         // 蓝牙连接标志 (BLE 已连蓝青标志)
         if (device_connected) {
@@ -1134,7 +1144,7 @@ void loop() {
                 hdr_txt = "⏹ 已中途打断!";
             } else if (bl_client.getState() == sticks3::BL_STATE_CONNECTED_IDLE) {
                 hdr_bg = TFT_NAVY;
-                hdr_txt = "✔ 百炼就绪 说“悄悄”";
+                hdr_txt = "✔ 百炼就绪 按[A]对答";
             } else if (bl_client.getState() == sticks3::BL_STATE_ERROR) {
                 hdr_bg = TFT_RED;
                 hdr_txt = "✖ 连接异常 重连中";
@@ -1143,10 +1153,10 @@ void loop() {
                 if (cfg_ww.wakeword_enabled) {
                     if (bl_client.isWakeWindowOpen()) {
                         hdr_bg = 0xD980; // Amber-gold
-                        hdr_txt = "⚡ [悄悄已唤醒] 聆听中";
+                        hdr_txt = "⚡ [已唤醒] 聆听中";
                     } else {
                         hdr_bg = 0x0284;
-                        hdr_txt = "● 待命中 (说“悄悄”)";
+                        hdr_txt = "● 待命中 (随时呼唤)";
                     }
                 } else {
                     hdr_bg = 0x0284;
@@ -1175,7 +1185,7 @@ void loop() {
             } else {
                 auto& cfg_ww = sticks3::StickS3ConfigManager::getInstance().getConfig();
                 if (cfg_ww.wakeword_enabled && !bl_client.isWakeWindowOpen()) {
-                    drawChineseText(out_d, "呼唤【悄悄】唤醒\n随时打断与流式问答\n离线声学匹配引擎", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
+                    drawChineseText(out_d, "随时开口或按键\n随时打断与流式问答\n离线声学匹配引擎", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
                 } else {
                     drawChineseText(out_d, "对准硅麦讲话\n支持全双工交互\n随时开口即可打断", 6, 90, SCREEN_W - 12, 14, TFT_LIGHTGREY, TFT_BLACK, &fonts::efontCN_12);
                 }

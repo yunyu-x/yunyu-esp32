@@ -36,12 +36,14 @@ class AvatarRenderer {
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, baseW, baseH);
 
-    // 1. 顶部状态栏 (0 ~ 18)
+    // 1. 顶部状态栏 (0 ~ 18) - 实时展示播音音量与情绪状态
     ctx.fillStyle = "#0f172a";
     ctx.fillRect(0, 0, baseW, 18);
-    ctx.fillStyle = "#f6d365";
+    ctx.fillStyle = "#38bdf8";
     ctx.font = "bold 9px sans-serif";
-    ctx.fillText(`${petState.name || "悄悄"} Lv.${petState.level || 1}`, 6, 12);
+    const volVal = (petState && (petState.volume !== undefined && petState.volume !== null)) ? petState.volume : 70;
+    const volText = (volVal === 0) ? "VOL MUTE" : `VOL ${volVal}%`;
+    ctx.fillText(volText, 6, 12);
 
     ctx.fillStyle = "#34d399";
     ctx.textAlign = "right";

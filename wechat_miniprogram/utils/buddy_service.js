@@ -23,6 +23,7 @@ class BuddyService {
     this.httpClient.setHost(savedSettings.wifiHost || "192.168.110.67");
 
     this.petState = StorageManager.getPetState();
+    this.petState.volume = Number(savedSettings.speakerVolume) || 70;
     this.memoryTurns = StorageManager.getMemories();
     this.diaries = StorageManager.getDiaries();
 
@@ -919,10 +920,15 @@ class BuddyService {
     if (vol < 10) vol = 10;
     if (vol > 100) vol = 100;
 
-    // 1. 同步保存到本地 settings
+    // 1. 同步保存到本地 settings 与内存状态
     const settings = StorageManager.getSettings();
     settings.speakerVolume = vol;
     StorageManager.saveSettings(settings);
+
+    if (this.petState) {
+      this.petState.volume = vol;
+      this._emit({ type: "state", data: this.petState });
+    }
 
     let devSent = false;
     // 2. BLE 下发 (无论当前是否标记为 isBleMode，只要 BLE 物理连接在线均实时推送)

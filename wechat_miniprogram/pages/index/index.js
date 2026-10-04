@@ -25,8 +25,7 @@ Page({
     simBtnText: "演示仿真",
 
     petState: {
-      name: "悄悄",
-      level: 1,
+      volume: 70,
       xp: 15,
       energy: 100,
       mood: 0,
