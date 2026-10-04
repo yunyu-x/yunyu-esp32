@@ -29,14 +29,14 @@
 #include "sticks3_audio.h"
 #include "sticks3_wifi_config.h"
 #include "sticks3_bailian_client.h"
+#include "sticks3_avatar.h"
+#include "sticks3_ble_sync.h"
 #include "sticks3_wifi.h"
 #include "gbk_to_utf8.h"
 #include "sticks3_i2c_mutex.h"
 #include "sticks3_system_metrics.h"
 #include "sticks3_memory_store.h"
 #include "sticks3_wakeword.h"
-#include "sticks3_avatar.h"
-#include "sticks3_ble_sync.h"
 
 using namespace sticks3::protocol;
 

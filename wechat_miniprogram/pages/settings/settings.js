@@ -162,6 +162,17 @@ Page({
 
     this.stateListener = (evt) => this.syncState(evt);
     buddyService.subscribe(this.stateListener);
+
+    this._lastUserVolumeSetTime = 0;
+    this._isSliding = false;
+    buddyService.getSpeakerVolume().then(liveVol => {
+      const now = Date.now();
+      if (!this._isSliding && (!this._lastUserVolumeSetTime || (now - this._lastUserVolumeSetTime > 3500))) {
+        if (liveVol !== this.data.speakerVolume) {
+          this.setData({ speakerVolume: liveVol, displayVolume: liveVol });
+        }
+      }
+    }).catch(() => {});
   },
 
   onShow() {
@@ -173,6 +184,15 @@ Page({
       connectionStatusText: buddyService.connectionStatusText,
       petState: buddyService.petState
     });
+
+    buddyService.getSpeakerVolume().then(liveVol => {
+      const now = Date.now();
+      if (!this._isSliding && (!this._lastUserVolumeSetTime || (now - this._lastUserVolumeSetTime > 3500))) {
+        if (liveVol !== this.data.speakerVolume) {
+          this.setData({ speakerVolume: liveVol, displayVolume: liveVol });
+        }
+      }
+    }).catch(() => {});
   },
 
   onUnload() {
@@ -245,11 +265,17 @@ Page({
       if (this.data.isWifiConnected !== isWifi) patch.isWifiConnected = isWifi;
     }
 
-    // 从设备状态同步当前播音音量 (如果用户未处于手动拖拽状态)
-    const curVol = (evt.petState && evt.petState.volume) || (buddyService.petState && buddyService.petState.volume);
-    if (curVol !== undefined && curVol !== this.data.speakerVolume && !this._isSliding) {
-      patch.speakerVolume = curVol;
-      patch.displayVolume = curVol;
+    // 从设备状态同步当前播音音量 (如果用户未处于手动拖拽状态且不在防回弹冷却保护期内)
+    const now = Date.now();
+    const isVolumeProtected = this._isSliding || (this._lastUserVolumeSetTime && (now - this._lastUserVolumeSetTime < 3500));
+    if (!isVolumeProtected) {
+      const curVol = (evt.petState && evt.petState.volume !== undefined)
+        ? evt.petState.volume
+        : (buddyService.petState && buddyService.petState.volume);
+      if (curVol !== undefined && curVol !== this.data.speakerVolume) {
+        patch.speakerVolume = curVol;
+        patch.displayVolume = curVol;
+      }
     }
 
     if (Object.keys(patch).length > 0) {
@@ -791,14 +817,16 @@ Page({
 
   onVolumeChanging(e) {
     this._isSliding = true;
+    this._lastUserVolumeSetTime = Date.now();
     const val = parseInt(e.detail.value, 10);
-    if (!isNaN(val) && val !== this.data.displayVolume) {
-      this.setData({ displayVolume: val });
+    if (!isNaN(val) && (val !== this.data.displayVolume || val !== this.data.speakerVolume)) {
+      this.setData({ displayVolume: val, speakerVolume: val });
     }
   },
 
   async onVolumeChange(e) {
     this._isSliding = false;
+    this._lastUserVolumeSetTime = Date.now();
     const val = parseInt(e.detail.value, 10);
     if (isNaN(val)) return;
     this.setData({ speakerVolume: val, displayVolume: val });
@@ -823,6 +851,7 @@ Page({
   handleSetVolumePreset(e) {
     const val = parseInt(e.currentTarget.dataset.volume, 10);
     if (isNaN(val)) return;
+    this._lastUserVolumeSetTime = Date.now();
     this.setData({ speakerVolume: val, displayVolume: val });
     haptics.selection();
     buddyService.setSpeakerVolume(val).then((res) => {
@@ -833,6 +862,7 @@ Page({
   },
 
   async handleTestVolume() {
+    this._lastUserVolumeSetTime = Date.now();
     const vol = this.data.displayVolume || this.data.speakerVolume || 70;
     haptics.vibrate("medium");
 

@@ -33,6 +33,7 @@ class BuddyService {
 
     this.petState = StorageManager.getPetState();
     this.petState.volume = Number(savedSettings.speakerVolume) || 70;
+    this._lastUserVolumeSetTime = 0;
     this.memoryTurns = StorageManager.getMemories();
     this.diaries = StorageManager.getDiaries();
 
@@ -169,8 +170,12 @@ class BuddyService {
     if (st.mood !== undefined) cur.mood = st.mood;
     if (st.mood_id !== undefined) cur.mood = st.mood_id;
 
-    if (st.speaker_volume !== undefined) cur.volume = Number(st.speaker_volume);
-    else if (st.volume !== undefined) cur.volume = Number(st.volume);
+    const now = Date.now();
+    const isVolumeProtected = this._lastUserVolumeSetTime && (now - this._lastUserVolumeSetTime < 3500);
+    if (!isVolumeProtected) {
+      if (st.speaker_volume !== undefined) cur.volume = Number(st.speaker_volume);
+      else if (st.volume !== undefined) cur.volume = Number(st.volume);
+    }
 
     if (st.diary) {
       let d = st.diary;
@@ -791,6 +796,7 @@ class BuddyService {
     if (isNaN(vol)) vol = 70;
     vol = Math.max(10, Math.min(100, vol));
 
+    this._lastUserVolumeSetTime = Date.now();
     const settings = StorageManager.getSettings();
     settings.speakerVolume = vol;
     StorageManager.saveSettings(settings);
@@ -835,6 +841,7 @@ class BuddyService {
 
   async testSpeakerVolume(volume) {
     const vol = (volume !== undefined) ? parseInt(volume, 10) : (this.petState && this.petState.volume);
+    this._lastUserVolumeSetTime = Date.now();
     if (!isNaN(vol)) {
       this.petState.volume = vol;
       const settings = StorageManager.getSettings();
@@ -873,6 +880,44 @@ class BuddyService {
     }
 
     return { success: true, deviceTriggered: devSent, error: lastError };
+  }
+
+  // 主动读取硬件真实播音音量 (自适应 HTTP / BLE 双通道)
+  async getSpeakerVolume() {
+    let vol = null;
+    const settings = StorageManager.getSettings();
+    const host = (this.httpClient && this.httpClient.host) || settings.wifiHost || "192.168.110.67";
+
+    // 1. 优先尝试 HTTP 直读设备当前物理音量
+    if (this.httpClient) {
+      this.httpClient.setHost(host);
+      try {
+        const res = await this.httpClient.getSpeakerVolume();
+        if (res && res.volume !== undefined) {
+          vol = parseInt(res.volume, 10);
+        }
+      } catch (e) {}
+    }
+
+    // 2. 若 HTTP 失败且 BLE 已连接，尝试 BLE 特征值快照
+    if ((vol === null || isNaN(vol)) && this.bleClient && this.bleClient.isConnected) {
+      try {
+        await this.bleClient.readStatus();
+        if (this.petState && this.petState.volume !== undefined) {
+          vol = this.petState.volume;
+        }
+      } catch (e) {}
+    }
+
+    if (vol !== null && !isNaN(vol)) {
+      vol = Math.max(10, Math.min(100, vol));
+      if (this.petState) this.petState.volume = vol;
+      settings.speakerVolume = vol;
+      StorageManager.saveSettings(settings);
+      return vol;
+    }
+
+    return (this.petState && this.petState.volume) || Number(settings.speakerVolume) || 70;
   }
 
   async getBailianStatus() {

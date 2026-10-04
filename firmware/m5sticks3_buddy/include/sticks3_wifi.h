@@ -1341,6 +1341,7 @@ private:
                 }
                 if (vol >= 10 && vol <= 100) {
                     cfg_mgr.saveSpeakerVolume((uint8_t)vol);
+                    sticks3::StickS3BLESync::getInstance().updateSnapshots();
                 }
 
                 auto& bl = StickS3BailianClient::getInstance();
@@ -1629,6 +1630,7 @@ private:
             if (vol >= 0 && vol <= 100) {
                 cfg_mgr.saveSpeakerVolume((uint8_t)vol);
                 StickS3Audio::getInstance().playTone(1200, 70, 0.50f);
+                sticks3::StickS3BLESync::getInstance().updateSnapshots();
                 _web_server.send(200, "application/json; charset=utf-8",
                                  "{\"ok\":true,\"volume\":" + String(vol) + "}");
             } else {
@@ -1649,6 +1651,7 @@ private:
                 int v = _web_server.arg("volume").toInt();
                 if (v >= 0 && v <= 100) {
                     StickS3ConfigManager::getInstance().saveSpeakerVolume((uint8_t)v);
+                    sticks3::StickS3BLESync::getInstance().updateSnapshots();
                 }
             }
             StickS3Audio::getInstance().playChime(CHIME_SUCCESS);

@@ -417,6 +417,7 @@ public:
             if (vol >= 0 && vol <= 100) {
                 StickS3ConfigManager::getInstance().saveSpeakerVolume((uint8_t)vol);
                 StickS3Audio::getInstance().playTone(1200, 70, 0.50f);
+                updateSnapshots();
                 Serial.printf("[BLE-INJECT] Volume adjusted to %d%% via BLE.\n", vol);
             }
         } else if (action == "test_volume") {
@@ -427,6 +428,7 @@ public:
                 }
             }
             StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
+            updateSnapshots();
             Serial.println("[BLE-INJECT] Volume test chime played via BLE.");
         } else if (action == "clear_memory") {
             StickS3BailianClient::getInstance().clearMemory();
@@ -477,6 +479,7 @@ public:
 
             if (vol >= 10 && vol <= 100) {
                 cfg_mgr.saveSpeakerVolume((uint8_t)vol);
+                updateSnapshots();
                 Serial.printf("[BLE-INJECT] Volume adjusted via bailian_cfg to %d%%\n", vol);
             }
 
