@@ -29,11 +29,13 @@ inline void printSystemDiagnostics() {
         uint32_t free_sram = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
         uint32_t max_block = (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
         uint32_t free_psram = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-        Serial.printf("[StickS3-SYS] FPS: %.1f | SRAM: free=%uKB, max_block=%uKB | PSRAM: %.2fMB | I2C_Tx: %lu (Fails: %lu)\n",
+        uint32_t stack_hwm = (uint32_t)uxTaskGetStackHighWaterMark(NULL);
+        Serial.printf("[StickS3-SYS] FPS: %.1f | SRAM: free=%uKB, max_block=%uKB | PSRAM: %.2fMB | LoopStack: %uB | I2C_Tx: %lu (Fails: %lu)\n",
                       getSystemLoopFPS(),
                       (unsigned)(free_sram / 1024),
                       (unsigned)(max_block / 1024),
                       (float)free_psram / (1024.0f * 1024.0f),
+                      (unsigned)stack_hwm,
                       (unsigned long)getI2CTransactionCount(),
                       (unsigned long)getI2CLockFailures());
     }

@@ -1404,9 +1404,17 @@ private:
             _web_server.send(200, "application/json", "{\"status\":\"ok\"}");
         });
 
-        // 模拟/下发文本问答至百炼 (触发大模型实时语音回复)
+        // 模拟/下发文本问答至百炼 (触发大模型实时语音回复，支持 JSON 与表单两种传参)
         _web_server.on("/bailian/send_text", HTTP_POST, [this]() {
-            String text = _web_server.hasArg("text") ? _web_server.arg("text") : "";
+            String text = "";
+            if (_web_server.hasArg("text")) {
+                text = _web_server.arg("text");
+            } else if (_web_server.hasArg("plain")) {
+                JsonDocument doc;
+                if (!deserializeJson(doc, _web_server.arg("plain"))) {
+                    text = doc["text"] | "";
+                }
+            }
             text.trim();
             if (text.length() > 0) {
                 bool ok = StickS3BailianClient::getInstance().sendTextMessage(text);

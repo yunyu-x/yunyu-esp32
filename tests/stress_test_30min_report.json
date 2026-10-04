@@ -1,0 +1,79 @@
+{
+  "start_time": "2026-10-04 13:28:56",
+  "end_time": "2026-10-04 13:58:56",
+  "duration_sec": 1800.3,
+  "samples_count": 833,
+  "reboots_detected": 0,
+  "i2c_failures_max": 0,
+  "min_sram_kb": 54.6015625,
+  "max_sram_kb": 107.7890625,
+  "min_psram_mb": 7.220839500427246,
+  "min_loop_fps": 34.72222,
+  "avg_loop_fps": 93.8,
+  "audio_stack_hwm_min": 4808,
+  "interaction_rounds": 9,
+  "interaction_success": 0,
+  "panics_detected": 0,
+  "errors": [
+    "[13:47:02.152] Metrics request failed: HTTPConnectionPool(host='192.168.110.67', port=80): Max retries exceeded with url: /system/metrics (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.110.67', port=80) at 0x16ac62df860>, 'Connection to 192.168.110.67 timed out. (connect timeout=2.0)'))",
+    "[13:54:09.477] Metrics request failed: HTTPConnectionPool(host='192.168.110.67', port=80): Max retries exceeded with url: /system/metrics (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.110.67', port=80) at 0x16ac62df980>, 'Connection to 192.168.110.67 timed out. (connect timeout=2.0)'))",
+    "[13:54:13.485] Metrics request failed: HTTPConnectionPool(host='192.168.110.67', port=80): Max retries exceeded with url: /system/metrics (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.110.67', port=80) at 0x16ac62dfc80>, 'Connection to 192.168.110.67 timed out. (connect timeout=2.0)'))"
+  ],
+  "milestones": [
+    {
+      "elapsed_minutes": 5,
+      "samples": 144,
+      "avg_fps": 93.8,
+      "min_sram_kb": 60.3,
+      "min_psram_mb": 7.22,
+      "audio_stack_hwm": 4808,
+      "i2c_fails": 0,
+      "reboots": 0,
+      "panics": 0
+    },
+    {
+      "elapsed_minutes": 10,
+      "samples": 282,
+      "avg_fps": 93.6,
+      "min_sram_kb": 55.4,
+      "min_psram_mb": 7.22,
+      "audio_stack_hwm": 4808,
+      "i2c_fails": 0,
+      "reboots": 0,
+      "panics": 0
+    },
+    {
+      "elapsed_minutes": 15,
+      "samples": 422,
+      "avg_fps": 93.7,
+      "min_sram_kb": 54.7,
+      "min_psram_mb": 7.22,
+      "audio_stack_hwm": 4808,
+      "i2c_fails": 0,
+      "reboots": 0,
+      "panics": 0
+    },
+    {
+      "elapsed_minutes": 20,
+      "samples": 557,
+      "avg_fps": 93.7,
+      "min_sram_kb": 54.6,
+      "min_psram_mb": 7.22,
+      "audio_stack_hwm": 4808,
+      "i2c_fails": 0,
+      "reboots": 0,
+      "panics": 0
+    },
+    {
+      "elapsed_minutes": 25,
+      "samples": 699,
+      "avg_fps": 93.7,
+      "min_sram_kb": 54.6,
+      "min_psram_mb": 7.22,
+      "audio_stack_hwm": 4808,
+      "i2c_fails": 0,
+      "reboots": 0,
+      "panics": 0
+    }
+  ]
+}

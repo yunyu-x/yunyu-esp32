@@ -542,6 +542,23 @@ void setup() {
     Serial.println(">>> [StickS3-BOOT] Starting Hardware Bring-Up (loopTask Prio: 4)...");
     Serial.println("=======================================================");
 
+    esp_reset_reason_t rst_reason = esp_reset_reason();
+    const char* rst_str = "UNKNOWN";
+    switch (rst_reason) {
+        case ESP_RST_POWERON:   rst_str = "POWERON (Normal Power On / Cold Boot)"; break;
+        case ESP_RST_EXT:       rst_str = "EXT_PIN (External Reset Pin / DTR-RTS toggled by Host)"; break;
+        case ESP_RST_SW:        rst_str = "SW_CPU (Software esp_restart)"; break;
+        case ESP_RST_PANIC:     rst_str = "PANIC (Exception / Crash / Panic)"; break;
+        case ESP_RST_INT_WDT:   rst_str = "INT_WDT (Interrupt Watchdog)"; break;
+        case ESP_RST_TASK_WDT:  rst_str = "TASK_WDT (Task Watchdog Timeout)"; break;
+        case ESP_RST_WDT:       rst_str = "OTHER_WDT (Other Watchdog)"; break;
+        case ESP_RST_DEEPSLEEP: rst_str = "DEEPSLEEP"; break;
+        case ESP_RST_BROWNOUT:  rst_str = "BROWNOUT (Voltage Dip / Low Power Reset)"; break;
+        case ESP_RST_SDIO:      rst_str = "SDIO"; break;
+        default: break;
+    }
+    Serial.printf(">>> [BOOT-DIAG] Last Reset Reason (%d): %s <<<\n", (int)rst_reason, rst_str);
+
     // 1. 初始化按键引脚
     pinMode(PIN_BTN_A, INPUT_PULLUP);
     pinMode(PIN_BTN_B, INPUT_PULLUP);
@@ -730,19 +747,29 @@ void loop() {
     btnA_prev = curA;
     btnB_prev = curB;
 
-    // 硬件双键长按 4 秒触发物理出厂恢复 (正面按键 A + 侧面按键 B 同时长按)
+    // 硬件双键长按 10 秒触发物理出厂恢复 (正面按键 A + 侧面按键 B 同时长按，杜绝意外挤压误触)
     static uint32_t s_dual_press_start = 0;
+    static uint32_t s_last_dual_warn = 0;
     if (curA == LOW && curB == LOW) {
         if (s_dual_press_start == 0) {
             s_dual_press_start = millis();
-        } else if (millis() - s_dual_press_start >= 4000) {
-            s_dual_press_start = 0;
-            sticks3::StickS3Audio::getInstance().playTone(880, 250, 0.5f);
-            Serial.println("[BUTTON-RESET] Dual buttons held for 4s. Executing Factory Reset...");
-            sticks3::StickS3ConfigManager::getInstance().clearAllConfig();
-            sticks3::StickS3MemoryStore::getInstance().clearMemory();
-            delay(500);
-            esp_restart();
+            s_last_dual_warn = millis();
+            Serial.println("[BUTTON-WARN] Dual buttons held: Front A + Side B pressed! Keep holding for 10s to factory reset.");
+        } else {
+            uint32_t hold_time = millis() - s_dual_press_start;
+            if (millis() - s_last_dual_warn >= 1000) {
+                s_last_dual_warn = millis();
+                Serial.printf("[BUTTON-WARN] Dual buttons held for %lu ms / 10000 ms...\n", (unsigned long)hold_time);
+            }
+            if (hold_time >= 10000) {
+                s_dual_press_start = 0;
+                sticks3::StickS3Audio::getInstance().playTone(880, 500, 0.5f);
+                Serial.println("[BUTTON-RESET] Dual buttons held for 10s! Executing Factory Reset...");
+                sticks3::StickS3ConfigManager::getInstance().clearAllConfig();
+                sticks3::StickS3MemoryStore::getInstance().clearMemory();
+                delay(500);
+                esp_restart();
+            }
         }
     } else {
         s_dual_press_start = 0;

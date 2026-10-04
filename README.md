@@ -3,16 +3,17 @@
 <div align="center">
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Release](https://img.shields.io/badge/Release-v1.1.0--stable-blueviolet.svg)](./docs/RELEASE_NOTES_v1.1.0.md)
 [![PlatformIO](https://img.shields.io/badge/PlatformIO-ESP32--S3-orange.svg)](https://platformio.org/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-green.svg)](https://www.python.org/)
 [![WeChat](https://img.shields.io/badge/WeChat-MiniProgram-brightgreen.svg)](./wechat_miniprogram/)
-[![Tests](https://img.shields.io/badge/Tests-80%20Passed-success.svg)](./tests/)
+[![Tests](https://img.shields.io/badge/Tests-100%20Passed-success.svg)](./tests/)
 [![Axioms](https://img.shields.io/badge/Axioms-6%20Invariants-purple.svg)](./docs/30_PROJECT_AXIOMS_AND_HANDOVER.md)
 
 **全栈独立、开箱即用的随身/桌面具身 AI 伴侣、微信小程序终端、Meta Muse Gadgets 生态与开源机器人硬件基座**  
 *Full-Stack Independent Physical AI Voice Companion, WeChat Mini-Program Suite, Meta Muse Gadgets & Embedded Robotics*
 
-[English](#english-summary) | [核心特性](#-核心特性-key-features) | [系统架构](#-系统架构-architecture) | [六大公理](#-不可违背的六大工程公理-the-6-constitutional-axioms) | [工程知识库](#-项目工程知识库-project-engineering-documentation) | [技能扩展](#-标准化技能扩展-standardized-skills) | [快速起步](#-快速起步-quick-start)
+[Release Notes v1.1.0](./docs/RELEASE_NOTES_v1.1.0.md) | [English](#english-summary) | [核心特性](#-核心特性-key-features) | [系统架构](#-系统架构-architecture) | [六大公理](#-不可违背的六大工程公理-the-6-constitutional-axioms) | [工程知识库](#-项目工程知识库-project-engineering-documentation) | [技能扩展](#-标准化技能扩展-standardized-skills) | [快速起步](#-快速起步-quick-start)
 
 </div>
 
@@ -33,7 +34,7 @@
 5. **开源机器人硬件扩展 (`microduck/` & `hardware/`)**：
    包含 MicroDuck 双足走路鸭机器人（基于 ESP32 的 CPG 步态引擎与舵机标定系统）、以及灵方微型机器人主控 PCBA v2.0（4层沉金 PCB、SPICE 多回路严苛仿真验证）。
 6. **自动化工程测试与持续集成 (`tests/`)**：
-   内置 80 项覆盖声学唤醒、音频管道、微表情动力学、BLE NUS 分包重组、热点配额熔断、驱动 Hub、硬件自测的自动化回归测试，100% 绿色通过。
+   内置 100 项覆盖声学唤醒、音频防破音限幅、微表情动力学、BLE NUS 分包重组、热点配额熔断、驱动 Hub、硬件自测的自动化回归测试，100% 绿色通过。
 
 ---
 
@@ -219,11 +220,11 @@ python -m platformio run -e m5sticks3_buddy -t upload
 python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"
 ```
 
-### 3. 执行全套 80 项自动化回归测试
+### 3. 执行全套 100 项自动化回归测试
 ```bash
 pytest tests/ -v
 ```
-*(80 项声学唤醒、百炼双工、微表情动力学、BLE多包拼帧、热点配额熔断、驱动 Hub、硬件自测全部通过)*
+*(100 项声学唤醒、百炼双工、音频防破音限幅、微表情动力学、BLE多包拼帧、热点配额熔断、驱动 Hub、硬件自测全部通过)*
 
 ### 4. 微信小程序开发与预览
 1. 打开**微信开发者工具**；
@@ -268,7 +269,7 @@ yunyu-esp32/
 ├── hardware/                      # 灵方微型机器人主控 PCBA v2.0 与硬件设计资产
 ├── scripts/                       # 自动化点亮代理、向量检索、对话压测、音频自测脚本
 ├── skills/                        # 8 项标准化 Antigravity 专属技能扩展
-├── tests/                         # 80 项全自动化回归测试套件 (Pytest)
+├── tests/                         # 100 项全自动化回归测试套件 (Pytest)
 ├── package.json                   # 小程序与前端构建工具链配置
 ├── pyproject.toml                 # 现代化 Python 包元数据与 pytest 配置
 ├── requirements.txt               # Python 运行与构建依赖
