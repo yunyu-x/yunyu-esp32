@@ -444,6 +444,50 @@ class StickS3HttpClient {
     });
   }
 
+  // 18. 设置播音音量 (POST /audio/volume)
+  setSpeakerVolume(volume) {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/audio/volume`,
+        method: "POST",
+        header: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: `volume=${volume}`,
+        timeout: 4000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Set volume failed status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          reject(err);
+        }
+      });
+    });
+  }
+
+  // 19. 获取播音音量 (GET /audio/volume)
+  getSpeakerVolume() {
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `http://${this.host}/audio/volume`,
+        method: "GET",
+        timeout: 3000,
+        success: (res) => {
+          if (res.statusCode === 200 && res.data) {
+            resolve(res.data);
+          } else {
+            reject(new Error(`Get volume failed status ${res.statusCode}`));
+          }
+        },
+        fail: (err) => {
+          reject(err);
+        }
+      });
+    });
+  }
+
   // 3. 启动微信小程序 mDNS 本地局域网服务发现 (ZeroConf)
   startLocalDiscovery(onServiceFound, onError) {
     if (this.isDiscoveryRunning) return;

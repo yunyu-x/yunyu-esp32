@@ -405,6 +405,18 @@ public:
             StickS3ConfigManager::getInstance().resetHotspotTraffic();
             StickS3Avatar::getInstance().generateDiaryEntry("手机热点流量统计已重置为 0 MB。");
             notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
+        } else if (action == "volume" || action == "set_volume") {
+            int vol = -1;
+            if (!doc["volume"].isNull()) vol = doc["volume"].as<int>();
+            else if (!doc["value"].isNull()) {
+                if (doc["value"].is<int>()) vol = doc["value"].as<int>();
+                else if (doc["value"].is<String>()) vol = doc["value"].as<String>().toInt();
+            }
+            if (vol >= 0 && vol <= 100) {
+                StickS3ConfigManager::getInstance().saveSpeakerVolume((uint8_t)vol);
+                StickS3Audio::getInstance().playTone(1760, 30, 0.45f);
+                Serial.printf("[BLE-INJECT] Volume adjusted to %d%% via BLE.\n", vol);
+            }
         } else if (action == "clear_memory") {
             StickS3BailianClient::getInstance().clearMemory();
             StickS3Audio::getInstance().playTone(1500, 50, 0.4f);

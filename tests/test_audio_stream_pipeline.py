@@ -182,3 +182,24 @@ def test_firmware_main_audio_integration():
     assert "正在录音 (REC)" in src
     assert "正在播放网页音频" in src
     assert "drawChineseText" in src
+
+
+def test_firmware_audio_anti_clipping_and_volume_contracts():
+    """验证音频防破音软限幅、抖动预缓冲 Jitter Buffer 与音量管理契约"""
+    with open(AUDIO_HDR, "r", encoding="utf-8") as f:
+        audio_src = f.read()
+
+    assert "setSpeakerVolume" in audio_src
+    assert "getSpeakerVolume" in audio_src
+    assert "calcDacVolume" in audio_src
+    assert "PREBUFFER_BYTES" in audio_src
+    assert "_is_prebuffering" in audio_src
+    assert "26000" in audio_src  # 软限幅器阈值
+    assert "writeESReg(0x32, calcDacVolume())" in audio_src
+
+    with open(WIFI_HDR, "r", encoding="utf-8") as f:
+        wifi_src = f.read()
+
+    assert "/audio/volume" in wifi_src
+    assert "speaker_volume" in wifi_src
+

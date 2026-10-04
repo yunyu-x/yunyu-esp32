@@ -564,6 +564,28 @@
       </view>
     </view>
 
+    <!-- 伴侣硬件播音音量调节 (Slider + 防破音黄金区间提示) -->
+    <view class="input-row" style="margin-top: 14rpx;">
+      <view class="label-with-action">
+        <text class="input-label">硬件播音音量 (Speaker Volume)</text>
+        <text class="volume-val-badge">{{speakerVolume}}%</text>
+      </view>
+      <slider 
+        class="volume-slider" 
+        min="10" 
+        max="100" 
+        step="5" 
+        value="{{speakerVolume}}" 
+        bindchange="onVolumeChange"
+        bindchanging="onVolumeChanging"
+        activeColor="#06b6d4" 
+        backgroundColor="#334155" 
+        block-size="20"
+        block-color="#38bdf8"
+      />
+      <text class="prompt-hint" style="margin-top: -6rpx;">💡 建议 65%~75% 黄金区间：保护微型扬声器防止机械破音，并消除回声干扰</text>
+    </view>
+
     <!-- 人格提示词 (Prompt) 输入与预设标签 -->
     <view class="input-row" style="margin-top: 14rpx;">
       <view class="label-with-action">

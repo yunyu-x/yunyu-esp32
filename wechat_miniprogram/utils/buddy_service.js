@@ -912,6 +912,44 @@ class BuddyService {
     return { success: true, deviceTriggered: devSent, mode, voice };
   }
 
+  // --- 伴侣播音音量调节 (支持 BLE、Wi-Fi 局域网自适应多通道分发与本地持久化) ---
+  async setSpeakerVolume(volume) {
+    let vol = parseInt(volume, 10);
+    if (isNaN(vol)) vol = 70;
+    if (vol < 10) vol = 10;
+    if (vol > 100) vol = 100;
+
+    // 1. 同步保存到本地 settings
+    const settings = StorageManager.getSettings();
+    settings.speakerVolume = vol;
+    StorageManager.saveSettings(settings);
+
+    let devSent = false;
+    // 2. BLE 下发
+    if (this.isBleMode && this.bleClient.isConnected) {
+      try {
+        await this.bleClient.injectAction("volume", { action: "volume", volume: vol });
+        devSent = true;
+      } catch (e) {
+        console.warn("[BuddyService] BLE setSpeakerVolume failed:", e);
+      }
+    }
+
+    // 3. HTTP 下发
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      try {
+        await this.httpClient.setSpeakerVolume(vol);
+        devSent = true;
+      } catch (e) {
+        if (!devSent) {
+          console.warn("[BuddyService] HTTP setSpeakerVolume failed:", e);
+        }
+      }
+    }
+
+    return { success: true, volume: vol, deviceTriggered: devSent };
+  }
+
   // --- 查询百炼状态 ---
   async getBailianStatus() {
     if (this.isWifiMode) {

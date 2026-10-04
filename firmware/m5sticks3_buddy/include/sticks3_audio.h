@@ -129,9 +129,11 @@ public:
     static constexpr size_t WAV_HEADER_SIZE = 44;
     static constexpr size_t MAX_RECORD_TOTAL_BYTES = WAV_HEADER_SIZE + MAX_RECORD_PCM_BYTES; // 320,044 Bytes
     static constexpr size_t MAX_UPLOAD_BYTES = 400000;
+    static constexpr size_t PREBUFFER_BYTES = 5120; // 160ms @ 16kHz 16-bit Mono (抖动缓冲防断续与喀喀爆音)
 
     StickS3Audio() 
         : _wire(&Wire1), _initialized(false), _speaker_powered(false),
+          _speaker_volume(70), _is_prebuffering(false), _prebuffer_start_ms(0),
           _last_mic_rms(0), _raw_rms(0.0f), _playing_sound(false),
           _record_buf(nullptr), _recorded_pcm_bytes(0), _is_recording(false),
           _record_start_ms(0), _record_max_ms(10000), _device_audio_id(0),
@@ -654,6 +656,8 @@ public:
 
         if (!_is_streaming_llm) {
             _is_streaming_llm = true;
+            _is_prebuffering = true;
+            _prebuffer_start_ms = millis();
             _playing_sound = true;
             _speaker_ref_rms = 0.0f;
             _voice_consecutive_frames = 0;
@@ -661,10 +665,23 @@ public:
                 enablePA(true);
             }
             setCodecFullDuplexMode(); // 若已在 THINKING 预热，直接 0ms 跳过冗余 I2C 操作
-            Serial.printf("[AUDIO] >>> LLM Full-Duplex Stream Playback STARTED (Src: %uHz, Buffered %u bytes) <<<\n",
+            Serial.printf("[AUDIO] >>> LLM Full-Duplex Stream Playback STARTED (Src: %uHz, Buffered %u bytes, JitterPrebuffer ON) <<<\n",
                           (unsigned)src_sample_rate, (unsigned)_stream_ring_buf->available());
         }
     }
+
+    // 设置喇叭播放音量 (0~100%, 默认 70% 黄金防破音区间)
+    void setSpeakerVolume(uint8_t volume_pct) {
+        if (volume_pct > 100) volume_pct = 100;
+        _speaker_volume = volume_pct;
+        if (_initialized) {
+            uint8_t dac_val = calcDacVolume();
+            writeESReg(0x32, dac_val);
+            Serial.printf("[AUDIO] Speaker volume updated to %u%% (ES8311 Reg 0x32: 0x%02X)\n",
+                          (unsigned)_speaker_volume, dac_val);
+        }
+    }
+    uint8_t getSpeakerVolume() const { return _speaker_volume; }
 
     static void audioTaskStatic(void* arg) {
         StickS3Audio* self = static_cast<StickS3Audio*>(arg);
@@ -676,34 +693,72 @@ public:
         uint8_t chunk[WRITE_CHUNK];
 
         while (true) {
-            if (_is_streaming_llm && _stream_ring_buf && _stream_ring_buf->available() > 0) {
-                size_t to_read = (_stream_ring_buf->available() < WRITE_CHUNK) ? _stream_ring_buf->available() : WRITE_CHUNK;
-                size_t n = _stream_ring_buf->read(chunk, to_read);
-                if (n > 0) {
-                    size_t bytes_written = 0;
-                    i2s_write(I2S_NUM_0, chunk, n, &bytes_written, 25 / portTICK_PERIOD_MS);
-
-                    // 实时解算喇叭写入能量，采用 Fast Attack & Slow Decay 包络跟踪
-                    // 补偿 I2S DMA 128ms 硬件延迟，防止因物理声学滞后导致参考信号过低
-                    size_t spk_samples = bytes_written / sizeof(int16_t);
-                    if (spk_samples > 0) {
-                        int16_t* spk_ptr = (int16_t*)chunk;
-                        int64_t spk_sum_sq = 0;
-                        for (size_t i = 0; i < spk_samples; ++i) {
-                            int32_t val = spk_ptr[i];
-                            spk_sum_sq += val * val;
-                        }
-                        float cur_spk_rms = std::sqrt((float)(spk_sum_sq / spk_samples));
-                        if (cur_spk_rms > _speaker_ref_rms) {
-                            _speaker_ref_rms = cur_spk_rms; // 瞬时吸收峰值 (Fast Attack)
-                        } else {
-                            _speaker_ref_rms = (_speaker_ref_rms * 0.94f) + (cur_spk_rms * 0.06f); // 慢释音衰减 (~180ms Slow Decay)
-                        }
+            if (_is_streaming_llm) {
+                // 1. 动态自适应抖动预缓冲机制 (Jitter Pre-buffering):
+                // 确保至少蓄积 160ms (~5120B) 音频流再开播，避免因云端首包与次包网络间隔引起 DMA 欠载断续与 "喀喀喀" 爆音
+                if (_is_prebuffering) {
+                    if (_stream_ring_buf && (_stream_ring_buf->available() >= PREBUFFER_BYTES ||
+                        (millis() - _prebuffer_start_ms >= 150 && _stream_ring_buf->available() >= 1024))) {
+                        _is_prebuffering = false;
+                    } else {
+                        vTaskDelay(pdMS_TO_TICKS(4));
+                        continue;
                     }
                 }
-                vTaskDelay(pdMS_TO_TICKS(1)); // 主动交出 CPU 调度权，防止独占 Core 1 导致 TWDT 触发或 loopTask 饥饿
+
+                size_t avail = _stream_ring_buf ? _stream_ring_buf->available() : 0;
+                avail &= ~1; // 强制 16-bit 采样偶数字节对齐，杜绝字节错位高频杂音
+
+                if (avail > 0) {
+                    size_t to_read = (avail < WRITE_CHUNK) ? avail : WRITE_CHUNK;
+                    to_read &= ~1;
+                    size_t n = _stream_ring_buf->read(chunk, to_read);
+                    n &= ~1;
+
+                    if (n > 0) {
+                        // 2. 16-bit 样本级防破音软饱和限幅器 (Soft-Knee Peak Limiter):
+                        // 保护微型喇叭振膜物理冲程，消除大模型极端 TTS 峰值导致的机械硬失真破音
+                        int16_t* s_ptr = (int16_t*)chunk;
+                        size_t samples = n / sizeof(int16_t);
+                        for (size_t i = 0; i < samples; ++i) {
+                            int32_t val = s_ptr[i];
+                            if (val > 26000) {
+                                val = 26000 + ((val - 26000) >> 2);
+                                if (val > 32500) val = 32500;
+                            } else if (val < -26000) {
+                                val = -26000 + ((val + 26000) >> 2);
+                                if (val < -32500) val = -32500;
+                            }
+                            s_ptr[i] = (int16_t)val;
+                        }
+
+                        size_t bytes_written = 0;
+                        i2s_write(I2S_NUM_0, chunk, n, &bytes_written, 25 / portTICK_PERIOD_MS);
+
+                        // 实时解算喇叭写入能量，采用 Fast Attack & Slow Decay 包络跟踪
+                        // 补偿 I2S DMA 128ms 硬件延迟，防止因物理声学滞后导致参考信号过低
+                        size_t spk_samples = bytes_written / sizeof(int16_t);
+                        if (spk_samples > 0) {
+                            int16_t* spk_ptr = (int16_t*)chunk;
+                            int64_t spk_sum_sq = 0;
+                            for (size_t i = 0; i < spk_samples; ++i) {
+                                int32_t val = spk_ptr[i];
+                                spk_sum_sq += val * val;
+                            }
+                            float cur_spk_rms = std::sqrt((float)(spk_sum_sq / spk_samples));
+                            if (cur_spk_rms > _speaker_ref_rms) {
+                                _speaker_ref_rms = cur_spk_rms; // 瞬时吸收峰值 (Fast Attack)
+                            } else {
+                                _speaker_ref_rms = (_speaker_ref_rms * 0.94f) + (cur_spk_rms * 0.06f); // 慢释音衰减 (~180ms Slow Decay)
+                            }
+                        }
+                    }
+                    vTaskDelay(pdMS_TO_TICKS(1)); // 主动交出 CPU 调度权，防止独占 Core 1 导致 TWDT 触发或 loopTask 饥饿
+                } else {
+                    vTaskDelay(pdMS_TO_TICKS(4));
+                }
             } else {
-                vTaskDelay(pdMS_TO_TICKS(4));
+                vTaskDelay(pdMS_TO_TICKS(5));
             }
         }
     }
@@ -732,6 +787,7 @@ public:
 
         setCodecMicMode();
         _is_streaming_llm = false;
+        _is_prebuffering = false;
         _is_playing_stream = false;
         _playing_sound = false;
         _speaker_ref_rms = 0.0f;
@@ -745,13 +801,18 @@ public:
     void finishStreamPlayback() {
         if (!_is_streaming_llm && !_playing_sound) return;
 
-        // 写入轻量静音段消除直流残余爆音
-        int16_t silence[64] = {0};
+        // 1. 写入静音尾帧以冲刷 I2S 硬件 FIFO 与消除直流偏置
+        int16_t silence[128] = {0};
         size_t dummy = 0;
-        i2s_write(I2S_NUM_0, silence, sizeof(silence), &dummy, 10 / portTICK_PERIOD_MS);
+        i2s_write(I2S_NUM_0, silence, sizeof(silence), &dummy, 20 / portTICK_PERIOD_MS);
+
+        // 2. 关键时序保护：等待 I2S 硬件 6x256 DMA 缓冲 (~96ms) 完整推送到物理扬声器
+        // 严禁在此之前提前切断 DAC 时钟，彻底消除末尾吞字与切模爆音 "喀"
+        vTaskDelay(pdMS_TO_TICKS(110));
 
         setCodecMicMode();
         _is_streaming_llm = false;
+        _is_prebuffering = false;
         _is_playing_stream = false;
         _playing_sound = false;
         _speaker_ref_rms = 0.0f;
@@ -800,9 +861,9 @@ public:
         int norm_zcr = (int)((float)zero_crossings * 256.0f / (float)samples);
 
         // 2. 声学回声能量动态解耦 (结合 StickS3 腔体物理耦合标定与 DMA 滞后保护)
-        float echo_est = _speaker_ref_rms * 0.78f;
-        if (echo_est < 60.0f && _speaker_ref_rms > 30.0f) {
-            echo_est = 60.0f;
+        float echo_est = _speaker_ref_rms * 0.88f;
+        if (echo_est < 70.0f && _speaker_ref_rms > 30.0f) {
+            echo_est = 70.0f;
         }
         float clean_voice_rms = mic_raw_rms - echo_est;
         if (clean_voice_rms < 0.0f) clean_voice_rms = 0.0f;
@@ -819,16 +880,16 @@ public:
         }
 
         // 4. 严谨灵敏人声特征判决 (声学自激抑制 + 灵敏人声响应)：
-        // a) 净人声音量显著高于喇叭回声: clean_pct >= 10% 且 clean_voice_rms >= 110.0f
-        // b) 总麦克风能量需超越喇叭回声门限: mic_raw_rms > (echo_est * 1.06f + 70.0f)
+        // a) 净人声音量显著高于喇叭回声: clean_pct >= 12% 且 clean_voice_rms >= 120.0f
+        // b) 总麦克风能量需超越喇叭回声门限: mic_raw_rms > (echo_est * 1.10f + 80.0f)
         // c) 时域归一化过零率处于人类声学频段 [8, 145] (覆盖男低音80Hz至女高音与摩擦辅音)
-        bool frame_is_voice = (clean_pct >= 10) && (clean_voice_rms >= 110.0f) &&
+        bool frame_is_voice = (clean_pct >= 12) && (clean_voice_rms >= 120.0f) &&
                               (norm_zcr >= 8 && norm_zcr <= 145) &&
-                              (mic_raw_rms > (echo_est * 1.06f + 70.0f));
+                              (mic_raw_rms > (echo_est * 1.10f + 80.0f));
 
         if (frame_is_voice) {
             _voice_consecutive_frames++;
-            if (_voice_consecutive_frames >= 2) { // 连续 2 帧 (~32ms) 确认为稳定人类开口说话，响应灵敏
+            if (_voice_consecutive_frames >= 4) { // 连续 4 帧 (~64ms) 确认为稳定人类开口说话，杜绝喇叭自激误打断
                 _voice_consecutive_frames = 0;
                 Serial.printf("[AUDIO-VAD] True voice barge-in fired! MicRMS=%.1f, EchoEst=%.1f, CleanRMS=%.1f (Pct=%d%%), NormZCR=%d\n",
                               mic_raw_rms, echo_est, clean_voice_rms, clean_pct, norm_zcr);
@@ -928,6 +989,9 @@ private:
     TwoWire* _wire;
     bool _initialized;
     bool _speaker_powered;
+    uint8_t _speaker_volume;
+    volatile bool _is_prebuffering;
+    uint32_t _prebuffer_start_ms;
     uint8_t _last_mic_rms;
     float _raw_rms;
     volatile bool _playing_sound;
@@ -954,6 +1018,12 @@ private:
     volatile float _speaker_ref_rms;
     volatile uint8_t _voice_consecutive_frames;
     bool _codec_full_duplex;
+
+    uint8_t calcDacVolume() const {
+        // ES8311 Reg 0x32: 0x00 (-95.5dB) to 0xBF (0dB, 191)
+        // 映射 0~100% 至最佳无破音区间 (默认 70% 对应 176 / 0xB0, 约 -7.5dB)
+        return (uint8_t)(((uint32_t)_speaker_volume * 191) / 100);
+    }
 
     void ensureRecordBuffer() {
         if (!_record_buf) {
@@ -992,7 +1062,7 @@ private:
         writeESReg(0x16, 0x03); // ADC PGA Gain (+18dB)
         writeESReg(0x17, 0xDF); // ADC Volume (+10dB)
         writeESReg(0x1C, 0x6A); // ADC Equalizer Bypass & DC Offset Cancel
-        writeESReg(0x32, 0xBF); // DAC Volume (0dB)
+        writeESReg(0x32, calcDacVolume()); // 动态设定 DAC Volume 防破音
         writeESReg(0x37, 0x08); // Bypass DAC Equalizer
         _codec_full_duplex = false;
     }
@@ -1008,7 +1078,7 @@ private:
         writeESReg(0x1C, 0x6A); // ADC Equalizer Bypass & DC Offset Cancel
         writeESReg(0x12, 0x00); // Power Up DAC
         writeESReg(0x13, 0x10); // Enable Output to HP/PA
-        writeESReg(0x32, 0xBF); // DAC Volume (0dB)
+        writeESReg(0x32, calcDacVolume()); // 动态设定 DAC Volume 防破音
         writeESReg(0x37, 0x08); // Bypass DAC Equalizer
         _codec_full_duplex = true;
     }
@@ -1019,7 +1089,7 @@ private:
         writeESReg(0x01, 0xB5);
         writeESReg(0x12, 0x00);
         writeESReg(0x13, 0x10);
-        writeESReg(0x32, 0xBF);
+        writeESReg(0x32, calcDacVolume()); // 动态设定 DAC Volume 防破音
     }
 
     void setCodecMicMode() {

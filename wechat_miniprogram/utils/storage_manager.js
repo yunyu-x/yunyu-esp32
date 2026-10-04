@@ -56,6 +56,7 @@ const DEFAULT_SETTINGS = {
   bailianKey: "",
   bailianModel: "qwen3.8-omni-flash-realtime",
   bailianVoice: "Tina",
+  speakerVolume: 70,
   bailianPrompt: "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。",
   wakewordEnabled: true,
   wakewordSensitivity: 75,

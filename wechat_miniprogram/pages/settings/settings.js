@@ -87,6 +87,7 @@ Page({
     ],
     selectedVoiceIndex: 0,
     bailianVoice: "Tina",
+    speakerVolume: 70,
 
     bailianPrompt: "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。",
     promptPresets: [
@@ -151,6 +152,7 @@ Page({
       selectedModelIndex: modelIdx >= 0 ? modelIdx : 0,
       bailianVoice: blVoice,
       selectedVoiceIndex: voiceIdx >= 0 ? voiceIdx : 0,
+      speakerVolume: Number(settings.speakerVolume) || 70,
       bailianPrompt: settings.bailianPrompt || "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。",
 
       // 离线唤醒词初始化
@@ -863,6 +865,19 @@ Page({
     } catch (e) {
       wx.showToast({ title: `正在试听: ${voice}`, icon: "none", duration: 1500 });
     }
+  },
+
+  onVolumeChanging(e) {
+    const val = parseInt(e.detail.value, 10);
+    this.setData({ speakerVolume: val });
+  },
+
+  onVolumeChange(e) {
+    const val = parseInt(e.detail.value, 10);
+    this.setData({ speakerVolume: val });
+    haptics.selection();
+    buddyService.setSpeakerVolume(val);
+    wx.showToast({ title: `伴侣音量已设为 ${val}%`, icon: "none", duration: 1000 });
   },
 
   // ================= 6. 离线唤醒词「悄悄」配置 =================

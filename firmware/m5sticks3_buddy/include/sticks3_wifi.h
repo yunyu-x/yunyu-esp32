@@ -1561,12 +1561,42 @@ private:
         // 双向音频端点：设备录音流出与网页音频上传
         // ==========================================
 
+        // 播音音量获取与动态设置
+        _web_server.on("/audio/volume", HTTP_GET, [this]() {
+            auto& cfg_mgr = StickS3ConfigManager::getInstance();
+            _web_server.send(200, "application/json; charset=utf-8",
+                             "{\"volume\":" + String((unsigned)cfg_mgr.getSpeakerVolume()) + "}");
+        });
+
+        _web_server.on("/audio/volume", HTTP_POST, [this]() {
+            auto& cfg_mgr = StickS3ConfigManager::getInstance();
+            int vol = -1;
+            if (_web_server.hasArg("volume")) {
+                vol = _web_server.arg("volume").toInt();
+            } else if (_web_server.hasArg("plain")) {
+                JsonDocument doc;
+                if (!deserializeJson(doc, _web_server.arg("plain"))) {
+                    if (!doc["volume"].isNull()) vol = doc["volume"].as<int>();
+                    else if (!doc["value"].isNull()) vol = doc["value"].as<int>();
+                }
+            }
+            if (vol >= 0 && vol <= 100) {
+                cfg_mgr.saveSpeakerVolume((uint8_t)vol);
+                _web_server.send(200, "application/json; charset=utf-8",
+                                 "{\"ok\":true,\"volume\":" + String(vol) + "}");
+            } else {
+                _web_server.send(400, "application/json; charset=utf-8",
+                                 "{\"ok\":false,\"msg\":\"invalid_volume\"}");
+            }
+        });
+
         _web_server.on("/audio/status", HTTP_GET, [this]() {
             auto& audio = StickS3Audio::getInstance();
-            char json[256];
+            auto& cfg_mgr = StickS3ConfigManager::getInstance();
+            char json[280];
             snprintf(json, sizeof(json),
                      "{\"is_recording\":%s,\"rec_ms\":%u,\"has_device_audio\":%s,\"device_audio_id\":%u,"
-                     "\"device_audio_bytes\":%u,\"device_audio_duration_sec\":%.1f,\"is_playing\":%s,\"play_progress\":%.2f}",
+                     "\"device_audio_bytes\":%u,\"device_audio_duration_sec\":%.1f,\"is_playing\":%s,\"play_progress\":%.2f,\"speaker_volume\":%u}",
                      audio.isRecording() ? "true" : "false",
                      (unsigned)audio.getRecordDurationMs(),
                      audio.hasDeviceAudio() ? "true" : "false",
@@ -1574,7 +1604,8 @@ private:
                      (unsigned)audio.getWavSize(),
                      (float)audio.getRecordDurationMs() / 1000.0f,
                      audio.isPlayingStream() ? "true" : "false",
-                     audio.getPlaybackProgress());
+                     audio.getPlaybackProgress(),
+                     (unsigned)cfg_mgr.getSpeakerVolume());
             _web_server.send(200, "application/json; charset=utf-8", json);
         });
 
@@ -1711,6 +1742,7 @@ private:
             auto& cfg = StickS3ConfigManager::getInstance();
             json += "\"diary\":\"" + st.current_diary + "\",";
             json += "\"avatar_mode\":" + String(avatar.isAvatarMode() ? "true" : "false") + ",";
+            json += "\"speaker_volume\":" + String((unsigned)cfg.getSpeakerVolume()) + ",";
             json += "\"is_hotspot\":" + String(cfg.isHotspot() ? "true" : "false") + ",";
             json += "\"hs_used_mb\":" + String(cfg.getHotspotUsedMB(), 2) + ",";
             json += "\"hs_limit_mb\":" + String(cfg.getHotspotLimitMB()) + ",";

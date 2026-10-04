@@ -15,6 +15,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Preferences.h>
+#include "sticks3_audio.h"
 
 namespace sticks3 {
 
@@ -33,6 +34,7 @@ struct StickS3Config {
     String bailian_voice;
     String bailian_ws_url;
     String bailian_prompt;
+    uint8_t speaker_volume;          // 播音音量 (0~100%, 默认 70% 黄金防破音)
     bool wakeword_enabled;
     uint8_t wakeword_sensitivity;
     uint16_t wakeword_timeout_sec;
@@ -58,6 +60,7 @@ public:
         _cfg.bailian_voice = "Tina";
         _cfg.bailian_ws_url = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
         _cfg.bailian_prompt = "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。";
+        _cfg.speaker_volume = 70;
         _cfg.wakeword_enabled = true;
         _cfg.wakeword_sensitivity = 75;
         _cfg.wakeword_timeout_sec = 8;
@@ -123,6 +126,10 @@ public:
         String p = prefs.getString("bl_prompt", "");
         if (p.length() > 0) _cfg.bailian_prompt = p;
 
+        _cfg.speaker_volume = (uint8_t)prefs.getUChar("spk_vol", 70);
+        if (_cfg.speaker_volume < 10 || _cfg.speaker_volume > 100) _cfg.speaker_volume = 70;
+        StickS3Audio::getInstance().setSpeakerVolume(_cfg.speaker_volume);
+
         _cfg.wakeword_enabled = prefs.getBool("ww_en", true);
         _cfg.wakeword_sensitivity = (uint8_t)prefs.getUChar("ww_sens", 75);
         _cfg.wakeword_timeout_sec = prefs.getUShort("ww_tout", 8);
@@ -137,7 +144,7 @@ public:
 
         prefs.end();
 
-        Serial.printf("[NVS] Loaded config: SSID=\"%s\", Hotspot=%s(Limit:%uMB, Used:%.2fMB), BailianKey=%s, Model=\"%s\", Voice=\"%s\", WakeWord=%s(%u%%)\n",
+        Serial.printf("[NVS] Loaded config: SSID=\"%s\", Hotspot=%s(Limit:%uMB, Used:%.2fMB), BailianKey=%s, Model=\"%s\", Voice=\"%s\", Volume=%u%%, WakeWord=%s(%u%%)\n",
                       _cfg.wifi_ssid.c_str(),
                       _cfg.is_hotspot ? "YES" : "NO",
                       (unsigned)_cfg.hotspot_limit_mb,
@@ -145,9 +152,26 @@ public:
                       _cfg.bailian_key.length() > 6 ? (_cfg.bailian_key.substring(0, 4) + "****").c_str() : "NotSet",
                       _cfg.bailian_model.c_str(),
                       _cfg.bailian_voice.c_str(),
+                      (unsigned)_cfg.speaker_volume,
                       _cfg.wakeword_enabled ? "ON" : "OFF",
                       (unsigned)_cfg.wakeword_sensitivity);
     }
+
+    bool saveSpeakerVolume(uint8_t vol) {
+        if (vol < 10) vol = 10;
+        if (vol > 100) vol = 100;
+        _cfg.speaker_volume = vol;
+        Preferences prefs;
+        if (prefs.begin(NVS_NAMESPACE, false)) {
+            prefs.putUChar("spk_vol", vol);
+            prefs.end();
+        }
+        StickS3Audio::getInstance().setSpeakerVolume(vol);
+        Serial.printf("[NVS] Saved speaker volume: %u%%\n", (unsigned)vol);
+        return true;
+    }
+
+    uint8_t getSpeakerVolume() const { return _cfg.speaker_volume; }
 
     bool saveHotspotConfig(bool is_hotspot, uint32_t limit_mb, bool cutoff_enabled = true) {
         Preferences prefs;
