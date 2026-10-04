@@ -76,13 +76,15 @@ Page({
     bailianModel: "qwen3.8-omni-flash-realtime",
 
     voiceOptions: [
-      { id: "Tina", label: "Tina (甜美温暖 默认)" },
+      { id: "Tina", label: "Tina (甜美温暖 · 默认推荐)" },
+      { id: "Cherry", label: "Cherry (活泼灵动少女)" },
       { id: "Serena", label: "Serena (温柔亲切知性)" },
-      { id: "Cindy", label: "Cindy (活泼台湾腔)" },
-      { id: "Raymond", label: "Raymond (磁性沉稳男声)" },
-      { id: "Cherry", label: "Cherry (甜美活泼少女)" },
-      { id: "Chelsie", label: "Chelsie (清脆灵动女声)" },
-      { id: "Ethan", label: "Ethan (温和阳光少年)" }
+      { id: "Cindy", label: "Cindy (知性活泼台湾腔)" },
+      { id: "Raymond", label: "Raymond (清亮自然男声)" },
+      { id: "Zane", label: "Zane (磁性沉稳男声)" },
+      { id: "Katerina", label: "Katerina (成熟御姐)" },
+      { id: "Mia", label: "Mia (温柔细腻)" },
+      { id: "Chloe", label: "Chloe (活力俏皮)" }
     ],
     selectedVoiceIndex: 0,
     bailianVoice: "Tina",
@@ -121,7 +123,7 @@ Page({
     const preset = [50, 100, 200, 500].includes(limit) ? limit : "custom";
 
     const blModel = settings.bailianModel || "qwen3.8-omni-flash-realtime";
-    const blVoice = settings.bailianVoice || "Tina";
+    const blVoice = this.data.voiceOptions.some(v => v.id === settings.bailianVoice) ? settings.bailianVoice : "Tina";
     const modelIdx = Math.max(0, this.data.modelOptions.findIndex(m => m.id === blModel));
     const voiceIdx = Math.max(0, this.data.voiceOptions.findIndex(v => v.id === blVoice));
     const tout = Number(settings.wakewordTimeoutSec) || 8;

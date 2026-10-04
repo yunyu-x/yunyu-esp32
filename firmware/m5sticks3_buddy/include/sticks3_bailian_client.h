@@ -1125,6 +1125,15 @@ private:
                 _last_error = "";
                 return;
             }
+            // 自动拦截语音音色不支持错误并即刻平滑降级为默认 Tina 音色
+            if (strstr(msg, "Voice") != nullptr && (strstr(msg, "not supported") != nullptr || strstr(msg, "InvalidParameter") != nullptr)) {
+                Serial.println("[BAILIAN] Unsupported voice detected from server. Auto-falling back to 'Tina'...");
+                StickS3ConfigManager::getInstance().saveBailianVoice("Tina");
+                _last_error = "";
+                _last_activity_time = millis();
+                sendSessionUpdate();
+                return;
+            }
             _last_error = msg;
             setState(BL_STATE_ERROR);
         }

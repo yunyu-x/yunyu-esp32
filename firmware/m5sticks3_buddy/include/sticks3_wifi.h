@@ -1309,14 +1309,20 @@ private:
                 if (!StickS3ConfigManager::isVoiceSupported(voice)) {
                     voice = "Tina";
                 }
+                bool need_reconnect = false;
+                if (key != cfg_mgr.getConfig().bailian_key || model != cfg_mgr.getConfig().bailian_model) {
+                    need_reconnect = true;
+                }
                 cfg_mgr.saveBailianConfig(key, model, voice, "", prompt);
 
                 auto& bl = StickS3BailianClient::getInstance();
-                if (bl.isConnected()) {
+                if (need_reconnect || !bl.isConnected()) {
+                    if (cfg_mgr.isStaConnected() && cfg_mgr.hasBailianKey()) {
+                        bl.connect();
+                    }
+                } else if (bl.isConnected()) {
                     // 在线热切换音色并清空旧文本
                     bl.switchVoice(voice, false);
-                } else if (cfg_mgr.isStaConnected()) {
-                    bl.connect();
                 }
                 _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\",\"voice\":\"" + voice + "\"}");
             } else {

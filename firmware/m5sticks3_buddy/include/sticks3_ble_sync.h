@@ -457,11 +457,17 @@ public:
                 voice = cfg_mgr.getConfig().bailian_voice;
             }
 
+            bool need_reconnect = false;
+            if (key.length() > 0 && key != cfg_mgr.getConfig().bailian_key) need_reconnect = true;
+            if (model.length() > 0 && model != cfg_mgr.getConfig().bailian_model) need_reconnect = true;
+
             cfg_mgr.saveBailianConfig(key, model, voice, "", prompt);
-            if (bl.isConnected()) {
+            if (need_reconnect || !bl.isConnected()) {
+                if (cfg_mgr.isStaConnected() && cfg_mgr.hasBailianKey()) {
+                    bl.connect();
+                }
+            } else if (bl.isConnected()) {
                 bl.switchVoice(voice, false);
-            } else if (cfg_mgr.isStaConnected() && cfg_mgr.hasBailianKey()) {
-                bl.connect();
             }
             StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
             StickS3Avatar::getInstance().generateDiaryEntry(String("主人通过蓝牙更新了阿里云百炼配置：模型[") + model + "]，音色[" + voice + "]。");

@@ -88,9 +88,9 @@ public:
     }
 
     static bool isVoiceSupported(const String& voice) {
-        return (voice == "Tina" || voice == "Serena" || voice == "Cindy" ||
-                voice == "Raymond" || voice == "Cherry" || voice == "Chelsie" ||
-                voice == "Ethan");
+        return (voice == "Tina" || voice == "Cherry" || voice == "Serena" ||
+                voice == "Cindy" || voice == "Raymond" || voice == "Zane" ||
+                voice == "Katerina" || voice == "Mia" || voice == "Chloe");
     }
 
     void loadConfig() {
