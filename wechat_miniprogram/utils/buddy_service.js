@@ -879,17 +879,37 @@ class BuddyService {
     return { success: true, ...payload };
   }
 
-  // --- 实时音色即时试听 ---
+  // --- 实时音色即时试听 (支持 BLE、Wi-Fi 局域网自适应多通道分发) ---
   async previewVoice(voice = "Tina") {
+    let devSent = false;
+    let mode = "offline";
+
+    // 1. 若 BLE 已连接，优先通过 0xFFB4 注入
     if (this.isBleMode && this.bleClient.isConnected) {
-      await this.bleClient.injectAction("preview_voice", { action: "preview_voice", voice });
-      return { success: true, mode: "ble" };
+      try {
+        await this.bleClient.injectAction("preview_voice", { action: "preview_voice", voice });
+        devSent = true;
+        mode = "ble";
+      } catch (e) {
+        console.warn("[BuddyService] BLE preview_voice failed:", e);
+      }
     }
-    if (this.isWifiMode) {
-      await this.httpClient.previewVoice(voice);
-      return { success: true, mode: "wifi" };
+
+    // 2. 若 Wi-Fi 通道在线或配置了有效 host，通过 HTTP 端点下发
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      try {
+        await this.httpClient.previewVoice(voice);
+        devSent = true;
+        mode = (mode === "ble") ? "dual" : "wifi";
+      } catch (e) {
+        // 若 BLE 已成功发送，忽略 HTTP 失败
+        if (!devSent) {
+          console.warn("[BuddyService] HTTP preview_voice failed:", e);
+        }
+      }
     }
-    throw new Error("请先连接 StickS3 设备后再试听音色");
+
+    return { success: true, deviceTriggered: devSent, mode, voice };
   }
 
   // --- 查询百炼状态 ---

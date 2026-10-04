@@ -55,6 +55,7 @@ public:
           _session_initialized(false), _server_response_active(false),
           _response_done_received(false), _is_response_cancelled(false),
           _pending_cancel(false), _pending_memory_save(false), _pending_reconnect(false),
+          _pending_preview_voice(false), _pending_preview_time(0),
           _server_in_speech(false), _last_activity_time(0), _server_output_sample_rate(16000),
           _last_state_change(0), _total_interrupts(0), _last_error(""),
           _rx_text_dirty(false), _wake_window_until(0) {
@@ -419,6 +420,13 @@ static const char* DASHSCOPE_ROOT_CA =
             connect();
         }
 
+        // 2.8 音色试听超时兜底 (以防云端未返回 session.updated 回执，安全在 loopTask 中发声)
+        if (_pending_preview_voice && isConnected() && _session_initialized && (millis() - _pending_preview_time > 650)) {
+            _pending_preview_voice = false;
+            Serial.println("[BAILIAN] Session update confirm timeout (650ms fallback). Triggering voice preview speech...");
+            sendTextMessage("请用一句话做自我介绍，告知我你的新音色。");
+        }
+
         // 3. 在线且处于 LISTENING 模式时，流式读取麦克风并推流到百炼
         if (isConnected() && _session_initialized) {
             if (_state == BL_STATE_LISTENING) {
@@ -623,14 +631,18 @@ static const char* DASHSCOPE_ROOT_CA =
         _ai_reply = "已切换为 " + new_voice + " 音色";
         _rx_text_dirty = true;
 
+        if (speak_preview) {
+            // 立即给用户即时听觉反馈，按键音秒回提示
+            StickS3Audio::getInstance().playTone(1800, 35, 0.45f);
+            _pending_preview_voice = true;
+            _pending_preview_time = millis();
+        }
+
         if (isConnected()) {
             Serial.printf("[BAILIAN] Hot-switching voice to '%s' on active WSS...\n", new_voice.c_str());
             sendSessionUpdate();
-            if (speak_preview) {
-                // 立即以新音色试听发声，让用户耳朵即时感受到音色改变
-                sendTextMessage("请用一句话做自我介绍，告知我你的新音色。");
-            }
         } else if (cfg_mgr.isStaConnected() && cfg_mgr.hasBailianKey()) {
+            Serial.println("[BAILIAN] Connecting to WSS for voice switch preview...");
             connect();
         }
         return true;
@@ -988,7 +1000,13 @@ private:
             _last_error = "";
             _last_activity_time = millis();
             _session_initialized = true;
-            if (_state != BL_STATE_SPEAKING && !StickS3Audio::getInstance().isPlaying()) {
+
+            // 关键时序保障：当收到云端音色更新或会话就绪确认后，立即触发音色试听播报
+            if (_pending_preview_voice) {
+                _pending_preview_voice = false;
+                Serial.println("[BAILIAN] Cloud session ready/updated! Triggering voice preview speech...");
+                sendTextMessage("请用一句话做自我介绍，告知我你的新音色。");
+            } else if (_state != BL_STATE_SPEAKING && !StickS3Audio::getInstance().isPlaying()) {
                 _server_response_active = false;
                 _response_done_received = false;
                 setState(BL_STATE_LISTENING);
@@ -1153,6 +1171,8 @@ private:
     volatile bool _pending_cancel;
     volatile bool _pending_memory_save;
     volatile bool _pending_reconnect;
+    volatile bool _pending_preview_voice;
+    volatile uint32_t _pending_preview_time;
     String _pending_turn_user;
     String _pending_turn_ai;
     bool _server_in_speech;

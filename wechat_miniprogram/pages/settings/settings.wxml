@@ -558,8 +558,8 @@
             <text class="picker-arrow">▼</text>
           </view>
         </picker>
-        <button class="btn-voice-preview" bindtap="handlePreviewVoice" loading="{{isPreviewingVoice}}">
-          🔊 试听
+        <button class="btn-voice-preview {{isPreviewingVoice ? 'btn-voice-playing' : ''}}" bindtap="handlePreviewVoice" loading="{{isPreviewingVoice}}">
+          {{isPreviewingVoice ? '⏹ 播放中' : '🔊 试听'}}
         </button>
       </view>
     </view>

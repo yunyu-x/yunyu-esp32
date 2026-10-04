@@ -1330,9 +1330,18 @@ private:
             }
         });
 
-        // 即时音色试听播报
+        // 即时音色试听播报 (支持 application/x-www-form-urlencoded 与 application/json)
         _web_server.on("/bailian/preview_voice", HTTP_POST, [this]() {
-            String voice = _web_server.hasArg("voice") ? _web_server.arg("voice") : "";
+            String voice = "";
+            if (_web_server.hasArg("voice")) {
+                voice = _web_server.arg("voice");
+            } else if (_web_server.hasArg("plain")) {
+                JsonDocument doc;
+                DeserializationError err = deserializeJson(doc, _web_server.arg("plain"));
+                if (!err) {
+                    voice = doc["voice"] | (doc["value"] | "");
+                }
+            }
             if (voice.length() > 0 && StickS3ConfigManager::isVoiceSupported(voice)) {
                 StickS3BailianClient::getInstance().switchVoice(voice, true);
                 _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\",\"voice\":\"" + voice + "\"}");

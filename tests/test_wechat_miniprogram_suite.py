@@ -357,3 +357,37 @@ def test_device_management_and_bailian_endpoints_contract():
     assert "handleDeviceFactoryReset" in js_src
 
 
+def test_voice_preview_engine_and_dual_channel_contract():
+    """验证小程序端拟人发声音色即时试听引擎与 9 大音色声学配置契约"""
+    vp_path = os.path.join(MP_DIR, "utils", "voice_preview.js")
+    assert os.path.exists(vp_path), "voice_preview.js 必须存在"
+
+    with open(vp_path, "r", encoding="utf-8") as f:
+        src = f.read()
+
+    expected_voices = ["Tina", "Cherry", "Serena", "Cindy", "Raymond", "Zane", "Katerina", "Mia", "Chloe"]
+    for v in expected_voices:
+        assert f"{v}:" in src, f"voice_preview.js 必须包含音色 {v} 的声学配置"
+
+    node_script = """
+    const { voicePreviewEngine } = require('./wechat_miniprogram/utils/voice_preview.js');
+    const voices = ['Tina', 'Cherry', 'Serena', 'Cindy', 'Raymond', 'Zane', 'Katerina', 'Mia', 'Chloe'];
+    for (const v of voices) {
+        const p = voicePreviewEngine.getProfile(v);
+        if (!p || !p.notes || p.notes.length === 0) {
+            console.error(`Missing acoustic profile for voice: ${v}`);
+            process.exit(1);
+        }
+        if (!p.intro || p.intro.length < 5) {
+            console.error(`Invalid intro for voice: ${v}`);
+            process.exit(2);
+        }
+    }
+    console.log("SUCCESS: All 9 voice profiles acoustic contract validated!");
+    """
+    res = subprocess.run(["node", "-e", node_script], cwd=ROOT_DIR, capture_output=True, text=True)
+    assert res.returncode == 0, f"音色试听声学契约测试失败: {res.stderr}\n{res.stdout}"
+    assert "SUCCESS" in res.stdout
+
+
+

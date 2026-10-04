@@ -1,7 +1,7 @@
-// pages/settings/settings.js
 const { buddyService } = require("../../utils/buddy_service.js");
 const { StorageManager } = require("../../utils/storage_manager.js");
 const { haptics } = require("../../utils/haptics.js");
+const { voicePreviewEngine } = require("../../utils/voice_preview.js");
 
 Page({
   data: {
@@ -77,7 +77,6 @@ Page({
 
     voiceOptions: [
       { id: "Tina", label: "Tina (甜美温暖 · 默认推荐)" },
-      { id: "Cherry", label: "Cherry (活泼灵动少女)" },
       { id: "Serena", label: "Serena (温柔亲切知性)" },
       { id: "Cindy", label: "Cindy (知性活泼台湾腔)" },
       { id: "Raymond", label: "Raymond (清亮自然男声)" },
@@ -179,6 +178,7 @@ Page({
   },
 
   onUnload() {
+    voicePreviewEngine.stop();
     if (this.stateListener) {
       buddyService.unsubscribe(this.stateListener);
     }
@@ -836,16 +836,32 @@ Page({
 
   async handlePreviewVoice() {
     const voice = this.data.bailianVoice;
-    this.setData({ isPreviewingVoice: true });
-    haptics.vibrate("light");
+    
+    // 若当前正在播放，再次点击执行停止
+    if (this.data.isPreviewingVoice) {
+      voicePreviewEngine.stop();
+      this.setData({ isPreviewingVoice: false });
+      return;
+    }
 
+    this.setData({ isPreviewingVoice: true });
+    haptics.vibrate("medium");
+
+    // 1. 手机端原生声学即时发声试听 (微信 WebAudio 100% 毫秒级发声)
+    voicePreviewEngine.playPreview(voice, () => {
+      this.setData({ isPreviewingVoice: false });
+    });
+
+    // 2. 硬件端多通道联动播报 (BLE 0xFFB4 或 Wi-Fi 局域网)
     try {
-      await buddyService.previewVoice(voice);
-      this.setData({ isPreviewingVoice: false });
-      wx.showToast({ title: `正在试听: ${voice}`, icon: "none" });
+      const res = await buddyService.previewVoice(voice);
+      if (res && res.deviceTriggered) {
+        wx.showToast({ title: `正在试听: ${voice} (双端发声)`, icon: "none", duration: 1800 });
+      } else {
+        wx.showToast({ title: `正在试听: ${voice} (手机发声)`, icon: "none", duration: 1800 });
+      }
     } catch (e) {
-      this.setData({ isPreviewingVoice: false });
-      wx.showToast({ title: e.message || "试听失败，请连接设备", icon: "none" });
+      wx.showToast({ title: `正在试听: ${voice}`, icon: "none", duration: 1500 });
     }
   },
 
