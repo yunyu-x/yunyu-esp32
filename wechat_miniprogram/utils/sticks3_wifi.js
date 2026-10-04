@@ -20,7 +20,10 @@ class StickS3HttpClient {
 
   _req(path, { method = "GET", data, contentType, timeout = 4000 } = {}) {
     return new Promise((resolve, reject) => {
-      const header = contentType ? { "Content-Type": contentType } : undefined;
+      const header = {
+        "Connection": "close",
+        ...(contentType ? { "Content-Type": contentType } : {})
+      };
       wx.request({
         url: `http://${this.host}${path}`,
         method,
@@ -146,30 +149,30 @@ class StickS3HttpClient {
   // 18. 设置播音音量 (GET/POST 自适应容灾，零 CORS 预检阻断)
   setSpeakerVolume(volume) {
     const vol = parseInt(volume, 10);
-    return this._req(`/audio/volume?volume=${vol}`, { timeout: 3000 })
+    return this._req(`/audio/volume?volume=${vol}`, { timeout: 3500 })
       .catch(() => this._req("/audio/volume", {
         method: "POST",
         data: `volume=${vol}`,
         contentType: "application/x-www-form-urlencoded",
-        timeout: 3000
+        timeout: 3500
       }));
   }
 
   // 18.1 试听当前播音音量 (GET/POST 自适应容灾，支持携带 volume)
   testSpeakerVolume(volume) {
     const query = (volume !== undefined && !isNaN(volume)) ? `?volume=${volume}` : "";
-    return this._req(`/audio/test${query}`, { timeout: 2000 })
+    return this._req(`/audio/test${query}`, { timeout: 3500 })
       .catch(() => this._req("/audio/test", {
         method: "POST",
         data: query ? `volume=${volume}` : "",
         contentType: "application/x-www-form-urlencoded",
-        timeout: 2000
+        timeout: 3500
       }));
   }
 
   // 19. 获取播音音量 (GET /audio/volume)
   getSpeakerVolume() {
-    return this._req("/audio/volume", { timeout: 3000 });
+    return this._req("/audio/volume", { timeout: 3500 });
   }
 
   // 启动微信小程序 mDNS 本地局域网服务发现 (ZeroConf)

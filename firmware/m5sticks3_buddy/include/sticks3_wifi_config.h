@@ -15,6 +15,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Preferences.h>
+#include <esp_wifi.h>
 #include "sticks3_audio.h"
 
 namespace sticks3 {
@@ -409,8 +410,10 @@ public:
 
         Serial.printf("[WIFI-STA] Initiating connection to \"%s\"...\n", ssid.c_str());
         
-        // 保证 AP+STA 模式
+        // 保证 AP+STA 模式，开启最大发射功率与自动重连 (遵循 BLE 共存机制)
         WiFi.mode(WIFI_AP_STA);
+        WiFi.setTxPower(WIFI_POWER_19_5dBm);
+        WiFi.setAutoReconnect(true);
         WiFi.disconnect(false, false);
         delay(20);
 
@@ -428,6 +431,14 @@ public:
                 _sta_rssi = WiFi.RSSI();
                 Serial.printf("\n[WIFI-STA] Successfully CONNECTED! IP: %s | Gateway: %s | RSSI: %ddBm\n",
                               _sta_ip.c_str(), WiFi.gatewayIP().toString().c_str(), _sta_rssi);
+
+                // 将 SoftAP 信道与 STA 真实网络信道完全对齐，消除双信道时分跳频 (Channel Hopping) 丢包
+                int sta_ch = WiFi.channel();
+                if (sta_ch > 0) {
+                    WiFi.softAP("StickS3-Buddy", "", sta_ch, 0, 4);
+                    Serial.printf("[WIFI] Aligned SoftAP to STA channel %d (0-hop zero-loss mode)\n", sta_ch);
+                }
+
                 configTime(8 * 3600, 0, "ntp.aliyun.com", "pool.ntp.org", "time.asia.apple.com");
                 Serial.println("[NTP] Initialized SNTP time sync with ntp.aliyun.com");
             } else if (millis() - _conn_start_time >= _conn_timeout_ms) {
@@ -444,8 +455,8 @@ public:
                 _sta_rssi = WiFi.RSSI();
             }
         } else if (_sta_state == STA_STATE_FAILED && _auto_reconnect && _cfg.wifi_ssid.length() > 0) {
-            // 掉线后每 30 秒自动重连一次
-            if (millis() - _last_reconnect_attempt > 30000) {
+            // 掉线后每 15 秒自动重连一次 (缩短重连等待期，提升热点切网响应度)
+            if (millis() - _last_reconnect_attempt > 15000) {
                 _last_reconnect_attempt = millis();
                 Serial.println("[WIFI-STA] Auto-reconnecting to saved network...");
                 startConnectSTA(_cfg.wifi_ssid, _cfg.wifi_pass);

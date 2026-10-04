@@ -62,6 +62,7 @@ class BuddyService {
     this.connectionStatusText = "未连接伴侣";
 
     this.wifiPollTimer = null;
+    this._isWifiPolling = false;
     this.listeners = [];
 
     this._setupBleHandlers();
@@ -77,6 +78,7 @@ class BuddyService {
             this.isWifiMode = true;
             this.connectionStatusText = "Wi-Fi 在线";
             this.updatePetState(st);
+            this._startWifiPolling();
             this.notifyListeners("connection", {
               isConnected: true,
               isWifiMode: true,
@@ -369,6 +371,37 @@ class BuddyService {
     });
   }
 
+  _startWifiPolling() {
+    if (this.wifiPollTimer) {
+      clearInterval(this.wifiPollTimer);
+      this.wifiPollTimer = null;
+    }
+
+    const pollInterval = (this.hotspot && this.hotspot.isHotspot) ? 4500 : 2500;
+
+    const runPoll = async () => {
+      if (this._isWifiPolling || !this.isWifiMode || !this.httpClient) return;
+      this._isWifiPolling = true;
+      try {
+        const live = await this.httpClient.getPetStatus();
+        this.updatePetState(live);
+      } catch (e) {
+      } finally {
+        this._isWifiPolling = false;
+      }
+    };
+
+    this.wifiPollTimer = setInterval(runPoll, pollInterval);
+  }
+
+  _stopWifiPolling() {
+    if (this.wifiPollTimer) {
+      clearInterval(this.wifiPollTimer);
+      this.wifiPollTimer = null;
+    }
+    this._isWifiPolling = false;
+  }
+
   async connectWifi(host) {
     if (host) this.httpClient.setHost(host);
     const st = await this.httpClient.getPetStatus();
@@ -380,13 +413,7 @@ class BuddyService {
     this.isSimMode = false;
     this.connectionStatusText = "Wi-Fi 在线";
 
-    if (this.wifiPollTimer) clearInterval(this.wifiPollTimer);
-    this.wifiPollTimer = setInterval(async () => {
-      try {
-        const live = await this.httpClient.getPetStatus();
-        this.updatePetState(live);
-      } catch (e) {}
-    }, 2000);
+    this._startWifiPolling();
 
     this.notifyListeners("connection", {
       isConnected: true,
@@ -397,7 +424,7 @@ class BuddyService {
   }
 
   disconnectWifi() {
-    if (this.wifiPollTimer) clearInterval(this.wifiPollTimer);
+    this._stopWifiPolling();
     this.isConnected = false;
     this.isWifiMode = false;
     this.connectionStatusText = "未连接伴侣";
@@ -875,7 +902,7 @@ class BuddyService {
     if (promises.length > 0) {
       await Promise.race([
         Promise.all(promises),
-        new Promise(r => setTimeout(r, 1000))
+        new Promise(r => setTimeout(r, 3500))
       ]);
     }
 
