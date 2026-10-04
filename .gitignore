@@ -62,6 +62,7 @@ hardware/tools/ngspice/work/*.raw
 scripts/*.pcm
 scripts/*.wav
 *.log
+logs/
 
 # Vendor tools & external repositories
 tools/bin/

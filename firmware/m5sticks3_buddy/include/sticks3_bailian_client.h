@@ -56,13 +56,14 @@ public:
           _response_done_received(false), _is_response_cancelled(false),
           _pending_cancel(false), _pending_memory_save(false), _pending_reconnect(false),
           _pending_preview_voice(false), _pending_preview_time(0),
-          _server_in_speech(false), _last_activity_time(0), _server_output_sample_rate(16000),
+          _server_in_speech(false), _last_voice_tick(0), _last_activity_time(0), _server_output_sample_rate(16000),
           _last_state_change(0), _total_interrupts(0), _last_error(""),
           _rx_text_dirty(false), _wake_window_until(0) {
         _user_query = "";
         _ai_reply = "";
         _pending_turn_user = "";
         _pending_turn_ai = "";
+        _ws_send_mutex = xSemaphoreCreateMutex();
     }
 
     void setTextCallback(BailianTextCallback cb) { _on_text = cb; }
@@ -188,8 +189,8 @@ static const char* DASHSCOPE_ROOT_CA =
         ws_cfg.headers = _auth_header.c_str();
         ws_cfg.cert_pem = DASHSCOPE_ROOT_CA;
         ws_cfg.cert_len = strlen(DASHSCOPE_ROOT_CA) + 1;
-        ws_cfg.buffer_size = 8192;  // 8KB 接收分片缓冲，充分满足 TCP MSS 分包交付并释放内部 SRAM
-        ws_cfg.task_stack = 8192;   // 8KB 堆栈确保轻量事件分发并释放内部 SRAM
+        ws_cfg.buffer_size = 20480; // 20KB 接收分片缓冲，充分容纳完整 audio.delta (15KB~20KB)
+        ws_cfg.task_stack = 16384;  // 16KB 堆栈确保 mbedTLS 握手与错误清理绝对不溢出
         ws_cfg.pingpong_timeout_sec = 120;
         ws_cfg.ping_interval_sec = 10;
         ws_cfg.disable_pingpong_discon = true;
@@ -219,10 +220,16 @@ static const char* DASHSCOPE_ROOT_CA =
     }
 
     void disconnect() {
+        if (_ws_send_mutex) {
+            xSemaphoreTake(_ws_send_mutex, pdMS_TO_TICKS(150));
+        }
         if (_ws_client) {
             esp_websocket_client_stop(_ws_client);
             esp_websocket_client_destroy(_ws_client);
             _ws_client = nullptr;
+        }
+        if (_ws_send_mutex) {
+            xSemaphoreGive(_ws_send_mutex);
         }
         _is_ws_connected = false;
         _session_initialized = false;
@@ -233,9 +240,9 @@ static const char* DASHSCOPE_ROOT_CA =
         setState(BL_STATE_DISCONNECTED);
     }
 
-    // 线程安全与自适应重试发送 (带毫秒级让渡，彻底解决高吞吐时锁争用失败问题)
-    bool sendWsTextWithRetry(const char* data, size_t len, int max_retries = 5, TickType_t timeout = pdMS_TO_TICKS(60)) {
-        if (!_ws_client || !_is_ws_connected) return false;
+    // 线程安全与互斥发送 (彻底杜绝多任务并发写入引发 errno=11 与底层套接字竞争)
+    bool sendWsTextWithRetry(const char* data, size_t len, int max_retries = 3, TickType_t timeout = pdMS_TO_TICKS(150)) {
+        if (!_ws_client || !_is_ws_connected || !data || len == 0) return false;
 
         // 手机热点流量超额自动熔断保护检查
         if (StickS3ConfigManager::getInstance().isHotspotCutoffActive() &&
@@ -244,19 +251,29 @@ static const char* DASHSCOPE_ROOT_CA =
             return false;
         }
 
+        if (_ws_send_mutex && xSemaphoreTake(_ws_send_mutex, pdMS_TO_TICKS(200)) != pdTRUE) {
+            return false;
+        }
+
+        bool success = false;
         for (int i = 0; i < max_retries; i++) {
             int ret = esp_websocket_client_send_text(_ws_client, data, len, timeout);
             if (ret >= 0) {
                 // 累计上行网络流量
                 StickS3ConfigManager::getInstance().addNetworkTraffic(0, len);
-                return true;
+                success = true;
+                break;
             }
-            vTaskDelay(pdMS_TO_TICKS(15));
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
-        if (!esp_websocket_client_is_connected(_ws_client)) {
+        if (!success && !esp_websocket_client_is_connected(_ws_client)) {
             _is_ws_connected = false;
         }
-        return false;
+
+        if (_ws_send_mutex) {
+            xSemaphoreGive(_ws_send_mutex);
+        }
+        return success;
     }
 
     // ==========================================
@@ -286,11 +303,8 @@ static const char* DASHSCOPE_ROOT_CA =
                 _response_done_received = false;
 
                 const char* cancel_payload = "{\"type\":\"response.cancel\"}";
-                int ret = -1;
-                if (isConnected()) {
-                    ret = esp_websocket_client_send_text(_ws_client, cancel_payload, strlen(cancel_payload), pdMS_TO_TICKS(40));
-                }
-                if (ret >= 0) {
+                bool ok = sendWsTextWithRetry(cancel_payload, strlen(cancel_payload), 2, pdMS_TO_TICKS(100));
+                if (ok) {
                     _pending_cancel = false;
                     Serial.println("[BAILIAN] >>> response.cancel instantly delivered! <<<");
                 } else {
@@ -312,8 +326,8 @@ static const char* DASHSCOPE_ROOT_CA =
         if (_pending_cancel && isConnected() && (millis() - s_last_cancel_try >= 30)) {
             s_last_cancel_try = millis();
             const char* cancel_payload = "{\"type\":\"response.cancel\"}";
-            int ret = esp_websocket_client_send_text(_ws_client, cancel_payload, strlen(cancel_payload), pdMS_TO_TICKS(40));
-            if (ret >= 0) {
+            bool ok = sendWsTextWithRetry(cancel_payload, strlen(cancel_payload), 1, pdMS_TO_TICKS(100));
+            if (ok) {
                 _pending_cancel = false;
                 Serial.println("[BAILIAN] >>> response.cancel successfully delivered to DashScope! <<<");
             }
@@ -823,14 +837,7 @@ private:
                                    "{\"type\":\"input_audio_buffer.append\",\"audio\":\"%s\"}",
                                    s_b64_buf);
             if (written > 0 && written < 7000) {
-                int send_ret = esp_websocket_client_send_text(_ws_client, s_payload_buf, written, pdMS_TO_TICKS(150));
-                if (send_ret < 0) {
-                    if (!esp_websocket_client_is_connected(_ws_client)) {
-                        _is_ws_connected = false;
-                    }
-                    return false;
-                }
-                return true;
+                return sendWsTextWithRetry(s_payload_buf, written, 1, pdMS_TO_TICKS(150));
             }
             return false;
         };
@@ -838,8 +845,8 @@ private:
         // 本地多重人声活动容错检验 (已标定为 RMS >= 75.0f, ZCR in [6, 150])
         bool frame_vocal = StickS3Audio::getInstance().isHumanVocalActivity(s_samples, samples_read);
 
-        if (frame_vocal) {
-            s_last_voice_tick = millis();
+        if (frame_vocal || _server_in_speech) {
+            _last_voice_tick = millis();
             // 说话时自动续期唤醒窗口
             if (cfg.wakeword_enabled) {
                 uint32_t tout_sec = cfg.wakeword_timeout_sec > 0 ? cfg.wakeword_timeout_sec : 8;
@@ -862,8 +869,8 @@ private:
         } else {
             // 当前非人声发音区间
             if (s_is_actively_streaming) {
-                // 维持 400ms 静音尾窗或正在服务端发言，持续向云端输送静音，以满足 Server-VAD 300ms 裁决
-                if ((millis() - s_last_voice_tick <= 400) || _server_in_speech) {
+                // 维持 400ms 静音尾窗持续向云端输送静音，以满足 Server-VAD 300ms 裁决
+                if (millis() - _last_voice_tick <= 400) {
                     sendPcmFrame(s_samples, samples_read);
                 } else {
                     s_is_actively_streaming = false;
@@ -878,12 +885,14 @@ private:
             }
         }
 
-        // 关键兜底保障：若服务端 Server-VAD 在用户声音停止超过 800ms 后仍未触发 speech_stopped，
-        // 客户端主动发送 input_audio_buffer.commit 强制提交本轮对话，杜绝云端 VAD 挂起卡住！
-        if (_server_in_speech && (millis() - s_last_voice_tick > 800)) {
-            Serial.println("[BAILIAN-VAD] Local silence timeout (>800ms). Actively committing audio buffer...");
+        // 关键兜底保障：若服务端 Server-VAD 在用户声音停止超过 3500ms 后仍未触发 speech_stopped，
+        // 客户端主动发送 input_audio_buffer.commit 并请求 response.create，杜绝云端 VAD 挂起卡住！
+        if (_server_in_speech && (millis() - _last_voice_tick > 3500)) {
+            Serial.println("[BAILIAN-VAD] Server silence fallback (>3.5s). Actively committing & requesting response...");
             const char* commit_payload = "{\"type\":\"input_audio_buffer.commit\"}";
-            esp_websocket_client_send_text(_ws_client, commit_payload, strlen(commit_payload), pdMS_TO_TICKS(35));
+            sendWsTextWithRetry(commit_payload, strlen(commit_payload), 2, pdMS_TO_TICKS(150));
+            const char* resp_payload = "{\"type\":\"response.create\"}";
+            sendWsTextWithRetry(resp_payload, strlen(resp_payload), 2, pdMS_TO_TICKS(150));
             _server_in_speech = false;
             s_is_actively_streaming = false;
             setState(BL_STATE_THINKING);
@@ -1056,6 +1065,7 @@ private:
         else if (strcmp(type, "input_audio_buffer.speech_started") == 0) {
             Serial.println("[BAILIAN-EVENT] Server-VAD: User started speaking!");
             _last_activity_time = millis();
+            _last_voice_tick = millis();
             _is_response_cancelled = false; // 用户开口说话，新一轮开始
             if (_state == BL_STATE_SPEAKING) {
                 interrupt("Server-VAD-Speech-Started");
@@ -1214,6 +1224,8 @@ private:
     String _pending_turn_user;
     String _pending_turn_ai;
     bool _server_in_speech;
+    volatile uint32_t _last_voice_tick;
+    SemaphoreHandle_t _ws_send_mutex;
     uint32_t _last_state_change;
     uint32_t _total_interrupts;
     uint32_t _server_output_sample_rate;
