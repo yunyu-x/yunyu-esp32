@@ -377,6 +377,21 @@ audio { width: 100%; height: 38px; border-radius: 8px; margin-top: 8px; outline:
   <button class="btn btn-sec" onclick="playBeep()">🔔 播放和弦提示音</button>
 </div>
 
+<!-- 板块 R: 系统管理与出厂信息重置 -->
+<div class="card" style="border-left: 4px solid #ef4444;">
+  <div class="section-title">
+    <span>⚙️ 系统管理与出厂重置</span>
+    <span class="badge" style="background:#7f1d1d;color:#fca5a5;">危急操作区</span>
+  </div>
+  <div style="font-size: 12px; color: #94a3b8; margin-bottom: 10px;">
+    若需要更换网络环境、转交他人或抹除敏感数据，可在此重置对话记忆或一键恢复出厂设置。
+  </div>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+    <button class="btn btn-sec" style="margin-bottom:0;color:#fca5a5;border:1px solid #7f1d1d;" onclick="clearMemory()">🗑️ 清空记忆与心声</button>
+    <button class="btn btn-danger" style="margin-bottom:0;background:#dc2626;" onclick="factoryReset()">⚠️ 一键恢复出厂设置 (抹除NVS)</button>
+  </div>
+</div>
+
 <script>
 // 音频重采样并转码为标准 16kHz 16-bit Mono WAV Blob
 function audioBufferTo16kMonoWav(audioBuffer) {
@@ -744,6 +759,18 @@ function clearMemory() {
   fetch('/memory/clear', { method: 'POST' })
     .then(function() {
       refreshMemoryList();
+    });
+}
+
+function factoryReset() {
+  if (!confirm('⚠️ 警告：恢复出厂设置将彻底擦除设备保存的所有 Wi-Fi 密码、百炼 API-Key、唤醒词设定与所有历史对话记忆，并自动重启设备。\n\n确认要继续恢复出厂设置吗？')) return;
+  fetch('/system/factory_reset', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      alert('设备已成功执行恢复出厂设置并正在重启！\n请等待设备重启完成后，重新连接 "StickS3-Buddy" 初始热点进行配网。');
+    })
+    .catch(function(e) {
+      alert('指令已发送，设备正在重启中...');
     });
 }
 
@@ -1485,6 +1512,17 @@ private:
             String json;
             serializeJson(doc, json);
             _web_server.send(200, "application/json; charset=utf-8", json);
+        });
+
+        // 5. 恢复出厂设置 (抹除全部 NVS 配置与记忆分区并软重启)
+        _web_server.on("/system/factory_reset", HTTP_POST, [this]() {
+            _web_server.send(200, "application/json; charset=utf-8", "{\"status\":\"ok\",\"msg\":\"Factory reset executed. Device rebooting...\"}");
+            delay(150);
+            StickS3ConfigManager::getInstance().clearAllConfig();
+            StickS3MemoryStore::getInstance().clearMemory();
+            Serial.println("[SYSTEM] Factory Reset complete! Restarting in 300ms...");
+            delay(300);
+            esp_restart();
         });
 
         // ==========================================

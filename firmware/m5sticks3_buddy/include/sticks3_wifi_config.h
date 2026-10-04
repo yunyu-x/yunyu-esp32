@@ -225,6 +225,29 @@ public:
         Serial.println("[TRAFFIC] Hotspot usage reset to 0 KB.");
     }
 
+    // 抹除 NVS 中所有系统与网络配置，恢复出厂默认值
+    void clearAllConfig() {
+        Preferences prefs;
+        if (prefs.begin(NVS_NAMESPACE, false)) {
+            prefs.clear();
+            prefs.end();
+        }
+        _cfg = StickS3Config();
+        _cfg.bailian_model = "qwen3.8-omni-flash-realtime";
+        _cfg.bailian_voice = "Tina";
+        _cfg.bailian_prompt = "你是StickS3智能语音伴侣，请用简明生动的口语回答，每次回答控制在两句话以内。";
+        _cfg.wakeword_enabled = true;
+        _cfg.wakeword_sensitivity = 75;
+        _cfg.wakeword_timeout_sec = 8;
+        _cfg.is_hotspot = false;
+        _cfg.hotspot_limit_mb = 100;
+        _cfg.hotspot_used_kb = 0;
+        _cfg.hotspot_cutoff_enabled = true;
+        _cfg.hotspot_warning_issued = false;
+        _cfg.hotspot_cutoff_active = false;
+        Serial.println("[NVS] All StickS3 configuration cleared from Flash.");
+    }
+
     float getHotspotUsedMB() const {
         return (float)_cfg.hotspot_used_kb / 1024.0f;
     }

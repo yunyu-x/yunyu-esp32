@@ -730,6 +730,24 @@ void loop() {
     btnA_prev = curA;
     btnB_prev = curB;
 
+    // 硬件双键长按 4 秒触发物理出厂恢复 (正面按键 A + 侧面按键 B 同时长按)
+    static uint32_t s_dual_press_start = 0;
+    if (curA == LOW && curB == LOW) {
+        if (s_dual_press_start == 0) {
+            s_dual_press_start = millis();
+        } else if (millis() - s_dual_press_start >= 4000) {
+            s_dual_press_start = 0;
+            sticks3::StickS3Audio::getInstance().playTone(880, 250, 0.5f);
+            Serial.println("[BUTTON-RESET] Dual buttons held for 4s. Executing Factory Reset...");
+            sticks3::StickS3ConfigManager::getInstance().clearAllConfig();
+            sticks3::StickS3MemoryStore::getInstance().clearMemory();
+            delay(500);
+            esp_restart();
+        }
+    } else {
+        s_dual_press_start = 0;
+    }
+
     // 2. 串口输入行缓冲 (支持下发汉字直接显示上屏，支持 UTF-8 / GBK / Hex 自动识别)
     static std::vector<uint8_t> serial_rx_bytes;
     while (Serial.available()) {
@@ -812,6 +830,12 @@ void loop() {
                                       cfg_mgr.getStaRSSI(),
                                       device_connected ? "true" : "false",
                                       g_pet_avatar_mode ? "true" : "false");
+                    } else if (cmd_or_msg == "factory_reset" || cmd_or_msg == "reset_all") {
+                        Serial.println("{\"type\":\"factory_reset\",\"status\":\"executing\"}");
+                        sticks3::StickS3ConfigManager::getInstance().clearAllConfig();
+                        sticks3::StickS3MemoryStore::getInstance().clearMemory();
+                        delay(300);
+                        esp_restart();
                     } else if (cmd_or_msg.startsWith("q:") || cmd_or_msg.startsWith("Q:") ||
                                cmd_or_msg.startsWith("chat:") || cmd_or_msg.startsWith("CHAT:")) {
                         int colon_idx = cmd_or_msg.indexOf(':');
