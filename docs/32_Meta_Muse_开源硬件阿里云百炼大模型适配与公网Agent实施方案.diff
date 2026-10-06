@@ -1,0 +1,247 @@
+--- a/32_Meta_Muse_开源硬件阿里云百炼大模型适配与公网Agent实施方案.md
++++ b/32_Meta_Muse_开源硬件阿里云百炼大模型适配与公网Agent实施方案.md
+@@ -8,6 +8,7 @@
+ ---
+ 
+ ## 目录
++
+ 1. [执行摘要与问题定义](#1-执行摘要与问题定义)
+ 2. [总体架构拓扑设计 (System Architecture)](#2-总体架构拓扑设计-system-architecture)
+ 3. [BailianMuseCloudAgent 本地中枢架构设计](#3-bailianmusecloudagent-本地中枢架构设计)
+@@ -23,6 +24,7 @@
+ ## 1. 执行摘要与问题定义
+ 
+ ### 1.1 Meta Muse Gadgets 的生态价值与落地瓶颈
++
+ 2026年10月2日，Meta 官方以 Apache-2.0 协议开源了 **Muse Gadgets**（代码仓：[`facebookincubator/muse-gadget-sdk`](https://github.com/facebookincubator/muse-gadget-sdk)）。该项目首次定义了个人 AI 代理（Personal AI Agent）直连开源硬件开发板（特别是原生支持 **M5Stack StickS3**）的工业级工程范式：
+ - 基于 **Noise Protocol Framework** 的加密穿透隧道（Home Link）；
+ - 极具创意的 **Serial Hatch** 串口控制台交互机制（`>chat=...`, `>face=...`）；
+@@ -35,6 +37,7 @@
+ 3. **中文语义理解与语音模型缺失**：Muse Spark 模型主要针对英文语境训练，其中文语音转写（ASR）与语音合成（TTS）效果无法满足高质量拟人陪伴要求。
+ 
+ ### 1.2 破局之道：阿里云百炼替代全栈架构
++
+ 本项目提出并实施 **“阿里云百炼（Alibaba Cloud Bailian / DashScope）大模型矩阵 + 本地化 BailianMuseCloudAgent + public-service-tunnel 双轨免登录公网穿透”** 的全栈破局架构：
+ 
+ ```mermaid
+@@ -148,6 +151,7 @@
+ `BailianMuseCloudAgent` 是整个系统的调度中枢，使用 Python 3.10+ 构建，基于 `asyncio` 与 `FastAPI` 高性能异步架构，部署于开发者本地 PC、边缘网关或局域网主机。
+ 
+ ### 3.1 核心模块拓扑与职责划分
++
+ 1. **`BailianCompatServer`（协议兼容引擎）**：
+    - 模拟 Meta 官方 VM 接口规范，让未修改或原生的 Meta 设备/客户端误以为连接到了官方云端；
+    - 拦截并处理 `/fetch_vms`、`POST /api/voice/dictation`、`POST /chat/stream`、`GET /chat/subscribe`。
+@@ -214,6 +218,7 @@
+ ## 4. 双轨公网穿透与持久化端点方案设计
+ 
+ ### 4.1 穿透痛点与双轨容灾机制
++
+ 开源硬件设备（M5Stack StickS3）在实际使用中往往脱离宿主机局域网（例如：使用手机 4G/5G 移动热点外出展示、异地实验室远程控制）。若 Cloud Agent 仅运行在 `127.0.0.1:8000`，物理设备无法远程回传音频或接收控制指令。
+ 
+ 本项目深度集成 `skills/public-service-tunnel` 技能规范，设计 **“Cloudflare Quick Tunnel (免登录) + ngrok (专属域名) 智能容灾降级”** 方案：
+@@ -243,6 +248,7 @@
+ ```
+ 
+ ### 4.2 端点持久化与资产描述规范
++
+ 穿透建立后，隧道守护引擎立即将端点元数据写入 `dist/public_preview_url.json` 与 `dist/public_preview_url.txt`，供全栈自动化工具链读取：
+ 
+ ```json
+@@ -269,9 +275,11 @@
+ ### 5.1 RESTful HTTP 接口契约规范
+ 
+ #### 1. 模拟 Meta VM 发现鉴权：`GET /fetch_vms`
++
+ - **设计初衷**：完全兼容未修改的 Meta 固件（`muse_account_api.c` 会向 `FETCH_URL` 请求 VM 列表）。
+ - **请求头**：`Authorization: Bearer <token>`（支持任意字符串或留空）。
+ - **响应载荷**（HTTP 200 JSON）：
++
+ ```json
+ {
+   "vms": [
+@@ -287,9 +295,11 @@
+ ```
+ 
+ #### 2. 流式语音转写：`POST /api/voice/dictation`
++
+ - **功能**：接收 StickS3 发送的 16kHz/24kHz PCM16 单声道音频数据流。
+ - **请求头**：`Content-Type: audio/x-raw-pcm; rate=16000; format=s16le`。
+ - **响应模式**：流式 NDJSON（分块逐行返回增量与最终结果）：
++
+ ```json
+ {"type": "partial", "transcript": "灵方"}
+ {"type": "partial", "transcript": "灵方向前翻滚"}
+@@ -297,8 +307,10 @@
+ ```
+ 
+ #### 3. 消息交互流：`POST /chat/stream`
++
+ - **功能**：发送用户自然语言指令，触发百炼 Agent 思考、规划与工具调用。
+ - **请求体**（JSON）：
++
+ ```json
+ {
+   "message": "让灵方向前翻滚一步",
+@@ -306,11 +318,14 @@
+   "device_id": "M5Stack-StickS3-C3B2"
+ }
+ ```
++
+ - **响应体**（JSON）：`{"ack": true, "msg_id": "msg_98721", "status": "processing"}`。
+ 
+ #### 4. 对话增量事件订阅：`GET /chat/subscribe`
++
+ - **功能**：基于 Server-Sent Events (SSE) 持续下发大模型回复与具身动作状态。
+ - **事件流示例**：
++
+ ```http
+ event: message_start
+ data: {"msg_id": "msg_98721", "role": "assistant"}
+@@ -341,6 +356,7 @@
+ 该接口对齐阿里云百炼 DashScope Realtime 协议规范，同时扩展 StickS3 的拟态微表情与硬件遥测事件通道。
+ 
+ #### 客户端发往服务端 (Client -> Server) 报文规范
++
+ | 报文类型 (`type`) | 关键字段定义 | 说明 |
+ | :--- | :--- | :--- |
+ | `session.update` | `modalities`: `["audio", "text"]`<br/>`voice`: `"cherry"` / `"tina"`<br/>`turn_detection`: `{"type": "server_vad", "silence_duration_ms": 700}` | 初始化/更新会话参数与音色设置 |
+@@ -350,6 +366,7 @@
+ | `device.telemetry` | `v_bus`: `3.85`, `battery_pct`: `82`, `btn_state`: `"RELEASED"` | 设备端周期性遥测健康上报 |
+ 
+ #### 服务端发往客户端 (Server -> Client) 报文规范
++
+ | 报文类型 (`type`) | 关键字段定义 | 说明 |
+ | :--- | :--- | :--- |
+ | `session.created` | `session_id`: `"<uuid>"` | 会话创建成功确认 |
+@@ -366,6 +383,7 @@
+ 串口总线协议复用并扩展 Meta 官方 Hatch 规范，波特率固定为 `115200 8-N-1`。
+ 
+ #### 1. 主机下发指令 (Host -> Board)
++
+ - **文本连续分片**：`>chat+=<escaped_utf8_chunk>\n`（单包不超过 480 字节）；
+ - **文本终止发送**：`>chat=<final_escaped_utf8_chunk>\n`（触发固件合并并进入大模型调用）；
+ - **表情动态切换**：`>face=<face_name>\n`（例如 `>face=happy\n`、`>face=thinking\n`）；
+@@ -373,10 +391,12 @@
+ - **状态全量查询**：`>status\n`。
+ 
+ #### 2. 硬件上行回传 (Board -> Host)
++
+ - **对话帧包装**：`@chat {"type": "text", "msg": 0, "text": "..."}\n`；
+ - **对话结束帧**：`@chat {"type": "message_done", "msg": 0, "bytes": 128}\n`；
+ - **错误诊断帧**：`@chat {"type": "error", "text": "WIFI_DISCONNECTED"}\n`；
+ - **状态报告帧**：
++
+ ```json
+ @status {"board": "M5Stack StickS3", "chat": true, "device": {"wifi": {"state": "connected", "mode": "WiFi", "ip": "192.168.110.67"}, "hatch": {"state": "connected"}, "v_bus": 3.84, "fps": 97.5}}
+ ```
+@@ -509,8 +529,10 @@
+ ```
+ 
+ ### 6.1 显存零撕裂双缓冲物理公理 (贯彻公理三)
++
+ - **底层物理冲突**：StickS3 屏幕为 135x240 ST7789 LCD，SPI 总线（SPI3_HOST）工作在 40MHz。若直接调用 `display.fillRect()` 或分步绘制眼睛、瞳孔、汉字，人眼会观测到剧烈的 15Hz 物理闪烁与水平撕裂。
+ - **PSRAM 显存架构**：
++
+   ```cpp
+   // 在 8MB PSRAM 中开辟双缓冲精灵画布 (仅消耗 64.8KB PSRAM)
+   static LGFX_Sprite canvas(&display);
+@@ -518,6 +540,7 @@
+   canvas.createSprite(135, 240);
+   canvas.setColorDepth(16); // 16-bit RGB565
+   ```
++
+ - **离线合成与原子推送流水线**：
+   1. 在 `canvas` 离线显存中清屏；
+   2. 绘制迪士尼矢量瞳孔（平滑微动与眨眼插值）；
+@@ -527,17 +550,21 @@
+   6. 周期末尾调用 `canvas.pushSprite(0, 0)`，经 SPI DMA **单次原子性全量推送**至物理屏幕。实测帧率稳定在 **96.8 ~ 98.9 FPS**，完全消除频闪。
+ 
+ ### 6.2 中断与通信协议栈异步解耦公理 (贯彻公理二)
++
+ - **底层致命隐患**：Bluedroid 蓝牙控制协议栈任务 `BTC_TASK` 仅分配约 3KB 堆栈；USB 串口中断和 Wi-Fi 回调同样运行于中断/内核级上下文。若在这些回调中直接进行 JSON 反序列化、NVS Flash 写入或网络发起，会导致致命的 `Stack Overflow Panic`。
+ - **解耦设计**：
++
+   ```cpp
+   // 仅在自旋锁临界区内向静态微队列存入原始字节 (栈开销 < 32 字节)
+   portENTER_CRITICAL_ISR(&_rx_mux);
+   _rx_queue.push(incoming_byte);
+   portEXIT_CRITICAL_ISR(&_rx_mux);
+   ```
++
+ - **主线程消费**：在拥有 **16KB+ 充裕堆栈** 的 `loopTask` 中调用 `StickS3BLESync::getInstance().update()` 与 `MuseConsoleParser::parseLine()`，完成指令反序列化与状态机流转。
+ 
+ ### 6.3 语音/文本双通道与毫秒级打断 (Barge-In) 设计 (贯彻公理五)
++
+ StickS3 配备原生 ES8311 音频编解码芯片与 AW8737 功放，支持全双工语音回环。系统设计双重打断保障机制：
+ 1. **硬件物理打断（Hardware Barge-In）**：
+    - 用户在伴侣发声说话期间，短按正面主按键（KEY1 / Button A, GPIO 11）；
+@@ -548,6 +575,7 @@
+    - StickS3 自动静音扬声器，避免回音自激与自听自答。
+ 
+ ### 6.4 跨端自适应协议与防截断编码 (贯彻公理六)
++
+ - **UTF-8 字符边界对齐**：长文本或大模型回复分包时，禁止使用朴素的字节 slice。固件与 Agent 端统一采用 `safeTruncateUtf8` 算法，严格沿 1~4 字节合法 Unicode 边界切分，防止断字半字符引发的 `cJSON_Parse` 失败或 WebSocket RFC 6455 1007 错误。
+ 
+ ---
+@@ -555,6 +583,7 @@
+ ## 7. 具身协同端到端交互序列设计 (Interaction Sequences)
+ 
+ ### 7.1 场景 A：Push-to-Talk 语音控制具身翻滚全流程
++
+ 用户按住 StickS3 按键说出：*“灵方向前翻滚一步，并锁紧2号面电永磁”*。
+ 
+ ```mermaid
+@@ -601,6 +630,7 @@
+ ---
+ 
+ ### 7.2 场景 B：USB 串口 Hatch 控制与状态诊断
++
+ 开发者在宿主机运行串口终端或调试脚本通过 `COM3` 控制 StickS3。
+ 
+ ```mermaid
+@@ -657,6 +687,7 @@
+ ```
+ 
+ ### Phase 1：架构分析、百炼替代方案设计与标准契约编制（已达成）
++
+ - [x] 深入剖析 `external_repos/muse-gadget-sdk/esp32/` 与 `docs/31` 的架构细节；
+ - [x] 完成阿里云百炼大模型矩阵（Qwen2.5 + DashScope Realtime + CosyVoice）平替设计；
+ - [x] 制定 `BailianMuseCloudAgent` 本地服务架构与四向桥接设计（REST、WS、Serial Hatch、Skills）；
+@@ -665,6 +696,7 @@
+ - [x] 编写并发布完整的系统架构设计文档：`docs/32_Meta_Muse_开源硬件阿里云百炼大模型适配与公网Agent实施方案.md`。
+ 
+ ### Phase 2：BailianMuseCloudAgent 服务开发与单元测试验证
++
+ - [ ] 在 `simulation/bridge/` 或 `services/` 目录下实现 `bailian_muse_cloud_agent.py`；
+ - [ ] 实现兼容 Meta 契约的 FastAPI 路由（`/fetch_vms`, `/api/voice/dictation`, `/chat/stream`, `/chat/subscribe`）；
+ - [ ] 集成 DashScope Realtime WebSocket 客户端与音频 PCM 转码器；
+@@ -672,22 +704,27 @@
+ - [ ] 编写覆盖 100% 关键路径的自动化单元测试（`tests/test_bailian_muse_cloud_agent.py`）。
+ 
+ ### Phase 3：StickS3 嵌入式固件混合协议栈升级与实机烧录（公理一）
++
+ - [ ] 在 `firmware/m5sticks3_buddy/src/main.cpp` 中完整引入 `muse_gadget_client.h`；
+ - [ ] 挂接 Serial Hatch 控制台解析器与 `@chat` 响应输出；
+ - [ ] 联动 Avatar 12 种微表情与状态机；
+ - [ ] 按照公理一执行真实硬件编译与烧录：
++
+   ```powershell
+   python -m platformio run -e m5sticks3_buddy -t upload
+   ```
++
+ - [ ] 触发 RTS/DTR 硬重启并捕获至少 15 秒真实串口运行诊断，验证零崩溃与稳定帧率。
+ 
+ ### Phase 4：公网穿透自动化与端点自适应同步
++
+ - [ ] 联动 `skills/public-service-tunnel/scripts/tunnel_manager.py`，实现免登录 Cloudflare Quick Tunnel 秒级拉起；
+ - [ ] 验证 `dist/public_preview_url.json` 持久化端点在不同网络环境下的可用性；
+ - [ ] 验证 StickS3 在手机热点与远程公网模式下，通过持久化公网端点进行语音交互。
+ 
+ ### Phase 5：具身智能协同全链路闭环与长跑鲁棒性验收
++
+ - [ ] 开展自然语言复杂多步骤意图实测：“向前翻滚两步并开启3号面磁吸”；
+ - [ ] 检验母线电压与 EPM 热保护机制；
+ - [ ] 联动 MuJoCo 数字孪生仿真器（LingMatrix）实现虚实镜像协同；
+-- [ ] 连续 1 小时长跑测试，验证内存零泄漏、I2C 零死锁、音频零断流。
++- [ ] 连续 1 小时长跑测试，验证内存零泄漏、I2C 零死锁、音频零断流。

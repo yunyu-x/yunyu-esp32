@@ -37,6 +37,7 @@
 #include "sticks3_system_metrics.h"
 #include "sticks3_memory_store.h"
 #include "sticks3_wakeword.h"
+#include "muse_gadget_client.h"
 
 using namespace sticks3::protocol;
 
@@ -871,6 +872,36 @@ void loop() {
                         if (query_text.length() > 0) {
                             sticks3::StickS3BailianClient::getInstance().sendTextMessage(query_text);
                         }
+                    } else if (cmd_or_msg.startsWith(">") || cmd_or_msg.startsWith("--status")) {
+                        // Meta Muse Serial Hatch 串口控制台协议适配
+                        static muse_gadget::MuseConsoleParser s_muse_parser;
+                        auto parsed = s_muse_parser.parseLine(cmd_or_msg.c_str());
+                        if (parsed.type == muse_gadget::HatchCommandType::CHAT_APPEND) {
+                            Serial.printf("@chat {\"type\":\"chunk_ack\",\"bytes\":%u}\n", (unsigned)parsed.payload.length());
+                        } else if (parsed.type == muse_gadget::HatchCommandType::CHAT_SEND) {
+                            onNewTextMessage(String(parsed.payload.c_str()), "Serial-Hatch");
+                            Serial.printf("@chat {\"type\":\"sent\",\"bytes\":%u}\n", (unsigned)parsed.payload.length());
+                            if (sticks3::StickS3BailianClient::getInstance().isConnected()) {
+                                sticks3::StickS3BailianClient::getInstance().sendTextMessage(String(parsed.payload.c_str()));
+                            }
+                        } else if (parsed.type == muse_gadget::HatchCommandType::FACE_SET) {
+                            uint8_t mood = muse_gadget::mapFaceStringToMood(parsed.payload);
+                            sticks3::StickS3Avatar::getInstance().setMood(static_cast<sticks3::AvatarMood>(mood));
+                            Serial.printf("@chat {\"type\":\"face_set\",\"face\":\"%s\",\"success\":true}\n", parsed.payload.c_str());
+                        } else if (parsed.type == muse_gadget::HatchCommandType::ROBOT_COMMAND) {
+                            Serial.printf("@chat {\"type\":\"robot_ack\",\"cmd\":\"%s\",\"success\":true}\n", parsed.payload.c_str());
+                        } else if (parsed.type == muse_gadget::HatchCommandType::STATUS_QUERY) {
+                            auto& cfg_mgr = sticks3::StickS3ConfigManager::getInstance();
+                            std::string status_json = muse_gadget::MuseConsoleParser::formatStatusJson(
+                                battery_voltage,
+                                sticks3::getSystemLoopFPS(),
+                                cfg_mgr.isStaConnected(),
+                                cfg_mgr.isHotspot() ? "HOT" : "WiFi",
+                                cfg_mgr.getStaIP().c_str(),
+                                "active"
+                            );
+                            Serial.print(status_json.c_str());
+                        }
                     } else {
                         // 接收串口任意测试文本（支持 UTF-8 和 GBK 中文！）并显示上屏
                         onNewTextMessage(cmd_or_msg, "Serial");
@@ -879,7 +910,9 @@ void loop() {
                 serial_rx_bytes.clear();
             }
         } else {
-            serial_rx_bytes.push_back((uint8_t)c);
+            if (serial_rx_bytes.size() < 2048) {
+                serial_rx_bytes.push_back((uint8_t)c);
+            }
         }
         protocol_engine.feedBytes(&c, 1);
     }
