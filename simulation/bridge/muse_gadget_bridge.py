@@ -37,6 +37,7 @@ class LingCubeDeviceState:
         self.docked_faces = [False] * 6  # Faces 1..6
         self.active_morphology = "LingCube"
         self.avatar_face = "idle"
+        self.active_pet = "jollybot"  # 'jollybot' (Meta Muse pixel-art bear) or 'qiaoqiao' (procedural vector pet)
         self.last_epm_pulse_time = 0.0
         self.last_action_timestamp = time.time()
 
@@ -52,6 +53,7 @@ class LingCubeDeviceState:
             "docked_faces": [i + 1 for i, docked in enumerate(self.docked_faces) if docked],
             "active_morphology": self.active_morphology,
             "avatar_face": self.avatar_face,
+            "active_pet": self.active_pet,
             "timestamp": time.time(),
         }
 
@@ -123,6 +125,14 @@ class LingCubeDeviceState:
             return False, f"Invalid face mode '{face}'. Valid: {valid_faces}"
         self.avatar_face = face
         return True, f"Avatar face updated to {face}."
+
+    def switch_pet(self, pet: str) -> Tuple[bool, str]:
+        valid_pets = {"jollybot", "qiaoqiao"}
+        pet_lower = pet.lower()
+        if pet_lower not in valid_pets:
+            return False, f"Invalid pet avatar '{pet}'. Valid options: {sorted(list(valid_pets))}"
+        self.active_pet = pet_lower
+        return True, f"Pet avatar successfully switched to {pet_lower}."
 
 
 # Global singleton device state

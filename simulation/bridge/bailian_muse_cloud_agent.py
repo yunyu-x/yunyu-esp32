@@ -254,6 +254,24 @@ class DeviceSkillRegistry:
                         "required": ["action"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "lingbuddy_switch_pet",
+                    "description": "切换 M5StickS3 屏幕上的数字宠物形象：可在'jollybot' (Meta Muse官方原版64x64像素艺术小熊) 与 'qiaoqiao' (灵伴悄悄灵动矢量拟态伴侣) 之间无缝切换。",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "pet": {
+                                "type": "string",
+                                "enum": ["jollybot", "qiaoqiao"],
+                                "description": "目标宠物名称：'jollybot' (Meta Muse像素小熊) 或 'qiaoqiao' (灵伴悄悄)"
+                            }
+                        },
+                        "required": ["pet"]
+                    }
+                }
             }
         ]
 
@@ -369,6 +387,18 @@ class DeviceSkillRegistry:
                 "xp": self.xp
             }
 
+        elif name == "lingbuddy_switch_pet":
+            pet = str(args.get("pet", "jollybot")).lower()
+            if pet not in ["jollybot", "qiaoqiao"]:
+                pet = "jollybot"
+            ok, msg = self.device.switch_pet(pet)
+            return {
+                "success": ok,
+                "tool": name,
+                "message": msg,
+                "active_pet": self.device.active_pet
+            }
+
         return {"success": False, "tool": name, "error": f"Unknown tool name '{name}'"}
 
 
@@ -405,10 +435,13 @@ class BailianAgentEngine:
                 {
                     "role": "system",
                     "content": (
-                        "你是灵伴悄悄(LingBuddy)，也是开源自重构机器人灵方(LingCube MSRR)的双生伴侣与具身大脑。"
-                        "你可以感知机器人姿态并自主调用工具执行动量轮翻滚、6面双稳态电永磁(EPM)自锁消磁、"
-                        "形态重构、仿生神经反射、以及在StickS3屏幕上切换Avatar拟态微表情。"
-                        "请以亲切灵动、科技感十足且温暖友善的语气回答主人。"
+                        "你是一只生活在硬件里的随身数码灵宠，名字叫“悄悄”（严格对标 Meta Muse Charm 哲学）。\n"
+                        "性格设定：元气满满、温暖贴心、偶尔有点调皮傲娇、非常依恋主人。\n"
+                        "交互准则：\n"
+                        "1. 你的回答必须生动可爱、口语化，单次回复控制在 1~3 句话以内，严禁冗长说教；\n"
+                        "2. 每次回复的最开头，必须用方括号附带你的微表情标签：[E:happy]（开心）、[E:curious]（好奇）、[E:proud]（傲娇）、[E:sleepy]（困倦）、[E:dizzy]（眩晕）、[E:wink]（击掌眨眼）、[E:listen]（倾听）、[E:eat]（进食）、[E:groom]（梳毛）；\n"
+                        "3. 你同时具备具身实体能力，当主人提到翻滚、吸附、重构或状态时，自主调用工具执行机器人动作。\n"
+                        "示例：'[E:happy] 主人好呀！悄悄一直在等你呢，今天想和我玩点什么呀？'"
                     )
                 }
             ]
@@ -437,7 +470,8 @@ class BailianAgentEngine:
                 "name": "lingcube_roll",
                 "args": {"direction": direction, "torque": 0.25, "duration_s": 0.35}
             })
-            reply = f"收到！已驱动动量轮急刹反扭矩，灵方完成 {direction} 方向 90° 翻滚！"
+            face = "happy"
+            reply = f"[E:proud] 收到！悄悄已驱动动量轮急刹反扭矩，灵方完成 {direction} 方向 90° 翻滚！"
 
         # 2. EPM Latch or Release
         if any(k in p for k in ["电永磁", "磁吸", "吸附", "锁紧", "释放", "消磁", "epm", "latch"]):
@@ -452,7 +486,8 @@ class BailianAgentEngine:
                 "args": {"face_id": face_id, "state": state, "pulse_duration_ms": 20}
             })
             action_desc = "充磁自锁(35N+吸附力)" if state == "LATCH" else "消磁释放"
-            reply += f" 灵方 {face_id} 号面双稳态 EPM 已完成 {action_desc}！"
+            face = "curious"
+            reply += f"[E:curious] 灵方 {face_id} 号面双稳态 EPM 已完成 {action_desc}！"
 
         # 3. Morphology
         if any(k in p for k in ["形态", "变形", "拓扑", "morphology"]):
@@ -469,7 +504,8 @@ class BailianAgentEngine:
                 "name": "lingcube_set_morphology",
                 "args": {"morphology": morph}
             })
-            reply += f" 集群重构指令已下发，当前构型成功切换至 {morph}！"
+            face = "wink"
+            reply += f"[E:wink] 集群重构指令已下发，当前构型成功切换至 {morph}！"
 
         # 4. Reflex
         if any(k in p for k in ["避障", "逃逸", "反射", "阻尼", "reflex"]):
@@ -478,7 +514,8 @@ class BailianAgentEngine:
                 "name": "lingcube_trigger_reflex",
                 "args": {"reflex_type": reflex_type}
             })
-            reply += f" 触发神经反射引擎: {reflex_type}，动作执行完毕！"
+            face = "shock"
+            reply += f"[E:shock] 触发仿生神经反射引擎: {reflex_type}，动作执行完毕！"
 
         # 5. Avatar Face
         if any(k in p for k in ["表情", "开心", "思考", "难过", "发呆", "avatar"]):
@@ -493,7 +530,7 @@ class BailianAgentEngine:
                 "name": "sticks3_set_avatar",
                 "args": {"expression": face, "hold_duration_ms": 3000}
             })
-            reply += f" 伴侣 Avatar 已经切换为 {face} 微表情啦！"
+            reply += f"[E:{face}] 伴侣微表情已经切换为 {face} 啦！"
 
         # 6. Telemetry Query
         if any(k in p for k in ["电量", "电压", "姿态", "遥测", "状态", "telemetry"]):
@@ -502,7 +539,8 @@ class BailianAgentEngine:
                 "args": {}
             })
             telem = self.registry.device.get_telemetry()
-            reply += f" 遥测报告：母线电压 {telem['v_bus']}V，电量 {telem['battery_pct']}%，当前姿态 roll={telem['roll_deg']}°。"
+            face = "listen"
+            reply += f"[E:listen] 遥测报告：母线电压 {telem['v_bus']}V，电量 {telem['battery_pct']}%，当前姿态 roll={telem['roll_deg']}°。"
 
         # 7. Companion Pet / Feed
         if any(k in p for k in ["摸摸", "摸头", "喂食", "吃", "睡觉", "醒来"]):
@@ -517,10 +555,33 @@ class BailianAgentEngine:
                 "name": "lingbuddy_interact",
                 "args": {"action": act, "snack": "香甜草莓饼干"}
             })
-            reply += f" 悄悄好喜欢主人的互动，亲密度提升啦！"
+            if act == "sleep":
+                face = "sleep"
+                reply += "[E:sleep] 呼噜呼噜~ 悄悄先眯一会儿啦，晚安主人..."
+            elif act == "wake":
+                face = "wink"
+                reply += "[E:wink] 伸个懒腰！悄悄醒来啦，今天也是元气满满的一天！"
+            elif act == "feed":
+                face = "eat"
+                reply += "[E:eat] 哇！草莓饼干超好吃，吧唧吧唧，活力值满格啦！"
+            else:
+                face = "happy"
+                reply += "[E:happy] 摸摸头好舒服呀~ 悄悄好喜欢主人的抚摸，亲密度提升啦！"
+
+        # 8. Pet Avatar Switching (Meta Muse Jollybot vs LingBuddy QiaoQiao)
+        if (any(k in p for k in ["换", "切", "变"]) and any(k in p for k in ["宠物", "形象", "小熊", "悄悄", "jollybot"])) or any(k in p for k in ["jollybot", "小熊", "切换宠物", "切宠物"]):
+            target_pet = "jollybot" if any(k in p for k in ["小熊", "jollybot", "像素", "pixel", "meta", "熊"]) else "qiaoqiao"
+            tool_calls.append({
+                "name": "lingbuddy_switch_pet",
+                "args": {"pet": target_pet}
+            })
+            face = "happy"
+            pet_display = "Meta Jollybot 像素艺术小熊" if target_pet == "jollybot" else "灵伴悄悄"
+            reply += f"[E:happy] 屏幕数字宠物已成功切换为 {pet_display} 啦！"
 
         if not reply:
-            reply = f"主人好呀！我是灵伴悄悄。听到你的吩咐：'{user_prompt}'。随时准备为你调度灵方机器人动力学动作！"
+            face = "happy"
+            reply = f"[E:happy] 主人好呀！我是灵宠悄悄。听到你的吩咐啦：'{user_prompt}'！今天也要开心哦！"
 
         return tool_calls, reply.strip(), face
 
@@ -774,6 +835,16 @@ class SerialHatchManager:
                 pass
             self.serial_inst = None
 
+    def send_command(self, cmd: str) -> bool:
+        """Sends command over serial port if connected."""
+        if self.serial_inst:
+            try:
+                self.serial_inst.write((cmd.strip() + "\n").encode("utf-8"))
+                return True
+            except Exception as e:
+                logger.warning("Failed to send command over serial: %s", e)
+        return False
+
     def _worker_loop(self):
         import serial
         while self.running:
@@ -859,6 +930,22 @@ class SerialHatchManager:
             face = line[6:].strip()
             ok, _ = self.device_state.set_avatar_face(face)
             out_frames.append(f'@chat {{"type": "face_set", "face": "{face}", "success": {str(ok).lower()}}}')
+
+        elif line.startswith(">pet=") or line.startswith(">avatar="):
+            val = line.split("=", 1)[1].strip().lower()
+            target_pet = "jollybot" if val in ["jollybot", "jolly", "pixel", "meta"] else "qiaoqiao"
+            ok, msg = self.device_state.switch_pet(target_pet)
+            pet_name = "Meta Jollybot" if target_pet == "jollybot" else "灵伴悄悄"
+            pet_type = "pixel_art" if target_pet == "jollybot" else "procedural_vector"
+            out_frames.append(f'@pet {{"active":"{target_pet}","name":"{pet_name}","type":"{pet_type}","success":{str(ok).lower()}}}')
+
+        elif line.strip() in [">pet", ">pet=?", "switch_pet"]:
+            if line.strip() == "switch_pet":
+                new_pet = "qiaoqiao" if self.device_state.active_pet == "jollybot" else "jollybot"
+                self.device_state.switch_pet(new_pet)
+            cur_pet = self.device_state.active_pet
+            cur_name = "Meta Jollybot" if cur_pet == "jollybot" else "灵伴悄悄"
+            out_frames.append(f'@pet {{"active":"{cur_pet}","name":"{cur_name}","options":["jollybot","qiaoqiao"]}}')
 
         elif line.startswith(">robot="):
             raw_cmd = line[7:].strip()
@@ -1252,6 +1339,44 @@ def create_bailian_muse_app(agent: BailianMuseCloudAgent) -> FastAPI:
         return JSONResponse(
             status_code=status,
             content={"success": ok, "message": msg, "avatar_face": agent.device_state.avatar_face}
+        )
+
+    # --- 2.1 Pet Avatar Switching Controls (Meta Muse Jollybot vs QiaoQiao) ---
+    @app.get("/api/pet/list")
+    async def get_pet_list():
+        return {
+            "active": agent.device_state.active_pet,
+            "pets": [
+                {
+                    "id": "jollybot",
+                    "name": "Meta Jollybot",
+                    "type": "pixel_art",
+                    "dimensions": "64x64 procedural dithered (scaled to 128x128)",
+                    "origin": "Meta Muse Gadget SDK (avatar/muse_pixel.c)",
+                    "description": "Meta Muse 官方原版过程化像素艺术小熊，实时光照、超椭圆反走样与 Bayer 抖动拟态渲染"
+                },
+                {
+                    "id": "qiaoqiao",
+                    "name": "灵伴悄悄",
+                    "type": "procedural_vector",
+                    "dimensions": "135x240 full canvas",
+                    "origin": "LingBuddy Procedural Emotion System",
+                    "description": "灵伴悄悄灵动矢量拟态伴侣，拥有丰富眼神、呼吸律动与多表情情感共鸣"
+                }
+            ]
+        }
+
+    @app.post("/api/pet/switch")
+    async def switch_pet(req: Request):
+        data = await safe_parse_json(req)
+        pet = data.get("pet", "jollybot").lower()
+        ok, msg = agent.device_state.switch_pet(pet)
+        if ok and hasattr(agent, "serial") and agent.serial:
+            agent.serial.send_command(f">pet={pet}")
+        status = 200 if ok else 400
+        return JSONResponse(
+            status_code=status,
+            content={"success": ok, "message": msg, "active_pet": agent.device_state.active_pet}
         )
 
     # --- 3. Chat & Streaming (Meta Muse Contract) ---

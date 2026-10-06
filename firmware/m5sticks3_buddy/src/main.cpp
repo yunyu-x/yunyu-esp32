@@ -38,10 +38,18 @@
 #include "sticks3_memory_store.h"
 #include "sticks3_wakeword.h"
 #include "muse_gadget_client.h"
+#include "muse_pixel.h"
 
 using namespace sticks3::protocol;
 
-static bool g_pet_avatar_mode = true; // 默认启动拟人化灵宠微表情模式 (可按侧键B切换)
+// 灵宠形象类型枚举 (对齐 Meta Muse Gadget SDK 官方宠物生态)
+enum ActivePetType {
+    PET_QIAOQIAO = 0,    // 灵伴悄悄 (迪士尼高光拟真矢量大眼萌宠)
+    PET_JOLLYBOT = 1,    // Meta 官方原版 Jollybot (64x64 过程化像素艺术小熊)
+    PET_COUNT
+};
+static ActivePetType g_active_pet = PET_QIAOQIAO; // 当前活跃宠物形象
+static bool g_pet_avatar_mode = true; // 默认启动拟人化灵宠微表情模式 (短按侧键B切换)
 
 // 蓝牙 NUS UUIDs
 #define SERVICE_UUID           "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
@@ -163,6 +171,14 @@ void onNewTextMessage(const String& msg, const String& source) {
     String clean_msg = sanitizeAndConvertToUtf8((const uint8_t*)msg.c_str(), msg.length());
     clean_msg.trim();
     if (clean_msg.length() == 0) return;
+
+    // 自动解析 [E:xxx] 情绪标签并瞬间驱动灵宠微表情
+    String emotion_clean_text;
+    sticks3::AvatarMood detected_mood = sticks3::StickS3Avatar::parseEmotionTag(clean_msg, emotion_clean_text);
+    if (detected_mood != sticks3::MOOD_IDLE) {
+        sticks3::StickS3Avatar::getInstance().setMood(detected_mood);
+        clean_msg = emotion_clean_text;
+    }
 
     latest_ble_msg = clean_msg;
     total_ble_msgs_received++;
@@ -533,6 +549,109 @@ void readBMI270(float& roll, float& pitch) {
     }
 }
 
+// Meta Muse 官方原版 Jollybot 过程化像素艺术小熊渲染适配器 (移植自 muse_pixel.c)
+void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMood cur_m, sticks3::BailianAgentState bl_state, uint8_t mic_vu, bool ble_conn, bool wifi_conn, bool is_hs, uint8_t speaker_vol) {
+    const int W = SCREEN_W;
+
+    // 1. 顶部状态栏 (0 ~ 18)
+    out_d.fillRect(0, 0, W, 18, 0x0841);
+    out_d.setTextDatum(ML_DATUM);
+    char vol_buf[16];
+    if (speaker_vol == 0) {
+        out_d.setTextColor(0xF800, 0x0841);
+        snprintf(vol_buf, sizeof(vol_buf), "VOL MUTE");
+    } else {
+        out_d.setTextColor(0x07FF, 0x0841);
+        snprintf(vol_buf, sizeof(vol_buf), "VOL %u%%", speaker_vol);
+    }
+    out_d.drawString(vol_buf, 4, 9);
+
+    if (ble_conn) {
+        out_d.fillRect(64, 2, 28, 14, 0x03FF);
+        out_d.setTextColor(0x0000, 0x03FF);
+        out_d.setTextDatum(MC_DATUM);
+        out_d.drawString("BLE", 78, 9);
+    }
+
+    if (wifi_conn) {
+        if (is_hs) {
+            out_d.fillRect(94, 2, 38, 14, 0xFD20);
+            out_d.setTextColor(0x0000, 0xFD20);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString("HOT", 113, 9);
+        } else {
+            out_d.fillRect(94, 2, 38, 14, 0x07E0);
+            out_d.setTextColor(0x0000, 0x07E0);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString("WiFi", 113, 9);
+        }
+    } else {
+        out_d.fillRect(94, 2, 38, 14, 0xF800);
+        out_d.setTextColor(0xFFFF, 0xF800);
+        out_d.setTextDatum(MC_DATUM);
+        out_d.drawString("!NET", 113, 9);
+    }
+
+    // 2. 映射与解算 Meta 原生 Jollybot 姿态
+    muse_pose_t pose;
+    static muse_mode_t s_last_mode = MUSE_MODE_BOOT;
+    static uint32_t s_mode_enter_ms = 0;
+
+    muse_mode_t cur_mode = MUSE_MODE_IDLE;
+    if (bl_state == sticks3::BL_STATE_LISTENING) {
+        cur_mode = MUSE_MODE_LISTENING;
+    } else if (bl_state == sticks3::BL_STATE_THINKING) {
+        cur_mode = MUSE_MODE_THINKING;
+    } else if (bl_state == sticks3::BL_STATE_SPEAKING) {
+        cur_mode = MUSE_MODE_SPEAKING;
+    } else if (bl_state == sticks3::BL_STATE_ERROR || bl_state == sticks3::BL_STATE_INTERRUPTED) {
+        cur_mode = MUSE_MODE_ERROR;
+    } else if (cur_m == sticks3::MOOD_SLEEP) {
+        cur_mode = MUSE_MODE_OFF;
+    } else if (cur_m == sticks3::MOOD_DIZZY) {
+        cur_mode = MUSE_MODE_ERROR;
+    } else {
+        cur_mode = MUSE_MODE_IDLE;
+    }
+
+    if (cur_mode != s_last_mode) {
+        s_last_mode = cur_mode;
+        s_mode_enter_ms = millis();
+    }
+
+    pose.mode = cur_mode;
+    pose.t = (float)millis() / 1000.0f;
+    pose.mode_t = (float)(millis() - s_mode_enter_ms) / 1000.0f;
+    pose.level = (float)mic_vu / 100.0f;
+    if (pose.level > 1.0f) pose.level = 1.0f;
+    pose.happy = (cur_m == sticks3::MOOD_HAPPY || cur_m == sticks3::MOOD_EAT || cur_m == sticks3::MOOD_WINK) ? 1.0f : 0.0f;
+
+    muse_pixel_render(&pose);
+    muse_pixel_set_size(128);
+
+    // 3. 渲染 128x128 像素阵列到屏幕正中 (X: 3~131, Y: 22~150)
+    out_d.fillRect(0, 18, W, 4, 0x0000);
+    out_d.fillRect(0, 22, 3, 128, 0x0000);
+    out_d.fillRect(131, 22, 4, 128, 0x0000);
+    out_d.fillRect(0, 150, W, 4, 0x0000);
+
+    uint16_t row_buf[128];
+    for (int r = 0; r < 128; r++) {
+        muse_pixel_scale(row_buf, 128, 0, 127, r, r);
+        out_d.pushImage(3, 22 + r, 128, 1, row_buf);
+    }
+
+    // 4. 对话字幕气泡区 (Y: 154 ~ 216)
+    out_d.fillRoundRect(2, 154, W - 4, 62, 6, 0x10A2);
+    out_d.drawRoundRect(2, 154, W - 4, 62, 6, 0x2965);
+
+    // 5. 底部宠物标识条 (Y: 220 ~ 240)
+    out_d.fillRect(0, 220, W, 20, 0x0000);
+    out_d.setTextDatum(ML_DATUM);
+    out_d.setTextColor(0xFDE0, 0x0000); // 金色
+    out_d.drawString("★ Meta Jollybot | 像素宠", 4, 230);
+}
+
 void setup() {
     // 提升主循环 loopTask 优先级至 4 (高于 audioTask 3 与 websocket_task 1，确保控制流指令与打断必定优先执行，彻底杜绝互斥锁垄断与饥饿)
     vTaskPrioritySet(NULL, 4);
@@ -699,6 +818,17 @@ void setup() {
         sticks3::StickS3BailianClient::getInstance().onWakeWordDetected(conf, dur_ms);
     });
 
+    // 8.6 读取持久化灵宠形象选择 (Meta Jollybot 像素宠 / 灵伴悄悄矢量宠)
+    Preferences prefs_pet;
+    if (prefs_pet.begin("sticks3_cfg", true)) {
+        uint8_t saved_p = prefs_pet.getUChar("active_pet", (uint8_t)PET_QIAOQIAO);
+        if (saved_p < PET_COUNT) {
+            g_active_pet = (ActivePetType)saved_p;
+        }
+        prefs_pet.end();
+    }
+    Serial.printf("[BOOT] Active Pet Avatar: %s\n", (g_active_pet == PET_JOLLYBOT) ? "Meta Jollybot (Pixel Art)" : "灵伴悄悄 (Procedural Vector)");
+
     // 播放开机上扬和弦音
     if (audio_ok) {
         sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_STARTUP);
@@ -744,7 +874,29 @@ void loop() {
     bool curA = digitalRead(PIN_BTN_A);
     bool curB = digitalRead(PIN_BTN_B);
     btnA_clicked = (btnA_prev == HIGH && curA == LOW);
-    btnB_clicked = (btnB_prev == HIGH && curB == LOW);
+
+    // 侧键 B 状态机检测:
+    // 短按释放 (< 750ms): 切换微表情模式 vs 工程师诊断看板
+    // 长按触发 (>= 750ms): 切换灵宠形象 (Meta 原版 Jollybot 像素宠 <-> 灵伴悄悄矢量大眼)
+    static uint32_t s_btnB_press_down_tick = 0;
+    static bool s_btnB_long_press_handled = false;
+    bool btnB_short_clicked = false;
+    bool btnB_long_pressed = false;
+
+    if (btnB_prev == HIGH && curB == LOW) {
+        s_btnB_press_down_tick = millis();
+        s_btnB_long_press_handled = false;
+    } else if (curB == LOW) {
+        if (!s_btnB_long_press_handled && (millis() - s_btnB_press_down_tick >= 750)) {
+            s_btnB_long_press_handled = true;
+            btnB_long_pressed = true;
+        }
+    } else if (btnB_prev == LOW && curB == HIGH) {
+        if (!s_btnB_long_press_handled && (millis() - s_btnB_press_down_tick < 750)) {
+            btnB_short_clicked = true;
+        }
+    }
+
     btnA_prev = curA;
     btnB_prev = curB;
 
@@ -858,6 +1010,46 @@ void loop() {
                                       cfg_mgr.getStaRSSI(),
                                       device_connected ? "true" : "false",
                                       g_pet_avatar_mode ? "true" : "false");
+                    } else if (cmd_or_msg.startsWith(">pet=") || cmd_or_msg.startsWith(">avatar=")) {
+                        int eq_idx = cmd_or_msg.indexOf('=');
+                        String p_val = cmd_or_msg.substring(eq_idx + 1);
+                        p_val.trim();
+                        p_val.toLowerCase();
+                        if (p_val == "jollybot" || p_val == "jolly" || p_val == "pixel" || p_val == "meta") {
+                            g_active_pet = PET_JOLLYBOT;
+                            g_pet_avatar_mode = true;
+                            sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
+                            Preferences p_pet;
+                            if (p_pet.begin("sticks3_cfg", false)) {
+                                p_pet.putUChar("active_pet", (uint8_t)g_active_pet);
+                                p_pet.end();
+                            }
+                            Serial.println("@pet {\"active\":\"jollybot\",\"name\":\"Meta Jollybot\",\"type\":\"pixel_art\",\"success\":true}");
+                        } else {
+                            g_active_pet = PET_QIAOQIAO;
+                            g_pet_avatar_mode = true;
+                            sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
+                            Preferences p_pet;
+                            if (p_pet.begin("sticks3_cfg", false)) {
+                                p_pet.putUChar("active_pet", (uint8_t)g_active_pet);
+                                p_pet.end();
+                            }
+                            Serial.println("@pet {\"active\":\"qiaoqiao\",\"name\":\"灵伴悄悄\",\"type\":\"procedural_vector\",\"success\":true}");
+                        }
+                    } else if (cmd_or_msg == ">pet" || cmd_or_msg == ">pet=?" || cmd_or_msg == "switch_pet") {
+                        if (cmd_or_msg == "switch_pet") {
+                            g_active_pet = (g_active_pet == PET_QIAOQIAO) ? PET_JOLLYBOT : PET_QIAOQIAO;
+                            g_pet_avatar_mode = true;
+                            sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
+                            Preferences p_pet;
+                            if (p_pet.begin("sticks3_cfg", false)) {
+                                p_pet.putUChar("active_pet", (uint8_t)g_active_pet);
+                                p_pet.end();
+                            }
+                        }
+                        Serial.printf("@pet {\"active\":\"%s\",\"name\":\"%s\",\"options\":[\"jollybot\",\"qiaoqiao\"]}\n",
+                                      (g_active_pet == PET_JOLLYBOT) ? "jollybot" : "qiaoqiao",
+                                      (g_active_pet == PET_JOLLYBOT) ? "Meta Jollybot" : "灵伴悄悄");
                     } else if (cmd_or_msg == "factory_reset" || cmd_or_msg == "reset_all") {
                         Serial.println("{\"type\":\"factory_reset\",\"status\":\"executing\"}");
                         sticks3::StickS3ConfigManager::getInstance().clearAllConfig();
@@ -993,12 +1185,27 @@ void loop() {
                     Serial.println("[AUDIO-EVENT] Btn A clicked -> Started 10s recording");
                 }
             }
-        } else if (btnB_clicked) {
-            // 侧面按键 B: 切换灵宠微表情模式与工程诊断看板
+        } else if (btnB_long_pressed) {
+            // 侧面按键 B 长按 (>= 750ms): 切换灵宠形象 (Meta 原版 Jollybot 像素宠 <-> 灵伴悄悄矢量大眼)
+            g_active_pet = (g_active_pet == PET_QIAOQIAO) ? PET_JOLLYBOT : PET_QIAOQIAO;
+            g_pet_avatar_mode = true;
+            sticks3::StickS3Avatar::getInstance().setAvatarMode(true);
+            audio.playChime(sticks3::CHIME_SUCCESS);
+            Preferences p_pet;
+            if (p_pet.begin("sticks3_cfg", false)) {
+                p_pet.putUChar("active_pet", (uint8_t)g_active_pet);
+                p_pet.end();
+            }
+            Serial.printf("[PET-EVENT] Btn B Long-Press -> Switched Active Pet to: %s\n",
+                          (g_active_pet == PET_JOLLYBOT) ? "Meta Jollybot (Pixel Art)" : "灵伴悄悄 (Procedural Vector)");
+            Serial.printf("@pet {\"active\":\"%s\",\"switched_by\":\"btn_b_long_press\",\"success\":true}\n",
+                          (g_active_pet == PET_JOLLYBOT) ? "jollybot" : "qiaoqiao");
+        } else if (btnB_short_clicked) {
+            // 侧面按键 B 短按 (< 750ms): 切换灵宠微表情模式与工程诊断看板
             g_pet_avatar_mode = !g_pet_avatar_mode;
             sticks3::StickS3Avatar::getInstance().setAvatarMode(g_pet_avatar_mode);
             audio.playTone(1500, 25, 0.40f);
-            Serial.printf("[EVENT] Btn B clicked -> Avatar Mode: %s\n", g_pet_avatar_mode ? "ON" : "OFF");
+            Serial.printf("[EVENT] Btn B Short-Click -> Avatar Mode: %s\n", g_pet_avatar_mode ? "ON" : "OFF");
         }
 
         // 自动连接百炼 WebSocket
@@ -1058,17 +1265,22 @@ void loop() {
                     }
                 }
                 auto cur_m = sticks3::StickS3Avatar::getInstance().getMood();
-                String tag = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? "说话中" :
-                             (bl.getState() == sticks3::BL_STATE_LISTENING) ? (bl.isWakeWindowOpen() ? "连麦聆听" : "等待唤醒") :
-                             (bl.getState() == sticks3::BL_STATE_THINKING) ? "思考中" :
-                             (cur_m == sticks3::MOOD_EAT) ? "进食中" :
-                             (cur_m == sticks3::MOOD_GROOM) ? "梳毛中" :
-                             (cur_m == sticks3::MOOD_WINK) ? "击掌中" :
-                             (cur_m == sticks3::MOOD_HAPPY) ? "开心" :
-                             (cur_m == sticks3::MOOD_DIZZY) ? "晕眩" :
-                             (cur_m == sticks3::MOOD_SLEEP) ? "睡眠中" : "就绪";
-                sticks3::StickS3Avatar::getInstance().render(out_d, subtitle, tag, device_connected, cfg_mgr.isStaConnected(), cfg_mgr.isHotspot(), cur_speaker_vol);
-                drawChineseText(out_d, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
+                if (g_active_pet == PET_JOLLYBOT) {
+                    renderJollybot(out_d, subtitle, cur_m, bl.getState(), mic_vu, device_connected, cfg_mgr.isStaConnected(), cfg_mgr.isHotspot(), cur_speaker_vol);
+                    drawChineseText(out_d, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
+                } else {
+                    String tag = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? "说话中" :
+                                 (bl.getState() == sticks3::BL_STATE_LISTENING) ? (bl.isWakeWindowOpen() ? "连麦聆听" : "等待唤醒") :
+                                 (bl.getState() == sticks3::BL_STATE_THINKING) ? "思考中" :
+                                 (cur_m == sticks3::MOOD_EAT) ? "进食中" :
+                                 (cur_m == sticks3::MOOD_GROOM) ? "梳毛中" :
+                                 (cur_m == sticks3::MOOD_WINK) ? "击掌中" :
+                                 (cur_m == sticks3::MOOD_HAPPY) ? "开心" :
+                                 (cur_m == sticks3::MOOD_DIZZY) ? "晕眩" :
+                                 (cur_m == sticks3::MOOD_SLEEP) ? "睡眠中" : "就绪";
+                    sticks3::StickS3Avatar::getInstance().render(out_d, subtitle, tag, device_connected, cfg_mgr.isStaConnected(), cfg_mgr.isHotspot(), cur_speaker_vol);
+                    drawChineseText(out_d, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
+                }
             } else {
         // 1. 顶部标题栏 (0 ~ 22, 展现当前播音音量、BLE 与 WiFi 状态指示徽章)
         uint16_t top_theme = cfg_mgr.isStaConnected() ? theme_color : 0x0841;

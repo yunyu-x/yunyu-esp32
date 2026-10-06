@@ -633,6 +633,20 @@
                 </button>
             </div>
 
+            <!-- 数字宠物形象切换条 (Meta Muse Jollybot 像素艺术小熊 ↔ 灵伴悄悄) -->
+            <div class="dashboard-card" style="padding: 12px 14px; margin-bottom: 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 107, 107, 0.25);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span id="petAvatarIcon" style="font-size:1.6rem;">🐻</span>
+                    <div>
+                        <div style="font-size:0.86rem; font-weight:700; color:var(--text-main);" id="petAvatarTitle">Meta Jollybot 像素小熊</div>
+                        <div style="font-size:0.72rem; color:var(--text-sub);" id="petAvatarSubtitle">Meta Muse 64x64 过程化像素艺术</div>
+                    </div>
+                </div>
+                <button class="btn-secondary" id="btnSwitchPet" onclick="toggleActivePet()" style="padding: 7px 14px; font-size:0.78rem; font-weight:600; background:rgba(255,107,107,0.18); border:1px solid rgba(255,107,107,0.5); color:#ff6b6b; border-radius:12px; cursor:pointer; transition:all 0.2s;">
+                    🔄 切换形象
+                </button>
+            </div>
+
             <!-- 拓麻歌子互动触控区 -->
             <div class="dashboard-card">
                 <div class="controls-title">
@@ -757,7 +771,8 @@
 
         // 灵宠生命状态
         const petState = {
-            name: "悄悄",
+            activePet: "jollybot", // 'jollybot' (Meta Muse 像素小熊) 或 'qiaoqiao' (灵伴悄悄)
+            name: "Meta Jollybot",
             level: 1,
             xp: 15,
             energy: 100,
@@ -834,10 +849,139 @@
         const sfx = new SoundFx();
 
         // ==========================================
-        // 3. Canvas 矢量表情引擎 (ST7789 135x240 拟真)
+        // 3. Canvas 矢量与像素艺术表情引擎 (ST7789 135x240 拟真)
         // ==========================================
         const canvas = document.getElementById("avatarCanvas");
         const ctx = canvas.getContext("2d");
+
+        // Meta Muse 官方原版 Jollybot 过程化像素艺术小熊 Web Canvas 渲染器
+        function drawJollybotAvatar(now, eyeColor) {
+            const cx = 67, cy = 84;
+            const bob = Math.sin(now * 0.003) * 2; // 微小呼吸律动
+
+            // 1. 小熊双耳
+            ctx.fillStyle = "#b45309";
+            ctx.beginPath();
+            ctx.arc(38, 56 + bob, 14, 0, Math.PI * 2);
+            ctx.arc(96, 56 + bob, 14, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 内耳粉金高光
+            ctx.fillStyle = "#fcd34d";
+            ctx.beginPath();
+            ctx.arc(38, 56 + bob, 8, 0, Math.PI * 2);
+            ctx.arc(96, 56 + bob, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 2. 头部超椭圆轮廓
+            ctx.fillStyle = "#d97706";
+            ctx.beginPath();
+            ctx.arc(cx, cy + bob, 34, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(253, 230, 138, 0.4)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 3. 腮红
+            ctx.fillStyle = "rgba(244, 114, 182, 0.65)";
+            ctx.beginPath();
+            ctx.arc(43, 94 + bob, 7, 0, Math.PI * 2);
+            ctx.arc(91, 94 + bob, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4. 奶黄色嘴套 (Snout)
+            ctx.fillStyle = "#fef3c7";
+            ctx.beginPath();
+            ctx.ellipse(cx, 93 + bob, 16, 11, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 鼻子
+            ctx.fillStyle = "#1e293b";
+            ctx.beginPath();
+            ctx.ellipse(cx, 89 + bob, 4.5, 3.2, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 嘴巴
+            ctx.strokeStyle = "#1e293b";
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            if (petState.mood === 3 || petState.mood === 10) {
+                ctx.fillStyle = "#f43f5e";
+                ctx.arc(cx, 97 + bob, 4.5, 0, Math.PI);
+                ctx.fill();
+                ctx.stroke();
+            } else {
+                ctx.arc(cx, 95 + bob, 5, 0.2 * Math.PI, 0.8 * Math.PI, false);
+                ctx.stroke();
+            }
+
+            // 5. 眼睛
+            const isBlink = petState.is_blinking || petState.mood === 7;
+            const eyeY = 77 + bob;
+            if (isBlink) {
+                ctx.strokeStyle = "#1e293b";
+                ctx.lineWidth = 2.4;
+                ctx.beginPath();
+                ctx.arc(52, eyeY, 6, 0.2 * Math.PI, 0.8 * Math.PI, false);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(82, eyeY, 6, 0.2 * Math.PI, 0.8 * Math.PI, false);
+                ctx.stroke();
+            } else if (petState.mood === 4 || petState.mood === 11) {
+                ctx.strokeStyle = "#1e293b";
+                ctx.lineWidth = 2.4;
+                ctx.beginPath();
+                ctx.arc(52, eyeY + 2, 6, 1.2 * Math.PI, 1.8 * Math.PI, false);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(82, eyeY + 2, 6, 1.2 * Math.PI, 1.8 * Math.PI, false);
+                ctx.stroke();
+            } else if (petState.mood === 5) {
+                ctx.strokeStyle = "#1e293b";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(52, eyeY, 5, 0, Math.PI * 1.5);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(82, eyeY, 5, 0, Math.PI * 1.5);
+                ctx.stroke();
+            } else {
+                const ox = (petState.mood === 2) ? 2 : 0;
+                const oy = (petState.mood === 2) ? -2 : 0;
+                ctx.fillStyle = "#0f172a";
+                ctx.beginPath();
+                ctx.arc(52 + ox, eyeY + oy, 6, 0, Math.PI * 2);
+                ctx.arc(82 + ox, eyeY + oy, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath();
+                ctx.arc(50 + ox, eyeY - 2 + oy, 2.2, 0, Math.PI * 2);
+                ctx.arc(80 + ox, eyeY - 2 + oy, 2.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(53 + ox, eyeY + 2 + oy, 1.1, 0, Math.PI * 2);
+                ctx.arc(83 + ox, eyeY + 2 + oy, 1.1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 6. 拟态动态挂件 (爱心 / 思考点 / 听力波束)
+            if (petState.mood === 4 || petState.mood === 10) {
+                ctx.fillStyle = "#ec4899";
+                ctx.font = "bold 14px sans-serif";
+                ctx.fillText("♥", cx - 4, 38 + bob);
+            } else if (petState.mood === 2) {
+                ctx.fillStyle = "#fbbf24";
+                ctx.font = "bold 12px sans-serif";
+                ctx.fillText(". . .", 98, 42 + bob);
+            } else if (petState.mood === 1) {
+                ctx.strokeStyle = "#38bdf8";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(22, 54 + bob, 8, 1.3 * Math.PI, 0.7 * Math.PI, true);
+                ctx.stroke();
+            }
+        }
 
         function drawAvatar() {
             const now = Date.now();
@@ -856,15 +1000,6 @@
             const tags = ["就绪", "专注聆听", "歪头思考", "快乐说话", "心动开心", "眩晕转圈", "失重惊吓", "香甜好梦", "好奇探头", "傲娇得意", "大口咀嚼", "舒适梳毛", "默契放电"];
             ctx.fillText(tags[petState.mood] || "就绪", 131, 12);
             ctx.textAlign = "left";
-
-            // 2. 双眼与面部基准
-            const eye_y = 75;
-            const eye_lx = 38;
-            const eye_rx = 97;
-            const eye_w = 28;
-            const eye_h = 38;
-            const mouth_x = 67;
-            const mouth_y = 120;
 
             let eyeColor = "#38bdf8"; // 迪士尼灵动天青蓝
             if (petState.mood === 1) eyeColor = "#00f2fe"; // 专注青空蓝
@@ -889,8 +1024,21 @@
                 }
             }
 
-            // 绘制迪士尼风格双高光大眼 (Disney Liquid Eyes)
-            function drawDisneyEye(cx, cy, w, h, pupilR, ox = 0, oy = 0, blink = 0) {
+            // 2. 形象绘制
+            if (petState.activePet === "jollybot") {
+                drawJollybotAvatar(now, eyeColor);
+            } else {
+                // 灵伴悄悄灵动矢量面部
+                const eye_y = 75;
+                const eye_lx = 38;
+                const eye_rx = 97;
+                const eye_w = 28;
+                const eye_h = 38;
+                const mouth_x = 67;
+                const mouth_y = 120;
+
+                // 绘制迪士尼风格双高光大眼 (Disney Liquid Eyes)
+                function drawDisneyEye(cx, cy, w, h, pupilR, ox = 0, oy = 0, blink = 0) {
                 const cur_h = Math.max(3, h * (1.0 - blink * 0.9));
                 ctx.fillStyle = eyeColor;
                 ctx.beginPath();
@@ -1136,6 +1284,7 @@
                 ctx.arc(mouth_x, mouth_y - 2, 6, 0.15 * Math.PI, 0.85 * Math.PI, false);
                 ctx.stroke();
             }
+            }
 
             // 4. 对话字幕气泡 (Y: 154 ~ 216)
             ctx.fillStyle = "#0f172a";
@@ -1216,6 +1365,7 @@
 
         function syncPetStateFromHttp(d) {
             if (d.name) petState.name = d.name;
+            if (d.active_pet) petState.activePet = d.active_pet;
             if (d.level !== undefined) petState.level = d.level;
             if (d.xp !== undefined) petState.xp = d.xp;
             if (d.energy !== undefined) petState.energy = d.energy;
@@ -1352,6 +1502,71 @@
             document.getElementById("tagFeeds").innerText = `喂食: ${petState.feeds}`;
             document.getElementById("tagGrooms").innerText = `梳毛: ${petState.grooms}`;
             document.getElementById("tagShakes").innerText = `晃晃: ${petState.shakes}`;
+            updatePetAvatarBadge();
+        }
+
+        function updatePetAvatarBadge() {
+            const isJolly = (petState.activePet === "jollybot");
+            const icon = document.getElementById("petAvatarIcon");
+            const title = document.getElementById("petAvatarTitle");
+            const sub = document.getElementById("petAvatarSubtitle");
+            const btn = document.getElementById("btnSwitchPet");
+            if (icon) icon.innerText = isJolly ? "🐻" : "🦊";
+            if (title) title.innerText = isJolly ? "Meta Jollybot 像素小熊" : "灵伴悄悄";
+            if (sub) sub.innerText = isJolly ? "Meta Muse 64x64 过程化像素艺术" : "灵伴灵动矢量拟态伴侣";
+            if (btn) btn.innerText = isJolly ? "🔄 切为悄悄" : "🔄 切为小熊";
+        }
+
+        async function toggleActivePet() {
+            sfx.init();
+            sfx.playHighFiveSound();
+
+            const nextPet = (petState.activePet === "jollybot") ? "qiaoqiao" : "jollybot";
+            petState.activePet = nextPet;
+            petState.name = (nextPet === "jollybot") ? "Meta Jollybot" : "悄悄";
+            updateUi();
+
+            showToast(`正在切换形象为: ${nextPet === "jollybot" ? "Meta Jollybot 像素小熊" : "灵伴悄悄"}...`);
+
+            // 1. 尝试云端 / 本地 Agent REST API
+            try {
+                const res = await fetch('/api/pet/switch', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ pet: nextPet })
+                });
+                if (res.ok) {
+                    showToast(`硬件与云端已同步切换为: ${nextPet === "jollybot" ? "Meta Jollybot" : "灵伴悄悄"}`);
+                    addNewDiaryBubble(`已切换数字宠物形象为：${nextPet === "jollybot" ? "Meta Jollybot 像素艺术小熊" : "灵伴悄悄"}！`);
+                    return;
+                }
+            } catch(e) {}
+
+            // 2. 尝试 StickS3 Wi-Fi 局域网 WebServer
+            if (isWifiConnected) {
+                try {
+                    await fetch(`http://${wifiHost}/pet/action`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: `action=switch_pet&value=${nextPet}`
+                    });
+                    addNewDiaryBubble(`Wi-Fi 伴侣已切换数字宠物形象为：${nextPet === "jollybot" ? "Meta Jollybot 像素艺术小熊" : "灵伴悄悄"}！`);
+                    return;
+                } catch(e) {}
+            }
+
+            // 3. 尝试 BLE 写入指令
+            if (charInject) {
+                try {
+                    const payload = JSON.stringify({ action: "switch_pet", value: nextPet });
+                    const encoder = new TextEncoder();
+                    await charInject.writeValue(encoder.encode(payload));
+                    addNewDiaryBubble(`BLE 伴侣已切换数字宠物形象为：${nextPet === "jollybot" ? "Meta Jollybot 像素艺术小熊" : "灵伴悄悄"}！`);
+                    return;
+                } catch(e) {}
+            }
+
+            addNewDiaryBubble(`本地已切换数字宠物形象为：${nextPet === "jollybot" ? "Meta Jollybot 像素艺术小熊" : "灵伴悄悄"}！`);
         }
 
         function addNewDiaryBubble(text) {

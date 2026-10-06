@@ -468,3 +468,99 @@ def test_websocket_realtime_gateway(agent_client):
         m_cancel = ws.receive_json()
         assert m_cancel["type"] == "response.cancelled"
         assert m_cancel["reason"] == "barge_in"
+
+
+# -----------------------------------------------------------------------------
+# Test 9: Digital Pet Avatar Switching Full Stack (Meta Jollybot vs Qiaoqiao)
+# -----------------------------------------------------------------------------
+def test_pet_avatar_switching_full_stack():
+    """
+    Validates seamless switching between Meta Muse Jollybot 64x64 pixel art bear
+    and LingBuddy QiaoQiao procedural vector pet across:
+    1. LingCubeDeviceState model and telemetry.
+    2. DeviceSkillRegistry embodied tool schemas and tool execution.
+    3. BailianAgentEngine natural language intent extraction.
+    4. SerialHatchManager >pet= and switch_pet protocol framing.
+    5. FastAPI REST endpoints /api/pet/list and /api/pet/switch.
+    """
+    device = LingCubeDeviceState("LingCube-PetTest")
+    assert device.active_pet == "jollybot"
+    assert device.get_telemetry()["active_pet"] == "jollybot"
+
+    # 1. State switching
+    ok, msg = device.switch_pet("qiaoqiao")
+    assert ok is True
+    assert device.active_pet == "qiaoqiao"
+    assert device.get_telemetry()["active_pet"] == "qiaoqiao"
+
+    ok, msg = device.switch_pet("invalid_pet")
+    assert ok is False
+    assert device.active_pet == "qiaoqiao"
+
+    # 2. Tool schema & Registry execution
+    reg = DeviceSkillRegistry(device)
+    schemas = reg.get_tools_schema()
+    tool_names = [t["function"]["name"] for t in schemas]
+    assert "lingbuddy_switch_pet" in tool_names
+
+    res = reg.execute_tool("lingbuddy_switch_pet", {"pet": "jollybot"})
+    assert res["success"] is True
+    assert res["active_pet"] == "jollybot"
+    assert device.active_pet == "jollybot"
+
+    # 3. Natural language intent parser in BailianAgentEngine
+    engine = BailianAgentEngine(reg, force_mock=True)
+    tools, reply, face = engine._mock_semantic_plan("悄悄，请切换成小熊形象")
+    assert any(t["name"] == "lingbuddy_switch_pet" and t["args"]["pet"] == "jollybot" for t in tools)
+    assert "Jollybot" in reply
+    assert reply.startswith("[E:")
+
+    tools2, reply2, face2 = engine._mock_semantic_plan("帮我切换成悄悄宠物")
+    assert any(t["name"] == "lingbuddy_switch_pet" and t["args"]["pet"] == "qiaoqiao" for t in tools2)
+    assert "悄悄" in reply2
+
+    # 4. Serial Hatch Manager protocol
+    hatch = SerialHatchManager(agent_engine=engine, device_state=device)
+    f1 = hatch.handle_line(">pet=jollybot")
+    assert len(f1) == 1
+    assert "@pet" in f1[0]
+    p_data = json.loads(f1[0].split(" ", 1)[1])
+    assert p_data["active"] == "jollybot"
+    assert p_data["success"] is True
+
+    f2 = hatch.handle_line(">pet=qiaoqiao")
+    assert len(f2) == 1
+    p_data2 = json.loads(f2[0].split(" ", 1)[1])
+    assert p_data2["active"] == "qiaoqiao"
+
+    f3 = hatch.handle_line(">pet")
+    assert len(f3) == 1
+    p_data3 = json.loads(f3[0].split(" ", 1)[1])
+    assert p_data3["options"] == ["jollybot", "qiaoqiao"]
+
+    f4 = hatch.handle_line("switch_pet")
+    assert len(f4) == 1
+    p_data4 = json.loads(f4[0].split(" ", 1)[1])
+    assert p_data4["active"] == "jollybot"
+
+    # 5. FastAPI Endpoints
+    agent = BailianMuseCloudAgent(port=8099, enable_serial=False, tunnel_mode="none", force_mock_llm=True)
+    client = TestClient(agent.app)
+
+    r_list = client.get("/api/pet/list")
+    assert r_list.status_code == 200
+    list_json = r_list.json()
+    assert list_json["active"] in ["jollybot", "qiaoqiao"]
+    assert len(list_json["pets"]) == 2
+    assert {p["id"] for p in list_json["pets"]} == {"jollybot", "qiaoqiao"}
+
+    r_switch = client.post("/api/pet/switch", json={"pet": "qiaoqiao"})
+    assert r_switch.status_code == 200
+    sw_json = r_switch.json()
+    assert sw_json["success"] is True
+    assert sw_json["active_pet"] == "qiaoqiao"
+
+    r_switch2 = client.post("/api/pet/switch", json={"pet": "jollybot"})
+    assert r_switch2.status_code == 200
+    assert r_switch2.json()["active_pet"] == "jollybot"
+

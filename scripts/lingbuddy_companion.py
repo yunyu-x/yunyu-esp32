@@ -62,10 +62,12 @@ class LingBuddySimulatorClient:
             "feeds": getattr(self, "feeds", 0),
             "grooms": getattr(self, "grooms", 0),
             "energy": getattr(self, "energy", 100),
-            "mood": self.mood
+            "mood": self.mood,
+            "active_pet": getattr(self, "active_pet", "jollybot")
         }
 
     def inject_action(self, action: str, value: Any = None) -> Dict[str, Any]:
+        if not hasattr(self, "active_pet"): self.active_pet = "jollybot"
         if not hasattr(self, "feeds"): self.feeds = 0
         if not hasattr(self, "grooms"): self.grooms = 0
         if not hasattr(self, "energy"): self.energy = 100
@@ -133,6 +135,15 @@ class LingBuddySimulatorClient:
             diary = f"主人从手机同步了一条新的生活备忘: {value}"
             self.diary_history.append(diary)
             return {"status": "ok", "diary": diary}
+        elif action == "switch_pet":
+            pet = str(value).lower() if value else ("jollybot" if getattr(self, "active_pet", "qiaoqiao") == "qiaoqiao" else "qiaoqiao")
+            if pet not in ["jollybot", "qiaoqiao"]:
+                pet = "jollybot"
+            self.active_pet = pet
+            self.name = "Meta Jollybot" if pet == "jollybot" else "悄悄"
+            diary = f"宠物形象已无缝切换为: {'Meta Jollybot 像素艺术小熊' if pet == 'jollybot' else '灵伴悄悄'}！"
+            self.diary_history.append(diary)
+            return {"status": "ok", "action": "switch_pet", "active_pet": self.active_pet, "name": self.name, "diary": diary}
         return {"status": "unknown_action"}
 
     def get_chunked_memory(self, chunk_size: int = 48) -> List[str]:
