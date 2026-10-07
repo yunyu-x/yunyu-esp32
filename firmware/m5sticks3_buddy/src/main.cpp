@@ -719,27 +719,43 @@ void readBMI270(float& roll, float& pitch) {
 // 6. 苹果工艺审美与零字幕沉浸大屏：取消中文字幕气泡，全面释放 202px 完整高度空间
 // ============================================================================
 
-// 肢体抗锯齿圆角胶囊骨骼绘制 (动漫三色阶 + 边缘逆光光晕)
-static void drawBearLimbCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, int r, uint16_t col, uint16_t border_col) {
-    d.fillCircle(x1, y1, r, col);
-    d.fillCircle(x2, y2, r, col);
-    for (int dr = -r + 1; dr <= r - 1; dr++) {
-        d.drawLine(x1 + dr, y1, x2 + dr, y2, col);
-        d.drawLine(x1, y1 + dr, x2, y2 + dr, col);
+// 肢体抗锯齿微锥形骨骼绘制 (动漫三色阶 + 边缘逆光光晕，消除直筒呆板感)
+static void drawBearTaperedCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, int r1, int r2, uint16_t col, uint16_t border_col) {
+    d.fillCircle(x1, y1, r1, col);
+    d.fillCircle(x2, y2, r2, col);
+    float dx = (float)(x2 - x1);
+    float dy = (float)(y2 - y1);
+    float len = std::sqrt(dx * dx + dy * dy);
+    if (len > 0.5f) {
+        float nx = -dy / len;
+        float ny = dx / len;
+        int p1x = x1 + (int)(nx * r1), p1y = y1 + (int)(ny * r1);
+        int p2x = x1 - (int)(nx * r1), p2y = y1 - (int)(ny * r1);
+        int p3x = x2 - (int)(nx * r2), p3y = y2 - (int)(ny * r2);
+        int p4x = x2 + (int)(nx * r2), p4y = y2 + (int)(ny * r2);
+        d.fillTriangle(p1x, p1y, p2x, p2y, p3x, p3y, col);
+        d.fillTriangle(p1x, p1y, p3x, p3y, p4x, p4y, col);
+        d.drawLine(p1x, p1y, p4x, p4y, border_col);
+        d.drawLine(p2x, p2y, p3x, p3y, border_col);
+        d.drawLine(p1x, p1y, p4x, p4y, sticks3::ANIME_COL_KEYLIGHT);
     }
-    // 上边缘香草暖金高光细线 (Key Light Highlight)
-    d.drawLine(x1, y1 - r + 1, x2, y2 - r + 1, sticks3::ANIME_COL_KEYLIGHT);
-    d.drawCircle(x1, y1, r, border_col);
-    d.drawCircle(x2, y2, r, border_col);
+    d.drawCircle(x1, y1, r1, border_col);
+    d.drawCircle(x2, y2, r2, border_col);
 }
 
-// 绘制双段多关节自然屈伸肢体 (含肘/膝关节弧度屈曲，消除火柴棍僵硬)
+// 兼容原胶囊接口
+static void drawBearLimbCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, int r, uint16_t col, uint16_t border_col) {
+    drawBearTaperedCapsule(d, x1, y1, x2, y2, r, r, col, border_col);
+}
+
+// 绘制双段多关节自然屈伸肢体 (双段锥形平滑过渡，大臂饱满、小臂修长)
 static void drawBearArticulatedLimb(LovyanGFX& d, int x1, int y1, int xm, int ym, int x2, int y2, int r1, int r2, uint16_t col, uint16_t border_col) {
-    drawBearLimbCapsule(d, x1, y1, xm, ym, r1, col, border_col);
-    drawBearLimbCapsule(d, xm, ym, x2, y2, r2, col, border_col);
-    d.fillCircle(xm, ym, r2, col);
-    d.drawCircle(xm, ym, r2, border_col);
-    d.drawPixel(xm, ym - r2 + 1, sticks3::ANIME_COL_KEYLIGHT);
+    int rm = (r1 + r2) / 2;
+    drawBearTaperedCapsule(d, x1, y1, xm, ym, r1, rm, col, border_col);
+    drawBearTaperedCapsule(d, xm, ym, x2, y2, rm, r2, col, border_col);
+    d.fillCircle(xm, ym, rm, col);
+    d.drawCircle(xm, ym, rm, border_col);
+    d.drawPixel(xm, ym - rm + 1, sticks3::ANIME_COL_KEYLIGHT);
 }
 
 // 萌熊前爪 (掌心肉垫 + 3 颗萌小豆)
@@ -772,16 +788,41 @@ static void drawBearTail(LovyanGFX& d, int tx, int ty, int tr, uint16_t base_col
     d.drawCircle(tx, ty, tr, sticks3::ANIME_COL_OUTLINE);
 }
 
-// 上肢双段独立绘制单元 (供 3D Z-Depth 深度排序调用)
+// 上肢双段独立绘制单元 (供 3D Z-Depth 深度排序调用 - 元气舒展大臂小臂)
 static void drawBearUpperArmL(LovyanGFX& d, const sticks3::BearFullBodySkeleton& skel, int sh_lx, int sh_ly, int paw_lx, int paw_ly) {
-    drawBearArticulatedLimb(d, sh_lx, sh_ly, (int)skel.elbow_lx, (int)skel.elbow_ly, paw_lx, paw_ly, 5, 5, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
-    drawBearPaw(d, paw_lx, paw_ly, 6, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+    drawBearArticulatedLimb(d, sh_lx, sh_ly, (int)skel.elbow_lx, (int)skel.elbow_ly, paw_lx, paw_ly, 6, 4, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+    drawBearPaw(d, paw_lx, paw_ly, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
 }
 
 static void drawBearUpperArmR(LovyanGFX& d, const sticks3::BearFullBodySkeleton& skel, int sh_rx, int sh_ry, int paw_rx, int paw_ry) {
-    drawBearArticulatedLimb(d, sh_rx, sh_ry, (int)skel.elbow_rx, (int)skel.elbow_ly, paw_rx, paw_ry, 5, 5, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
-    drawBearPaw(d, paw_rx, paw_ry, 6, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+    drawBearArticulatedLimb(d, sh_rx, sh_ry, (int)skel.elbow_rx, (int)skel.elbow_ry, paw_rx, paw_ry, 6, 4, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+    drawBearPaw(d, paw_rx, paw_ry, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
 }
+
+// 17 套真机完整姿态阅兵序列 (Showcase Actions)
+static const sticks3::BearAction SHOWCASE_ACTIONS[] = {
+    sticks3::BEAR_ACT_WAVE,         // 1. 元气挥手
+    sticks3::BEAR_ACT_BOW,          // 2. 作揖鞠躬
+    sticks3::BEAR_ACT_CHEER,        // 3. 欢呼雀跃
+    sticks3::BEAR_ACT_CLAP,         // 4. 鼓掌拍手
+    sticks3::BEAR_ACT_STRETCH,      // 5. 伸大懒腰
+    sticks3::BEAR_ACT_SIT,          // 6. 呆萌坐下
+    sticks3::BEAR_ACT_JUMP,         // 7. 弹性跳跃
+    sticks3::BEAR_ACT_BALANCE,      // 8. 金鸡独立
+    sticks3::BEAR_ACT_TAICHI,       // 9. 太极云手
+    sticks3::BEAR_ACT_WINGCHUN,     // 10. 咏春快拳
+    sticks3::BEAR_ACT_KUNGFU,       // 11. 中国功夫
+    sticks3::BEAR_ACT_DRAGON_PUNCH, // 12. 升龙霸天
+    sticks3::BEAR_ACT_MOONWALK,     // 13. 太空漫步
+    sticks3::BEAR_ACT_CYBER_DEFENSE,// 14. 机甲护盾
+    sticks3::BEAR_ACT_TURN_AROUND,  // 15. 转身秀尾
+    sticks3::BEAR_ACT_SPIN,         // 16. 华丽自旋
+    sticks3::BEAR_ACT_LOCKED_TRY    // 17. 困惑挠头
+};
+static const size_t SHOWCASE_COUNT = sizeof(SHOWCASE_ACTIONS) / sizeof(SHOWCASE_ACTIONS[0]);
+static bool s_demo_showcase_mode = false;
+static size_t s_demo_showcase_idx = 0;
+static uint32_t s_demo_last_switch_ms = 0;
 
 // 全屏技能解锁与等级晋升庆典特效 (Skill Unlock Ceremony Overlay)
 static void drawUnlockCeremonyOverlay(LovyanGFX& out_d, uint32_t now, sticks3::BearGrowthManager& gm) {
@@ -937,33 +978,33 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         drawBearTail(out_d, tx, ty, 6, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_SHADOW);
     }
 
-    // 5. 下肢绘制 (双腿与脚掌，居于躯干底层)
-    int hip_lx = (int)(skel.body_x - 13);
-    int hip_ly = (int)(skel.body_y + 14);
-    int hip_rx = (int)(skel.body_x + 13);
-    int hip_ry = (int)(skel.body_y + 14);
+    // 5. 下肢绘制 (双腿与脚掌，居于躯干底层 - 元气舒展修长造型)
+    int hip_lx = (int)(skel.body_x - 14);
+    int hip_ly = (int)(skel.body_y + 15);
+    int hip_rx = (int)(skel.body_x + 14);
+    int hip_ry = (int)(skel.body_y + 15);
 
     if (skel.is_sitting) {
-        // 坐姿：双腿向两侧外八盘坐，露出前方肉垫
-        int foot_lx = (int)(skel.body_x - 24);
-        int foot_ly = (int)(skel.body_y + 16);
-        int foot_rx = (int)(skel.body_x + 24);
-        int foot_ry = (int)(skel.body_y + 16);
-        drawBearLimbCapsule(out_d, hip_lx, hip_ly, foot_lx, foot_ly, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
-        drawBearLimbCapsule(out_d, hip_rx, hip_ry, foot_rx, foot_ry, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
-        drawBearFoot(out_d, foot_lx, foot_ly, 9, 8, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
-        drawBearFoot(out_d, foot_rx, foot_ry, 9, 8, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+        // 坐姿：双腿向两侧外八盘坐，露出前方萌爪肉垫
+        int foot_lx = (int)(skel.body_x - 25);
+        int foot_ly = (int)(skel.body_y + 18);
+        int foot_rx = (int)(skel.body_x + 25);
+        int foot_ry = (int)(skel.body_y + 18);
+        drawBearTaperedCapsule(out_d, hip_lx, hip_ly, foot_lx, foot_ly, 7, 6, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+        drawBearTaperedCapsule(out_d, hip_rx, hip_ry, foot_rx, foot_ry, 7, 6, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+        drawBearFoot(out_d, foot_lx, foot_ly, 10, 8, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+        drawBearFoot(out_d, foot_rx, foot_ry, 10, 8, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
     } else {
-        // 站立/运动姿态：双段腿部大腿+小腿+膝关节中点，自然屈伸协同
-        int foot_lx = (int)(skel.body_x - 14 + skel.left_leg.flex_x);
-        int foot_ly = (int)(skel.body_y + 36 + skel.left_leg.flex_y);
-        int foot_rx = (int)(skel.body_x + 14 + skel.right_leg.flex_x);
-        int foot_ry = (int)(skel.body_y + 36 + skel.right_leg.flex_y);
+        // 站立/运动姿态：元气修长双腿与双关节自然屈伸协同
+        int foot_lx = (int)(skel.body_x - 15 + skel.left_leg.flex_x);
+        int foot_ly = (int)(skel.body_y + 39 + skel.left_leg.flex_y);
+        int foot_rx = (int)(skel.body_x + 15 + skel.right_leg.flex_x);
+        int foot_ry = (int)(skel.body_y + 39 + skel.right_leg.flex_y);
 
-        drawBearArticulatedLimb(out_d, hip_lx, hip_ly, (int)skel.knee_lx, (int)skel.knee_ly, foot_lx, foot_ly, 6, 5, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
-        drawBearArticulatedLimb(out_d, hip_rx, hip_ry, (int)skel.knee_rx, (int)skel.knee_ry, foot_rx, foot_ry, 6, 5, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
-        drawBearFoot(out_d, foot_lx, foot_ly, 8, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
-        drawBearFoot(out_d, foot_rx, foot_ry, 8, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+        drawBearArticulatedLimb(out_d, hip_lx, hip_ly, (int)skel.knee_lx, (int)skel.knee_ly, foot_lx, foot_ly, 7, 5, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+        drawBearArticulatedLimb(out_d, hip_rx, hip_ry, (int)skel.knee_rx, (int)skel.knee_ry, foot_rx, foot_ry, 7, 5, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+        drawBearFoot(out_d, foot_lx, foot_ly, 9, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+        drawBearFoot(out_d, foot_rx, foot_ry, 9, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
     }
 
     // 6. 3D 透视深度次序解算 (Painter's Algorithm Z-Depth Sorting)
@@ -972,18 +1013,19 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     int bw2 = (int)(skel.body_w * 0.5f);
     int bh2 = (int)(skel.body_h * 0.5f);
 
-    int sh_lx = bx - 18;
-    int sh_ly = by - 8;
-    int sh_rx = bx + 18;
-    int sh_ry = by - 8;
+    int sh_lx = bx - 19;
+    int sh_ly = by - 11;
+    int sh_rx = bx + 19;
+    int sh_ry = by - 11;
 
     float rad_l = skel.left_arm.angle_deg * 0.0174533f;
     float rad_r = skel.right_arm.angle_deg * 0.0174533f;
 
-    int paw_lx = sh_lx - (int)(22.0f * std::sin(rad_l)) + (int)skel.left_arm.flex_x;
-    int paw_ly = sh_ly + (int)(22.0f * std::cos(rad_l)) + (int)skel.left_arm.flex_y;
-    int paw_rx = sh_rx + (int)(22.0f * std::sin(rad_r)) + (int)skel.right_arm.flex_x;
-    int paw_ry = sh_ry + (int)(22.0f * std::cos(rad_r)) + (int)skel.right_arm.flex_y;
+    int arm_len = 26; // 舒展修长大臂小臂，大幅增强动作挥舞张力
+    int paw_lx = sh_lx - (int)(arm_len * std::sin(rad_l)) + (int)skel.left_arm.flex_x;
+    int paw_ly = sh_ly + (int)(arm_len * std::cos(rad_l)) + (int)skel.left_arm.flex_y;
+    int paw_rx = sh_rx + (int)(arm_len * std::sin(rad_r)) + (int)skel.right_arm.flex_x;
+    int paw_ry = sh_ry + (int)(arm_len * std::cos(rad_r)) + (int)skel.right_arm.flex_y;
 
     // 比较手臂世界坐标 Z 与躯干中心 Z 深度:
     // Z 越大距离相机越远，需在躯干前先行绘制 (背向手臂先画，正向手臂后画)
@@ -998,22 +1040,52 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     if (l_arm_behind) drawBearUpperArmL(out_d, skel, sh_lx, sh_ly, paw_lx, paw_ly);
     if (r_arm_behind) drawBearUpperArmR(out_d, skel, sh_rx, sh_ry, paw_rx, paw_ry);
 
-    // (B) 躯干胸腹绘制 (Anime 3-Tone Cel-Shading + 边缘逆光金辉)
-    out_d.fillEllipse(bx, by + 2, bw2 + 1, bh2 + 1, sticks3::ANIME_COL_SHADOW);   // 深可可环境遮蔽
-    out_d.fillEllipse(bx, by, bw2, bh2, sticks3::ANIME_COL_MIDTONE);              // 暖焦糖主躯干
-    out_d.drawArc(bx - 1, by - 2, bw2 - 4, bw2 - 2, 210, 280, sticks3::ANIME_COL_KEYLIGHT); // 主受光金光晕
-    out_d.drawArc(bx + 1, by - 1, bw2 - 1, bw2, 40, 110, sticks3::ANIME_COL_RIMLIGHT);     // 边缘逆光光晕
+    // (B) 躯干胸腹绘制 (元气梨形微胖小肚身形 + Anime 3-Tone Cel-Shading)
+    // 梨形复合造型：上胸略窄 (bw2 - 4), 下腹饱满 (bw2 + 1)
+    int chest_y = by - 7;
+    int chest_rx = bw2 - 4;
+    int chest_ry = bh2 - 12;
+    int belly_y = by + 6;
+    int belly_rx = bw2 + 1;
+    int belly_ry = bh2 - 6;
+
+    // 深可可环境遮蔽
+    out_d.fillEllipse(bx, belly_y + 2, belly_rx + 1, belly_ry + 1, sticks3::ANIME_COL_SHADOW);
+    out_d.fillEllipse(bx, chest_y + 1, chest_rx + 1, chest_ry + 1, sticks3::ANIME_COL_SHADOW);
+
+    // 暖焦糖主躯干 (双椭圆 + 梯形平滑连接)
+    out_d.fillEllipse(bx, chest_y, chest_rx, chest_ry, sticks3::ANIME_COL_MIDTONE);
+    out_d.fillEllipse(bx, belly_y, belly_rx, belly_ry, sticks3::ANIME_COL_MIDTONE);
+    out_d.fillTriangle(bx - chest_rx, chest_y, bx + chest_rx, chest_y, bx - belly_rx, belly_y, sticks3::ANIME_COL_MIDTONE);
+    out_d.fillTriangle(bx + chest_rx, chest_y, bx - belly_rx, belly_y, bx + belly_rx, belly_y, sticks3::ANIME_COL_MIDTONE);
+
+    // 主受光金光晕与边缘逆光
+    out_d.drawArc(bx - 1, chest_y - 2, chest_rx - 2, chest_rx, 210, 280, sticks3::ANIME_COL_KEYLIGHT);
+    out_d.drawArc(bx + 1, belly_y - 1, belly_rx - 1, belly_rx, 40, 110, sticks3::ANIME_COL_RIMLIGHT);
 
     if (!skel.is_back_view) {
-        // 肚肚奶白大圆贴 (Vanilla Cream Belly Patch)
-        out_d.fillEllipse(bx, by + 3, bw2 - 8, bh2 - 8, sticks3::ANIME_COL_BELLY);
-        out_d.drawEllipse(bx, by + 3, bw2 - 8, bh2 - 8, sticks3::ANIME_COL_BELLY_SHD);
+        // 软糯梨形肚肚奶白贴 (Vanilla Cream Pear Belly Patch)
+        int p_chest_y = by - 3;
+        int p_chest_rx = bw2 - 9;
+        int p_chest_ry = bh2 - 15;
+        int p_belly_y = by + 7;
+        int p_belly_rx = bw2 - 6;
+        int p_belly_ry = bh2 - 10;
+
+        out_d.fillEllipse(bx, p_chest_y, p_chest_rx, p_chest_ry, sticks3::ANIME_COL_BELLY);
+        out_d.fillEllipse(bx, p_belly_y, p_belly_rx, p_belly_ry, sticks3::ANIME_COL_BELLY);
+        out_d.fillTriangle(bx - p_chest_rx, p_chest_y, bx + p_chest_rx, p_chest_y, bx - p_belly_rx, p_belly_y, sticks3::ANIME_COL_BELLY);
+        out_d.fillTriangle(bx + p_chest_rx, p_chest_y, bx - p_belly_rx, p_belly_y, bx + p_belly_rx, p_belly_y, sticks3::ANIME_COL_BELLY);
+        out_d.drawEllipse(bx, p_belly_y, p_belly_rx, p_belly_ry, sticks3::ANIME_COL_BELLY_SHD);
+
+        // 呆萌小肚脐 (Cute Belly Button)
+        out_d.drawPixel(bx, by + 12, sticks3::ANIME_COL_BELLY_SHD);
 
         // 养成等级徽章 (Chest Growth Badge)
         uint16_t badge_col = growth_mgr.getBadgeColor();
-        out_d.fillCircle(bx, by - 9, 3, badge_col);
-        out_d.drawCircle(bx, by - 9, 4, 0xFFFF);
-        out_d.drawCircle(bx, by - 9, 5, sticks3::ANIME_COL_RIMLIGHT);
+        out_d.fillCircle(bx, by - 8, 3, badge_col);
+        out_d.drawCircle(bx, by - 8, 4, 0xFFFF);
+        out_d.drawCircle(bx, by - 8, 5, sticks3::ANIME_COL_RIMLIGHT);
     } else {
         // 萌熊后背：微暖背脊线与毛绒纹理
         out_d.drawLine(bx, by - bh2 + 8, bx, by + bh2 - 12, 0xB340);
@@ -1050,70 +1122,87 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     int ear_flop_r = (int)(-s_smooth_roll * 0.15f);
     if (bl_state == sticks3::BL_STATE_LISTENING) ear_flop_l -= 5;
 
-    int ex_l = cx - 24;
-    int ey_l = cy - 20 + ear_flop_l;
-    int ex_r = cx + 24;
-    int ey_r = cy - 20 + ear_flop_r;
+    int ex_l = cx - 25;
+    int ey_l = cy - 21 + ear_flop_l;
+    int ex_r = cx + 25;
+    int ey_r = cy - 21 + ear_flop_r;
 
     if (skel.is_back_view) {
         // --- 3D 萌熊后脑勺与萌背视角 (Back View: Head & Ear Backs, Foreground Tail) ---
         // 耳朵背面 (深焦糖绒毛阴影，无浅色内耳贴)
-        out_d.fillCircle(ex_l, ey_l, 13, 0xB340);
-        out_d.fillCircle(ex_r, ey_r, 13, 0xB340);
-        out_d.drawCircle(ex_l, ey_l, 13, 0x8220);
-        out_d.drawCircle(ex_r, ey_r, 13, 0x8220);
+        out_d.fillCircle(ex_l, ey_l, 13, sticks3::ANIME_COL_MIDTONE);
+        out_d.fillCircle(ex_r, ey_r, 13, sticks3::ANIME_COL_MIDTONE);
+        out_d.drawCircle(ex_l, ey_l, 13, sticks3::ANIME_COL_OUTLINE);
+        out_d.drawCircle(ex_r, ey_r, 13, sticks3::ANIME_COL_OUTLINE);
 
         // 熊头主体 (圆润后脑勺)
-        int rx_head = (int)(28.0f * skel.head_scale_x);
-        int ry_head = (int)(25.0f * skel.head_scale_y);
-        out_d.fillEllipse(cx, cy + 2, rx_head + 1, ry_head + 1, 0x6180);
-        out_d.fillEllipse(cx, cy, rx_head, ry_head, 0xD444);
-        out_d.drawArc(cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, 0xFEE8);
+        int rx_head = (int)(27.0f * skel.head_scale_x);
+        int ry_head = (int)(24.0f * skel.head_scale_y);
+        out_d.fillEllipse(cx, cy + 2, rx_head + 1, ry_head + 1, sticks3::ANIME_COL_SHADOW);
+        out_d.fillEllipse(cx, cy, rx_head, ry_head, sticks3::ANIME_COL_MIDTONE);
+        out_d.drawArc(cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, sticks3::ANIME_COL_KEYLIGHT);
 
         // 后脑勺呆萌毛茸小发旋/呆毛 (Back Hair Tuft)
-        out_d.fillTriangle(cx - 4, cy - ry_head + 2, cx, cy - ry_head - 4, cx + 4, cy - ry_head + 2, 0xD444);
-        out_d.drawTriangle(cx - 4, cy - ry_head + 2, cx, cy - ry_head - 4, cx + 4, cy - ry_head + 2, 0x8220);
+        out_d.fillTriangle(cx - 3, cy - ry_head + 2, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 2, sticks3::ANIME_COL_MIDTONE);
+        out_d.drawTriangle(cx - 3, cy - ry_head + 2, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 2, sticks3::ANIME_COL_OUTLINE);
 
         // 萌萌毛球小圆尾巴绘制在前景最前方！(Fluffy Tail in Foreground)
         int tx = (int)skel.joints_screen[sticks3::OP_TAIL].sx;
         int ty = (int)skel.joints_screen[sticks3::OP_TAIL].sy;
-        drawBearTail(out_d, tx, ty, 9, 0xD444, 0x8220);
+        drawBearTail(out_d, tx, ty, 9, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
     } else {
-        // --- 3D 萌熊正面立体五官 (Front View: Glossy Anime Doe Eyes, Snout & Particles) ---
-        // 耳朵正面
-        out_d.fillCircle(ex_l, ey_l, 13, 0xB340);
-        out_d.fillCircle(ex_r, ey_r, 13, 0xB340);
-        out_d.drawCircle(ex_l, ey_l, 13, 0x8220);
-        out_d.drawCircle(ex_r, ey_r, 13, 0x8220);
-        out_d.fillCircle(ex_l, ey_l, 6, 0xFEE8);
-        out_d.fillCircle(ex_r, ey_r, 6, 0xFEE8);
+        // --- 3D 萌熊正面立体五官 (Front View: Glossy Anime Doe Eyes, Plump Muzzle & W-Smile) ---
+        // 耳朵正面 (外廓暖焦糖 + 内耳蜜桃粉双层立体)
+        out_d.fillCircle(ex_l, ey_l, 13, sticks3::ANIME_COL_MIDTONE);
+        out_d.fillCircle(ex_r, ey_r, 13, sticks3::ANIME_COL_MIDTONE);
+        out_d.drawCircle(ex_l, ey_l, 13, sticks3::ANIME_COL_OUTLINE);
+        out_d.drawCircle(ex_r, ey_r, 13, sticks3::ANIME_COL_OUTLINE);
+        out_d.fillCircle(ex_l + 2, ey_l + 2, 7, sticks3::ANIME_COL_PAD);
+        out_d.fillCircle(ex_r - 2, ey_r + 2, 7, sticks3::ANIME_COL_PAD);
+        out_d.drawCircle(ex_l + 2, ey_l + 2, 7, 0xF9B0);
+        out_d.drawCircle(ex_r - 2, ey_r + 2, 7, 0xF9B0);
 
-        // 熊头主体
-        int rx_head = (int)(28.0f * skel.head_scale_x);
-        int ry_head = (int)(25.0f * skel.head_scale_y);
-        out_d.fillEllipse(cx, cy + 2, rx_head + 1, ry_head + 1, 0x6180);
-        out_d.fillEllipse(cx, cy, rx_head, ry_head, 0xD444);
-        out_d.drawArc(cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, 0xFEE8);
+        // 熊头主体 (圆润软萌大头，Baby Schema 亲和力比例)
+        int rx_head = (int)(27.0f * skel.head_scale_x);
+        int ry_head = (int)(24.0f * skel.head_scale_y);
+        out_d.fillEllipse(cx, cy + 2, rx_head + 1, ry_head + 1, sticks3::ANIME_COL_SHADOW);
+        out_d.fillEllipse(cx, cy, rx_head, ry_head, sticks3::ANIME_COL_MIDTONE);
+        out_d.drawArc(cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, sticks3::ANIME_COL_KEYLIGHT);
 
-        // 腮红
-        int blush_r = (cur_m == sticks3::MOOD_HAPPY) ? 8 : 5;
-        out_d.fillCircle(cx - 18, cy + 9, blush_r, 0xFCB2);
-        out_d.fillCircle(cx + 18, cy + 9, blush_r, 0xFCB2);
+        // 呆萌元气呆毛 (Top Hair Tuft)
+        out_d.fillTriangle(cx - 3, cy - ry_head + 1, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 1, sticks3::ANIME_COL_MIDTONE);
+        out_d.drawTriangle(cx - 3, cy - ry_head + 1, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 1, sticks3::ANIME_COL_OUTLINE);
 
-        // 奶白嘴套与玛瑙鼻
-        out_d.fillRoundRect(cx - 14, cy + 1, 28, 19, 9, 0xFFFE);
-        out_d.drawRoundRect(cx - 14, cy + 1, 28, 19, 9, 0xCE58);
-        out_d.fillEllipse(cx, cy + 6, 4, 3, 0x1082);
-        out_d.drawPixel(cx - 1, cy + 5, 0xFFFF); // 钻石高光
+        // 元气蜜桃粉腮红 (Peach Pink Blush + Twin Twinkle Catchlights)
+        int blush_r = (cur_m == sticks3::MOOD_HAPPY) ? 7 : 5;
+        out_d.fillEllipse(cx - 18, cy + 7, blush_r, blush_r - 1, sticks3::ANIME_COL_PAD);
+        out_d.fillEllipse(cx + 18, cy + 7, blush_r, blush_r - 1, sticks3::ANIME_COL_PAD);
+        out_d.drawPixel(cx - 19, cy + 6, 0xFFFF);
+        out_d.drawPixel(cx - 17, cy + 6, 0xFFFF);
+        out_d.drawPixel(cx + 17, cy + 6, 0xFFFF);
+        out_d.drawPixel(cx + 19, cy + 6, 0xFFFF);
 
-        // 迪士尼/日漫灵动双星大眼 (Doe-Eyes)
-        int lx = cx - 12;
-        int ly = cy - 3;
-        int rx = cx + 12;
-        int ry = cy - 3;
+        // 饱满立体椭圆奶白嘴套 (Plump Oval Cream Muzzle)
+        out_d.fillEllipse(cx, cy + 6, 15, 11, sticks3::ANIME_COL_BELLY);
+        out_d.drawEllipse(cx, cy + 6, 15, 11, sticks3::ANIME_COL_BELLY_SHD);
 
-        int gaze_x = (int)constrain(s_smooth_roll * 0.08f, -3.0f, 3.0f);
-        int gaze_y = (int)constrain(s_smooth_pitch * 0.06f, -3.0f, 3.0f);
+        // 玛瑙黑小熊纽扣鼻 (Button Nose with Crisp Highlight)
+        out_d.fillEllipse(cx, cy + 2, 4, 3, 0x1082);
+        out_d.drawPixel(cx - 1, cy + 1, 0xFFFF); // 灵动高光
+
+        // 经典猫咪“ω”微笑人中线与萌唇 (Philtrum & W-Smile Lips)
+        out_d.drawLine(cx, cy + 5, cx, cy + 7, 0x1082); // 人中竖线
+        out_d.drawArc(cx - 4, cy + 7, 3, 4, 25, 155, 0x1082); // 左唇微笑弧
+        out_d.drawArc(cx + 4, cy + 7, 3, 4, 25, 155, 0x1082); // 右唇微笑弧
+
+        // 迪士尼/日漫灵动双星水光大眼 (Doe-Eyes)
+        int lx = cx - 13;
+        int ly = cy - 4;
+        int rx = cx + 13;
+        int ry = cy - 4;
+
+        int gaze_x = (int)constrain(s_smooth_roll * 0.08f, -2.5f, 2.5f);
+        int gaze_y = (int)constrain(s_smooth_pitch * 0.06f, -2.5f, 2.5f);
 
         if (!s_is_blinking && (now - s_last_blink > (2800 + (now % 2000)))) {
             s_is_blinking = true;
@@ -1135,9 +1224,9 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
             out_d.drawArc(rx, ry, 5, 6, 10, 170, 0x1082);
         } else if (cur_m == sticks3::MOOD_HAPPY) {
             out_d.fillCircle(lx, ly - 1, 6, 0x1082);
-            out_d.fillCircle(lx, ly + 3, 6, 0xD444);
+            out_d.fillCircle(lx, ly + 3, 6, sticks3::ANIME_COL_MIDTONE);
             out_d.fillCircle(rx, ry - 1, 6, 0x1082);
-            out_d.fillCircle(rx, ry + 3, 6, 0xD444);
+            out_d.fillCircle(rx, ry + 3, 6, sticks3::ANIME_COL_MIDTONE);
         } else if (is_dizzy) {
             out_d.drawCircle(lx, ly, 3, 0xFE60);
             out_d.drawCircle(lx, ly, 5, 0xFE60);
@@ -1152,22 +1241,32 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
             out_d.fillCircle(rx + gaze_x, ry + gaze_y, 3, 0x0110);
         } else {
             // 日漫高保真双星水光眼 (Dual-Star Anime Glossy Eyes)
-            out_d.fillRoundRect(lx - 5, ly - 8, 10, 16, 5, 0x0110);
-            out_d.fillRoundRect(rx - 5, ry - 8, 10, 16, 5, 0x0110);
-            out_d.fillCircle(lx + gaze_x, ly + gaze_y + 1, 3, 0x35BF);
-            out_d.fillCircle(rx + gaze_x, ry + gaze_y + 1, 3, 0x35BF);
+            out_d.fillRoundRect(lx - 5, ly - 7, 11, 14, 5, 0x0841);
+            out_d.fillRoundRect(rx - 5, ry - 7, 11, 14, 5, 0x0841);
+            out_d.drawRoundRect(lx - 5, ly - 7, 11, 14, 5, sticks3::ANIME_COL_OUTLINE);
+            out_d.drawRoundRect(rx - 5, ry - 7, 11, 14, 5, sticks3::ANIME_COL_OUTLINE);
+
+            // 渐变虹膜
+            out_d.fillCircle(lx + gaze_x, ly + gaze_y + 1, 3, sticks3::ANIME_COL_EYE_IRIS);
+            out_d.fillCircle(rx + gaze_x, ry + gaze_y + 1, 3, sticks3::ANIME_COL_EYE_IRIS);
+
+            // 主星璀璨双高光
             out_d.fillCircle(lx + gaze_x - 1, ly + gaze_y - 2, 2, 0xFFFF);
             out_d.fillCircle(rx + gaze_x - 1, ry + gaze_y - 2, 2, 0xFFFF);
             out_d.drawPixel(lx + gaze_x + 2, ly + gaze_y + 2, 0xFFFF);
             out_d.drawPixel(rx + gaze_x + 2, ry + gaze_y + 2, 0xFFFF);
+
+            // 软萌上睫毛微弧
+            out_d.drawLine(lx - 4, ly - 8, lx + 4, ly - 8, sticks3::ANIME_COL_OUTLINE);
+            out_d.drawLine(rx - 4, ry - 8, rx + 4, ry - 8, sticks3::ANIME_COL_OUTLINE);
         }
 
-        // 动态嘴型 (TTS 唇音同步与猫咪“ω”微笑)
-        int my = cy + 12;
+        // 动态嘴型 (TTS 唇音同步与欢喜微张口)
+        int my = cy + 11;
         if (bl_state == sticks3::BL_STATE_SPEAKING) {
-            int mouth_open = 2 + (mic_vu * 10) / 100;
-            if (mouth_open > 12) mouth_open = 12;
-            out_d.fillRoundRect(cx - 6, my - 2, 12, mouth_open, 3, 0x4000);
+            int mouth_open = 2 + (mic_vu * 8) / 100;
+            if (mouth_open > 10) mouth_open = 10;
+            out_d.fillRoundRect(cx - 5, my - 2, 10, mouth_open, 3, 0x4000);
             out_d.fillRoundRect(cx - 2, my - 2, 4, 2, 1, 0xFFFF);
             out_d.fillCircle(cx, my + mouth_open - 3, 2, 0xF980);
         } else if (is_tumble) {
@@ -1176,8 +1275,6 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
             out_d.drawCircle(cx, my + 1, 3, 0x1082);
         } else if (cur_m == sticks3::MOOD_HAPPY) {
             out_d.drawArc(cx, my, 4, 5, 20, 160, 0x1082);
-        } else {
-            out_d.drawArc(cx, my, 3, 4, 30, 150, 0x1082);
         }
 
         // 挂件与情绪粒子 (爱心、雷达波、Zzz、光点)
@@ -1220,6 +1317,32 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
 
     // 8.5 全屏等级晋升与技能解锁庆典特效 (Skill Unlock Ceremony Overlay)
     drawUnlockCeremonyOverlay(out_d, now, growth_mgr);
+
+    // 8.8 屏显动作与姿态阅兵浮层 (On-Screen Action HUD Pill Banner)
+    sticks3::BearAction active_act = sticks3::BearKinematicsController::getInstance().getCurrentAction();
+    if (active_act != sticks3::BEAR_ACT_IDLE || s_demo_showcase_mode) {
+        int hud_w = W - 14; // 121px
+        int hud_h = 16;
+        int hud_x = 7;
+        int hud_y = 20;
+        out_d.fillRoundRect(hud_x, hud_y, hud_w, hud_h, 4, 0x0841);
+        out_d.drawRoundRect(hud_x, hud_y, hud_w, hud_h, 4, s_demo_showcase_mode ? 0xFFE0 : 0x07FF);
+
+        out_d.setTextDatum(MC_DATUM);
+        char act_banner[48];
+        if (s_demo_showcase_mode) {
+            snprintf(act_banner, sizeof(act_banner), "[阅兵 %u/%u: %s]",
+                     (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
+                     sticks3::bearActionToChinese(SHOWCASE_ACTIONS[s_demo_showcase_idx]));
+            out_d.setTextColor(0xFFE0, 0x0841);
+        } else {
+            snprintf(act_banner, sizeof(act_banner), "[%s %s]",
+                     sticks3::bearActionToChinese(active_act),
+                     sticks3::bearActionToString(active_act));
+            out_d.setTextColor(0x07FF, 0x0841);
+        }
+        out_d.drawString(act_banner, W / 2, hud_y + 8);
+    }
 
     // 9. 底部灵宠养成与系统硬件全维度看板 (Y: 220 ~ 240) - 沉浸式展示等级与胶囊EXP进度条
     out_d.fillRect(0, 220, W, 20, 0x0000);
@@ -1628,6 +1751,28 @@ void loop() {
         }
     }
 
+    // 正面按键 A 状态机检测:
+    // 短按释放 (< 750ms): 切换下一个姿态
+    // 长按触发 (>= 750ms): 开启/退出自动阅兵模式
+    static uint32_t s_btnA_press_down_tick = 0;
+    static bool s_btnA_long_press_handled = false;
+    bool btnA_short_clicked = false;
+    bool btnA_long_pressed = false;
+
+    if (btnA_prev == HIGH && curA == LOW) {
+        s_btnA_press_down_tick = millis();
+        s_btnA_long_press_handled = false;
+    } else if (curA == LOW) {
+        if (!s_btnA_long_press_handled && (millis() - s_btnA_press_down_tick >= 750)) {
+            s_btnA_long_press_handled = true;
+            btnA_long_pressed = true;
+        }
+    } else if (btnA_prev == LOW && curA == HIGH) {
+        if (!s_btnA_long_press_handled && (millis() - s_btnA_press_down_tick < 750)) {
+            btnA_short_clicked = true;
+        }
+    }
+
     btnA_prev = curA;
     btnB_prev = curB;
 
@@ -1926,6 +2071,31 @@ void loop() {
                             sticks3::BearKinematicsController::getInstance().triggerAction(sticks3::BEAR_ACT_CHEER, 3500);
                             Serial.printf("@ceremony {\"level\":%u,\"skill\":\"%s\",\"desc\":\"%s\",\"active\":true}\n",
                                           target_lvl, gm.getUnlockedSkillName(target_lvl), gm.getUnlockedSkillDesc(target_lvl));
+                        } else if (parsed.type == muse_gadget::HatchCommandType::DEMO_COMMAND) {
+                            if (parsed.payload == "off" || parsed.payload == "0") {
+                                s_demo_showcase_mode = false;
+                                sticks3::StickS3Audio::getInstance().playTone(800, 40, 0.3f);
+                                Serial.println("@demo {\"status\":\"stopped\"}");
+                            } else {
+                                s_demo_showcase_mode = true;
+                                s_demo_last_switch_ms = millis();
+                                sticks3::BearAction next_act = SHOWCASE_ACTIONS[s_demo_showcase_idx];
+                                sticks3::BearKinematicsController::getInstance().triggerAction(next_act, 2800);
+                                sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
+                                Serial.printf("@demo {\"status\":\"started\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
+                                              (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
+                                              sticks3::bearActionToString(next_act),
+                                              sticks3::bearActionToChinese(next_act));
+                            }
+                        } else if (parsed.type == muse_gadget::HatchCommandType::STEP_COMMAND) {
+                            s_demo_showcase_idx = (s_demo_showcase_idx + 1) % SHOWCASE_COUNT;
+                            sticks3::BearAction next_act = SHOWCASE_ACTIONS[s_demo_showcase_idx];
+                            sticks3::BearKinematicsController::getInstance().triggerAction(next_act, 2800);
+                            sticks3::StickS3Audio::getInstance().playTone(1800, 25, 0.35f);
+                            Serial.printf("@action {\"type\":\"step\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
+                                          (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
+                                          sticks3::bearActionToString(next_act),
+                                          sticks3::bearActionToChinese(next_act));
                         } else if (parsed.type == muse_gadget::HatchCommandType::GROWTH_QUERY) {
                             auto& g = sticks3::BearGrowthManager::getInstance();
                             Serial.printf("@growth {\"level\":%u,\"title\":\"%s\",\"exp\":%u,\"next_exp\":%u,\"rom_pct\":%.0f}\n",
@@ -2016,26 +2186,67 @@ void loop() {
             bl.interrupt(btn_src);
             audio.playTone(2200, 20, 0.45f);
             Serial.printf("[PHYSICAL-INTERRUPT] Successfully triggered by %s!\n", btn_src);
-        } else if (btnA_clicked) {
-            // 正面按键 A: 点按即说 (Push-to-Talk) 激活灵宠聆听
-            sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_LISTEN);
-            sticks3::StickS3Avatar::getInstance().addIntimacy(1);
-            if (bl.isConnected()) {
-                bl.startNewConversation();
-                audio.playTone(1600, 30, 0.40f);
-                Serial.println("[EVENT] Btn A clicked -> Started new conversation & Avatar Listening");
+        } else if (btnA_long_pressed) {
+            // 正面按键 A 长按 (>= 750ms): 开启/退出全套动作姿态自动阅兵轮播 (Demo Showcase Mode)
+            s_demo_showcase_mode = !s_demo_showcase_mode;
+            if (s_demo_showcase_mode) {
+                s_demo_last_switch_ms = millis();
+                sticks3::BearAction next_act = SHOWCASE_ACTIONS[s_demo_showcase_idx];
+                sticks3::BearKinematicsController::getInstance().triggerAction(next_act, 2800);
+                audio.playChime(sticks3::CHIME_SUCCESS);
+                Serial.printf("@demo {\"status\":\"started\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
+                              (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
+                              sticks3::bearActionToString(next_act),
+                              sticks3::bearActionToChinese(next_act));
             } else {
-                if (audio.isRecording()) {
-                    audio.stopRecording();
-                    audio.playChime(sticks3::CHIME_SUCCESS);
-                    Serial.printf("[AUDIO-EVENT] Btn A clicked -> Stopped recording. Total %u ms, WAV ID #%u\n",
-                                  (unsigned)audio.getRecordDurationMs(), (unsigned)audio.getDeviceAudioId());
+                audio.playTone(800, 40, 0.35f);
+                Serial.println("@demo {\"status\":\"stopped\"}");
+            }
+        } else if (btnA_short_clicked || btnA_clicked) {
+            if (g_active_pet == PET_JOLLYBOT) {
+                // Jollybot 萌熊模式下单击正面按键 A：即时切换至下一个动作姿态，全套 17 种动作循环演示！
+                s_demo_showcase_idx = (s_demo_showcase_idx + 1) % SHOWCASE_COUNT;
+                sticks3::BearAction next_act = SHOWCASE_ACTIONS[s_demo_showcase_idx];
+                sticks3::BearKinematicsController::getInstance().triggerAction(next_act, 2800);
+                audio.playTone(1800, 25, 0.35f);
+                Serial.printf("@action {\"type\":\"step\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
+                              (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
+                              sticks3::bearActionToString(next_act),
+                              sticks3::bearActionToChinese(next_act));
+            } else {
+                // 灵伴悄悄模式: 点按即说 (Push-to-Talk) 激活灵宠聆听
+                sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_LISTEN);
+                sticks3::StickS3Avatar::getInstance().addIntimacy(1);
+                if (bl.isConnected()) {
+                    bl.startNewConversation();
+                    audio.playTone(1600, 30, 0.40f);
+                    Serial.println("[EVENT] Btn A clicked -> Started new conversation & Avatar Listening");
                 } else {
-                    audio.startRecording(10000);
-                    audio.playTone(1800, 40, 0.45f);
-                    Serial.println("[AUDIO-EVENT] Btn A clicked -> Started 10s recording");
+                    if (audio.isRecording()) {
+                        audio.stopRecording();
+                        audio.playChime(sticks3::CHIME_SUCCESS);
+                        Serial.printf("[AUDIO-EVENT] Btn A clicked -> Stopped recording. Total %u ms, WAV ID #%u\n",
+                                      (unsigned)audio.getRecordDurationMs(), (unsigned)audio.getDeviceAudioId());
+                    } else {
+                        audio.startRecording(10000);
+                        audio.playTone(1800, 40, 0.45f);
+                        Serial.println("[AUDIO-EVENT] Btn A clicked -> Started 10s recording");
+                    }
                 }
             }
+        }
+
+        // 姿态阅兵模式自动节拍推进 (每 3 秒自动演示下一个动作)
+        if (s_demo_showcase_mode && (millis() - s_demo_last_switch_ms >= 3000)) {
+            s_demo_showcase_idx = (s_demo_showcase_idx + 1) % SHOWCASE_COUNT;
+            sticks3::BearAction next_act = SHOWCASE_ACTIONS[s_demo_showcase_idx];
+            sticks3::BearKinematicsController::getInstance().triggerAction(next_act, 2800);
+            s_demo_last_switch_ms = millis();
+            audio.playTone(1500, 20, 0.25f);
+            Serial.printf("@demo {\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
+                          (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
+                          sticks3::bearActionToString(next_act),
+                          sticks3::bearActionToChinese(next_act));
         } else if (btnB_long_pressed) {
             // 侧面按键 B 长按 (>= 750ms): 切换灵宠形象 (Meta 原版 Jollybot 像素宠 <-> 灵伴悄悄矢量大眼)
             g_active_pet = (g_active_pet == PET_QIAOQIAO) ? PET_JOLLYBOT : PET_QIAOQIAO;

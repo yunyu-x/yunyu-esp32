@@ -44,7 +44,9 @@ enum class HatchCommandType {
     LIMB_COMMAND,  // >limb=
     GROWTH_QUERY,  // >exp 或 >growth
     DANCE_SWARM,   // >dance_swarm= 或 >swarm_dance=
-    CEREMONY_TRIGGER // >ceremony= 或 >levelup
+    CEREMONY_TRIGGER, // >ceremony= 或 >levelup
+    DEMO_COMMAND,  // >demo 或 >tour 或 >showcase (姿态阅兵模式)
+    STEP_COMMAND   // >next 或 >step (单步姿态切换)
 };
 
 struct HatchParsedMessage {
@@ -149,6 +151,13 @@ public:
             msg.payload = line.substr(7);
         } else if (line.rfind(">status", 0) == 0 || line.rfind("--status", 0) == 0) {
             msg.type = HatchCommandType::STATUS_QUERY;
+        } else if (line.rfind(">demo", 0) == 0 || line.rfind(">tour", 0) == 0 || line.rfind(">showcase", 0) == 0) {
+            msg.type = HatchCommandType::DEMO_COMMAND;
+            if (line.find("=") != std::string::npos) {
+                msg.payload = line.substr(line.find("=") + 1);
+            }
+        } else if (line.rfind(">next", 0) == 0 || line.rfind(">step", 0) == 0) {
+            msg.type = HatchCommandType::STEP_COMMAND;
         }
 
         return msg;

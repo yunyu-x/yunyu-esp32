@@ -119,6 +119,33 @@ inline const char* bearActionToString(BearAction act) {
     }
 }
 
+inline const char* bearActionToChinese(BearAction act) {
+    switch (act) {
+        case BEAR_ACT_WAVE: return "元气挥手";
+        case BEAR_ACT_BOW: return "作揖鞠躬";
+        case BEAR_ACT_SIT: return "萌萌坐下";
+        case BEAR_ACT_STRETCH: return "伸大懒腰";
+        case BEAR_ACT_CLAP: return "鼓掌拍手";
+        case BEAR_ACT_CHEER: return "欢呼雀跃";
+        case BEAR_ACT_JUMP: return "弹性跳跃";
+        case BEAR_ACT_HANDS_UP: return "举手投降";
+        case BEAR_ACT_DANCE: return "律动跳舞";
+        case BEAR_ACT_BALANCE: return "金鸡独立";
+        case BEAR_ACT_LIE: return "趴地休息";
+        case BEAR_ACT_PUSHUP: return "俯卧撑";
+        case BEAR_ACT_KUNGFU: return "中国功夫";
+        case BEAR_ACT_TAICHI: return "太极云手";
+        case BEAR_ACT_WINGCHUN: return "咏春快拳";
+        case BEAR_ACT_DRAGON_PUNCH: return "升龙霸天";
+        case BEAR_ACT_MOONWALK: return "太空漫步";
+        case BEAR_ACT_CYBER_DEFENSE: return "机甲护盾";
+        case BEAR_ACT_TURN_AROUND: return "转身秀尾";
+        case BEAR_ACT_SPIN: return "华丽自旋";
+        case BEAR_ACT_LOCKED_TRY: return "困惑挠头";
+        default: return "待命萌态";
+    }
+}
+
 // 技能解锁盛典状态结构体 (Skill Unlock Ceremony)
 struct SkillUnlockCeremony {
     bool active;
@@ -1393,19 +1420,20 @@ public:
         out_skel.right_leg.flex_y = _smooth_right_leg_fy;
         out_skel.right_leg.elbow_flex = 0.0f;
 
-        // 7. 计算肘膝双段关节中点 (Elbow & Knee Articulations)
-        float sh_lx = out_skel.body_x - 18.0f;
-        float sh_ly = out_skel.body_y - 8.0f;
-        float sh_rx = out_skel.body_x + 18.0f;
-        float sh_ry = out_skel.body_y - 8.0f;
+        // 7. 计算肘膝双段关节中点 (Elbow & Knee Articulations - 元气舒展四肢)
+        float sh_lx = out_skel.body_x - 19.0f;
+        float sh_ly = out_skel.body_y - 11.0f;
+        float sh_rx = out_skel.body_x + 19.0f;
+        float sh_ry = out_skel.body_y - 11.0f;
 
         float rad_l = out_skel.left_arm.angle_deg * 0.0174533f;
         float rad_r = out_skel.right_arm.angle_deg * 0.0174533f;
 
-        float paw_lx = sh_lx - (22.0f * std::sin(rad_l)) + out_skel.left_arm.flex_x;
-        float paw_ly = sh_ly + (22.0f * std::cos(rad_l)) + out_skel.left_arm.flex_y;
-        float paw_rx = sh_rx + (22.0f * std::sin(rad_r)) + out_skel.right_arm.flex_x;
-        float paw_ry = sh_ry + (22.0f * std::cos(rad_r)) + out_skel.right_arm.flex_y;
+        float arm_reach = 25.5f; // 四肢舒展度提升，动作张力更具表现力
+        float paw_lx = sh_lx - (arm_reach * std::sin(rad_l)) + out_skel.left_arm.flex_x;
+        float paw_ly = sh_ly + (arm_reach * std::cos(rad_l)) + out_skel.left_arm.flex_y;
+        float paw_rx = sh_rx + (arm_reach * std::sin(rad_r)) + out_skel.right_arm.flex_x;
+        float paw_ry = sh_ry + (arm_reach * std::cos(rad_r)) + out_skel.right_arm.flex_y;
 
         // 肘关节位于肩与爪中点，叠加垂直法向量弯曲偏移 (elbow_flex)
         out_skel.elbow_lx = (sh_lx + paw_lx) * 0.5f - out_skel.left_arm.elbow_flex;
@@ -1414,16 +1442,16 @@ public:
         out_skel.elbow_rx = (sh_rx + paw_rx) * 0.5f + out_skel.right_arm.elbow_flex;
         out_skel.elbow_ry = (sh_ry + paw_ry) * 0.5f + std::abs(out_skel.right_arm.elbow_flex) * 0.4f;
 
-        // 膝关节中点
-        float hip_lx = out_skel.body_x - 13.0f;
-        float hip_ly = out_skel.body_y + 14.0f;
-        float hip_rx = out_skel.body_x + 13.0f;
-        float hip_ry = out_skel.body_y + 14.0f;
+        // 膝关节中点 (下盘修长舒展)
+        float hip_lx = out_skel.body_x - 14.0f;
+        float hip_ly = out_skel.body_y + 15.0f;
+        float hip_rx = out_skel.body_x + 14.0f;
+        float hip_ry = out_skel.body_y + 15.0f;
 
-        float foot_lx = out_skel.body_x - 14.0f + out_skel.left_leg.flex_x;
-        float foot_ly = out_skel.body_y + 36.0f + out_skel.left_leg.flex_y;
-        float foot_rx = out_skel.body_x + 14.0f + out_skel.right_leg.flex_x;
-        float foot_ry = out_skel.body_y + 36.0f + out_skel.right_leg.flex_y;
+        float foot_lx = out_skel.body_x - 15.0f + out_skel.left_leg.flex_x;
+        float foot_ly = out_skel.body_y + 39.0f + out_skel.left_leg.flex_y;
+        float foot_rx = out_skel.body_x + 15.0f + out_skel.right_leg.flex_x;
+        float foot_ry = out_skel.body_y + 39.0f + out_skel.right_leg.flex_y;
 
         out_skel.knee_lx = (hip_lx + foot_lx) * 0.5f - 2.0f;
         out_skel.knee_ly = (hip_ly + foot_ly) * 0.5f + bal_knee_l;

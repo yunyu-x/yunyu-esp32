@@ -652,3 +652,40 @@ def test_swarm_formation_dance_choreography_protocol():
         assert parsed["theme"] == theme_name
         assert parsed["bpm"] == cfg["bpm"]
 
+
+def test_bear_action_chinese_mapping_and_showcase_coverage():
+    # 验证小熊动作的中文名对照与阅兵序列覆盖度
+    with open(FIRMWARE_HEADER, "r", encoding="utf-8") as f:
+        src = f.read()
+
+    assert "bearActionToChinese" in src
+    assert "元气挥手" in src
+    assert "作揖鞠躬" in src
+    assert "欢呼雀跃" in src
+    assert "中国功夫" in src
+    assert "太极云手" in src
+    assert "升龙霸天" in src
+    assert "太空漫步" in src
+    assert "机甲护盾" in src
+
+    # 验证 main.cpp 中的 SHOWCASE_ACTIONS 包含 17 种姿态
+    with open(MAIN_CPP, "r", encoding="utf-8") as f:
+        main_src = f.read()
+
+    assert "SHOWCASE_ACTIONS" in main_src
+    assert "s_demo_showcase_mode" in main_src
+    assert "drawBearTaperedCapsule" in main_src
+
+
+def test_hatch_demo_and_step_commands_support():
+    # 验证 Hatch 协议支持 >demo, >tour, >showcase, >next, >step
+    hatch_header = "firmware/m5sticks3_buddy/include/muse_gadget_client.h"
+    with open(hatch_header, "r", encoding="utf-8") as f:
+        src = f.read()
+
+    assert "DEMO_COMMAND" in src
+    assert "STEP_COMMAND" in src
+    assert ">demo" in src
+    assert ">next" in src
+
+
