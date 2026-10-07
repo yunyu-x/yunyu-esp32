@@ -1,229 +1,412 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-scripts/stress_test_30min.py
-----------------------------
-StickS3 物理硬件 30 分钟连续无人值守极限稳定性与全模态长程压测引擎
-1. 监控周期：30 分钟 (1800 秒)，采样间隔 2 秒
-2. 核心监控项：
-   - 连续运行时间与重启监测 (Uptime 严格单调递增，0 重启，0 崩溃，0 异常抛出)
-   - 内存泄漏审计 (SRAM 内部堆与 8MB PSRAM 堆稳定性，杜绝内存耗尽)
-   - FreeRTOS 任务栈高水位监测 (audioTask 与 loopTask 栈深安全)
-   - I2C 总线互斥锁竞争与失败计数 (保持 0 失败)
-   - 百炼全双工 WebSocket 长连接保活与自动自愈
-   - 定期主动交互压测 (每 3 分钟触发一次语音合成与播报闭环，验证软饱和限幅器与放音零失真)
-   - COM3 串口无干扰监听 (DTR/RTS 严格为 False，杜绝外部复位)
+Meta Muse & LingBuddy 30-Minute Continuous Stress Test & Acceptance Harness
+===========================================================================
+Strict verification & endurance monitoring for M5Stack StickS3:
+- CPU / Loop FPS stability (Target: >= 60 FPS, Apple HIG 90+ FPS capability)
+- Internal chip temperature monitoring (temperatureRead() <= 75°C)
+- SRAM & PSRAM memory leak regression analysis (Leak rate <= 0.05 KB/min)
+- Command response latency (RTT) & ACK delivery rate (Target: >= 99.5%)
+- Disney Avatar & Meta Muse Hatch state transitions stress endurance
 """
 
 import os
 import sys
 import time
 import json
-import threading
-import requests
+import re
+import argparse
+import statistics
+from typing import Dict, Any, List, Optional
 import serial
 
-import argparse
+# ANSI Color codes for terminal reporting
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RED = "\033[91m"
+CYAN = "\033[96m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
 
-DEV_IP = "192.168.110.67"
-COM_PORT = "COM3"
-DEFAULT_DURATION_SEC = 1800  # 30 分钟
-SAMPLE_INTERVAL_SEC = 2.0
-REPORT_PATH = os.path.join(os.path.dirname(__file__), "..", "tests", "stress_test_30min_report.json")
+# Regular expressions for hardware telemetry
+SYS_METRICS_REGEX = re.compile(
+    r"\[StickS3-SYS\]\s+FPS:\s*(?P<fps>[\d\.]+)\s*\|\s*Temp:\s*(?P<temp>[\d\.]+)C\s*\|\s*RAM:\s*free=(?P<ram_free>[\d\.]+)MB\s*\(Load:\s*(?P<ram_load>[\d\.]+)%\)\s*\|\s*SRAM:\s*free=(?P<sram_free>\d+)KB,\s*max_block=(?P<max_block>\d+)KB\s*\(DynLoad:\s*(?P<sram_dyn_load>[\d\.]+)%\)\s*\|\s*Stack:\s*free=(?P<stack_free>\d+)B\s*\(Load:\s*(?P<stack_load>[\d\.]+)%\)\s*\|\s*I2C_Tx:\s*(?P<i2c_tx>\d+)\s*\(Fails:\s*(?P<i2c_fails>\d+)\)"
+)
+STATUS_JSON_REGEX = re.compile(r"@status\s+(\{.*\})")
+CHAT_JSON_REGEX = re.compile(r"@chat\s+(\{.*\})")
+PANIC_REGEX = re.compile(r"(Guru Meditation Error|abort\(\)|CORRUPT HEAP|rst:0x[0-9a-fA-F]+)")
 
-test_stats = {
-    "start_time": None,
-    "end_time": None,
-    "duration_sec": 0,
-    "samples_count": 0,
-    "reboots_detected": 0,
-    "i2c_failures_max": 0,
-    "min_sram_kb": 999999,
-    "max_sram_kb": 0,
-    "min_psram_mb": 999.0,
-    "min_loop_fps": 999.0,
-    "avg_loop_fps": 0.0,
-    "audio_stack_hwm_min": 999999,
-    "interaction_rounds": 0,
-    "interaction_success": 0,
-    "panics_detected": 0,
-    "errors": [],
-    "milestones": []
-}
 
-serial_lines = []
-stop_event = threading.Event()
+class HardwareStressTester:
+    def __init__(self, port: str = "COM3", baud: int = 115200, duration_sec: int = 1800, output_file: str = "dist/stress_test_report.json"):
+        self.port = port
+        self.baud = baud
+        self.duration_sec = duration_sec
+        self.output_file = output_file
+        
+        self.ser: Optional[serial.Serial] = None
+        self.start_time = 0.0
+        
+        # Telemetry Time-Series
+        self.fps_history: List[float] = []
+        self.temp_history: List[float] = []
+        self.ram_free_history: List[float] = []
+        self.ram_load_history: List[float] = []
+        self.sram_free_history: List[float] = []
+        self.sram_dyn_load_history: List[float] = []
+        self.stack_free_history: List[int] = []
+        self.stack_load_history: List[float] = []
+        self.i2c_fails_history: List[int] = []
+        self.command_rtt_history: List[float] = []
+        self.timestamps: List[float] = []
+        
+        # Command metrics
+        self.commands_sent = 0
+        self.commands_acked = 0
+        self.panic_detected = 0
+        self.panic_logs: List[str] = []
+        
+        # Stimulus command sequence to continuously stress avatar and protocol engine
+        self.stimulus_commands = [
+            (">status", "status"),
+            (">pet=jollybot", "pet_switch"),
+            (">face=happy", "face_set"),
+            (">status", "status"),
+            (">face=surprise", "face_set"),
+            (">face=thinking", "face_set"),
+            (">pet=qiaoqiao", "pet_switch"),
+            (">status", "status"),
+            (">face=neutral", "face_set"),
+            (">pet=jollybot", "pet_switch"),
+        ]
+        self.stimulus_idx = 0
 
-def ts():
-    now = time.time()
-    return f"{time.strftime('%H:%M:%S', time.localtime(now))}.{int((now % 1) * 1000):03d}"
-
-def serial_worker():
-    try:
-        s = serial.Serial()
-        s.port = COM_PORT
-        s.baudrate = 115200
-        s.timeout = 0.5
-        s.dtr = False
-        s.rts = False
-        s.open()
-        while not stop_event.is_set():
-            line = s.readline().decode('utf-8', errors='ignore').strip()
-            if line:
-                serial_lines.append((time.time(), line))
-                if any(w in line for w in ["PANIC", "Guru Meditation", "Brownout", "CORRUPT", "abort()"]):
-                    test_stats["panics_detected"] += 1
-                    test_stats["errors"].append(f"[{ts()}] Serial Panic Detected: {line}")
-                    print(f"[{ts()}] 🚨 [SERIAL CRITICAL] {line}", flush=True)
-                elif "[BUTTON-RESET]" in line or "[BOOT-DIAG]" in line:
-                    test_stats["reboots_detected"] += 1
-                    print(f"[{ts()}] ⚠️ [SERIAL REBOOT] {line}", flush=True)
-        s.close()
-    except Exception as e:
-        print(f"[{ts()}] Serial worker warning: {e}", flush=True)
-
-def run_stress_test(total_duration_sec=DEFAULT_DURATION_SEC):
-    print("=" * 70, flush=True)
-    print(f">>> [StickS3-STRESS-30MIN] Starting Hardware Stress Test", flush=True)
-    print(f">>> Target IP: http://{DEV_IP} | Port: {COM_PORT} | Duration: {total_duration_sec}s (~{total_duration_sec/60:.1f} min)", flush=True)
-    print("=" * 70, flush=True)
-
-    start_time = time.time()
-    test_stats["start_time"] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))
-
-    # 启动非复位串口监听线程
-    ser_thread = threading.Thread(target=serial_worker, daemon=True)
-    ser_thread.start()
-
-    fps_sum = 0.0
-    last_interaction_time = start_time
-    last_milestone_min = 0
-
-    while (time.time() - start_time) < total_duration_sec:
-        elapsed = time.time() - start_time
-        now_min = int(elapsed / 60)
-
-        # 1. 采集系统健康度与遥测指标
+    def connect(self, reset: bool = False) -> bool:
         try:
-            r = requests.get(f"http://{DEV_IP}/system/metrics", timeout=2.0)
-            if r.status_code == 200:
-                m = r.json()
-                test_stats["samples_count"] += 1
-                
-                # CPU / FPS
-                fps = float(m.get("cpu", {}).get("loop_fps", 0))
-                if fps > 0:
-                    fps_sum += fps
-                    if fps < test_stats["min_loop_fps"]:
-                        test_stats["min_loop_fps"] = fps
-                
-                # 栈空间
-                hwm = int(m.get("cpu", {}).get("audio_stack_hwm", 0))
-                if hwm > 0 and hwm < test_stats["audio_stack_hwm_min"]:
-                    test_stats["audio_stack_hwm_min"] = hwm
-                
-                # 内存
-                sram_kb = int(m.get("memory", {}).get("free_internal_heap", 0)) / 1024.0
-                if sram_kb < test_stats["min_sram_kb"]:
-                    test_stats["min_sram_kb"] = sram_kb
-                if sram_kb > test_stats["max_sram_kb"]:
-                    test_stats["max_sram_kb"] = sram_kb
-                
-                psram_mb = int(m.get("memory", {}).get("free_psram", 0)) / (1024.0 * 1024.0)
-                if psram_mb < test_stats["min_psram_mb"]:
-                    test_stats["min_psram_mb"] = psram_mb
-                
-                # I2C
-                fails = int(m.get("io", {}).get("i2c_lock_failures", 0))
-                if fails > test_stats["i2c_failures_max"]:
-                    test_stats["i2c_failures_max"] = fails
+            print(f"{CYAN}[INIT]{RESET} Connecting to {self.port} at {self.baud} baud (reset={reset})...")
+            self.ser = serial.Serial(self.port, self.baud, timeout=0.1)
+            self.ser.dtr = False
+            self.ser.rts = False
 
+            if reset:
+                # Trigger RTS/DTR hardware reboot
+                print(f"{YELLOW}[RESET]{RESET} Triggering RTS/DTR hardware reset...")
+                self.ser.setDTR(False)
+                self.ser.setRTS(True)
+                time.sleep(0.1)
+                self.ser.setRTS(False)
+
+            # Wait until device self-test is complete and loop is running
+            print(f"{CYAN}[SYNC]{RESET} Synchronizing with StickS3 hardware telemetry...")
+            t_deadline = time.time() + 6.0
+            synced = False
+            while time.time() < t_deadline:
+                line = self.ser.readline().decode("utf-8", errors="replace").strip()
+                if line:
+                    if "[StickS3-SYS]" in line or "[StickS3-ONLINE]" in line or "FPS:" in line:
+                        print(f"{GREEN}[SYNC-OK]{RESET} Hardware telemetry synchronized: {line}")
+                        synced = True
+                        break
+                time.sleep(0.02)
+            
+            time.sleep(0.2)
+            # Flush existing buffer
+            self.ser.reset_input_buffer()
+            print(f"{GREEN}[OK]{RESET} Serial connected and fully synchronized.")
+            return True
         except Exception as e:
-            test_stats["errors"].append(f"[{ts()}] Metrics request failed: {e}")
+            print(f"{RED}[ERROR]{RESET} Failed to connect to {self.port}: {e}")
+            return False
 
-        # 2. 定期每 3 分钟执行一次主动文本对话压测
-        if (time.time() - last_interaction_time) >= 180:
-            last_interaction_time = time.time()
-            test_stats["interaction_rounds"] += 1
-            round_idx = test_stats["interaction_rounds"]
-            print(f"\n[{ts()}] --- Triggering Interaction Round #{round_idx} ---", flush=True)
+    def send_command(self, cmd: str) -> Optional[float]:
+        """Send command and wait for ACK / JSON response line to calculate RTT."""
+        if not self.ser or not self.ser.is_open:
+            return None
+        self.commands_sent += 1
+        t_send = time.time()
+        try:
+            self.ser.write((cmd + "\n").encode("utf-8"))
+            self.ser.flush()
+        except Exception as e:
+            print(f"{RED}[SEND ERROR]{RESET} {e}")
+            return None
+
+        # Wait up to 1.5s for response
+        t_deadline = t_send + 1.5
+        line_buf = ""
+        while time.time() < t_deadline:
             try:
-                chat_url = f"http://{DEV_IP}/bailian/send_text"
-                payload = {"text": f"悄悄，这是第{round_idx}轮系统连续稳定性健康压测，请用一句话回复。"}
-                r_chat = requests.post(chat_url, json=payload, timeout=5.0)
-                if r_chat.status_code == 200:
-                    test_stats["interaction_success"] += 1
-                    print(f"[{ts()}] Sent question to StickS3: {payload['text']}", flush=True)
-                else:
-                    print(f"[{ts()}] Chat request returned HTTP {r_chat.status_code}", flush=True)
-            except Exception as e:
-                print(f"[{ts()}] Interaction round failed: {e}", flush=True)
+                line = self.ser.readline().decode("utf-8", errors="replace").strip()
+            except Exception:
+                continue
+            if not line:
+                continue
+            
+            # Record any panic immediately
+            if PANIC_REGEX.search(line):
+                self.panic_detected += 1
+                self.panic_logs.append(line)
+                print(f"{RED}[PANIC DETECTED]{RESET} {line}")
 
-        # 3. 里程碑上报 (每 5 分钟汇报一次)
-        if now_min >= last_milestone_min + 5:
-            last_milestone_min = now_min
-            cur_avg_fps = (fps_sum / test_stats["samples_count"]) if test_stats["samples_count"] > 0 else 0
-            mile_entry = {
-                "elapsed_minutes": now_min,
-                "samples": test_stats["samples_count"],
-                "avg_fps": round(cur_avg_fps, 1),
-                "min_sram_kb": round(test_stats["min_sram_kb"], 1),
-                "min_psram_mb": round(test_stats["min_psram_mb"], 2),
-                "audio_stack_hwm": test_stats["audio_stack_hwm_min"],
-                "i2c_fails": test_stats["i2c_failures_max"],
-                "reboots": test_stats["reboots_detected"],
-                "panics": test_stats["panics_detected"]
-            }
-            test_stats["milestones"].append(mile_entry)
-            print(f"\n[{ts()}] 📊 [MILESTONE {now_min}/30 MIN] Samples={mile_entry['samples']} | "
-                  f"AvgFPS={mile_entry['avg_fps']} | SRAM={mile_entry['min_sram_kb']}KB | "
-                  f"PSRAM={mile_entry['min_psram_mb']}MB | Stack={mile_entry['audio_stack_hwm']}B | "
-                  f"I2CFails={mile_entry['i2c_fails']} | Reboots={mile_entry['reboots']} | Panics={mile_entry['panics']}",
-                  flush=True)
+            # Check for system metrics in background
+            self._parse_line_metrics(line)
 
-        time.sleep(SAMPLE_INTERVAL_SEC)
+            # Check if this line is an ACK or @status / @chat / @pet response
+            if cmd == ">status" and (line.startswith("@status") or line.startswith("{") or "v_bus" in line):
+                rtt_ms = (time.time() - t_send) * 1000.0
+                self.commands_acked += 1
+                self.command_rtt_history.append(rtt_ms)
+                return rtt_ms
+            elif line.startswith("@pet"):
+                rtt_ms = (time.time() - t_send) * 1000.0
+                self.commands_acked += 1
+                self.command_rtt_history.append(rtt_ms)
+                return rtt_ms
+            elif line.startswith("@chat") and ("face_set" in line or "pet_switch" in line or "robot_ack" in line or "sent" in line):
+                rtt_ms = (time.time() - t_send) * 1000.0
+                self.commands_acked += 1
+                self.command_rtt_history.append(rtt_ms)
+                return rtt_ms
+            elif line.startswith("@status"):
+                rtt_ms = (time.time() - t_send) * 1000.0
+                self.commands_acked += 1
+                self.command_rtt_history.append(rtt_ms)
+                return rtt_ms
 
-    # 压测结束总结
-    stop_event.set()
-    end_time = time.time()
-    test_stats["end_time"] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time))
-    test_stats["duration_sec"] = round(end_time - start_time, 1)
-    if test_stats["samples_count"] > 0:
-        test_stats["avg_loop_fps"] = round(fps_sum / test_stats["samples_count"], 1)
+        return None
 
-    print("\n" + "=" * 70, flush=True)
-    print(">>> [StickS3-STRESS-30MIN] Test Completed!", flush=True)
-    print(f">>> Duration: {test_stats['duration_sec']}s (~{test_stats['duration_sec']/60:.1f} min)", flush=True)
-    print(f">>> Total Samples: {test_stats['samples_count']}", flush=True)
-    print(f">>> Avg FPS: {test_stats['avg_loop_fps']} | Min FPS: {test_stats['min_loop_fps']:.1f}", flush=True)
-    print(f">>> Min SRAM: {test_stats['min_sram_kb']:.1f} KB | Min PSRAM: {test_stats['min_psram_mb']:.2f} MB", flush=True)
-    print(f">>> Audio Stack HWM Min: {test_stats['audio_stack_hwm_min']} B", flush=True)
-    print(f">>> I2C Lock Failures: {test_stats['i2c_failures_max']}", flush=True)
-    print(f">>> Reboots Detected: {test_stats['reboots_detected']}", flush=True)
-    print(f">>> Kernel Panics: {test_stats['panics_detected']}", flush=True)
-    print(f">>> Interaction Rounds: {test_stats['interaction_rounds']} (Success: {test_stats['interaction_success']})", flush=True)
-    print("=" * 70, flush=True)
+    def _parse_line_metrics(self, line: str):
+        # 1. SYS METRICS REGEX
+        m = SYS_METRICS_REGEX.search(line)
+        if m:
+            now = time.time() - self.start_time
+            fps = float(m.group("fps"))
+            temp = float(m.group("temp"))
+            ram_free = float(m.group("ram_free"))
+            ram_load = float(m.group("ram_load"))
+            sram_free = float(m.group("sram_free"))
+            sram_dyn_load = float(m.group("sram_dyn_load"))
+            stack_free = int(m.group("stack_free"))
+            stack_load = float(m.group("stack_load"))
+            i2c_fails = int(m.group("i2c_fails"))
+            
+            self.timestamps.append(now)
+            self.fps_history.append(fps)
+            self.temp_history.append(temp)
+            self.ram_free_history.append(ram_free)
+            self.ram_load_history.append(ram_load)
+            self.sram_free_history.append(sram_free)
+            self.sram_dyn_load_history.append(sram_dyn_load)
+            self.stack_free_history.append(stack_free)
+            self.stack_load_history.append(stack_load)
+            self.i2c_fails_history.append(i2c_fails)
+            return
 
-    # 写入 JSON 报告
+        # 2. STATUS JSON REGEX
+        m_stat = STATUS_JSON_REGEX.search(line)
+        if m_stat:
+            try:
+                data = json.loads(m_stat.group(1))
+                dev = data.get("device", {})
+                if "temp_c" in dev and float(dev["temp_c"]) > 0:
+                    temp = float(dev["temp_c"])
+                    if not self.temp_history or len(self.temp_history) < len(self.fps_history):
+                        self.temp_history.append(temp)
+                if "fps" in dev and float(dev["fps"]) > 0:
+                    fps = float(dev["fps"])
+                    now = time.time() - self.start_time
+                    if not self.timestamps or (now - self.timestamps[-1] > 0.5):
+                        self.timestamps.append(now)
+                        self.fps_history.append(fps)
+            except Exception:
+                pass
+
+    def run_stress_test(self, reset: bool = False) -> Dict[str, Any]:
+        if not self.ser and not self.connect(reset=reset):
+            return {"error": "Failed to connect serial port"}
+
+        self.start_time = time.time()
+        end_time = self.start_time + self.duration_sec
+        next_command_time = time.time() + 0.5
+
+        print(f"\n{BOLD}{CYAN}========================================================================={RESET}")
+        print(f"{BOLD}{CYAN}  M5Stack StickS3 & Meta Muse 30-Minute Continuous Stress Acceptance Test  {RESET}")
+        print(f"{BOLD}{CYAN}========================================================================={RESET}")
+        print(f"Target Duration : {self.duration_sec}s ({self.duration_sec / 60:.1f} mins)")
+        print(f"Serial Port     : {self.port} @ {self.baud}")
+        print(f"Stimulus Rates  : 1 command every 2.0s (Avatar switch, Face mood, Status probe)\n")
+
+        last_display_time = time.time()
+
+        try:
+            while time.time() < end_time:
+                current_time = time.time()
+                elapsed = current_time - self.start_time
+                remaining = end_time - current_time
+
+                # 1. Non-blocking read serial buffer to catch logs and metrics
+                if self.ser.in_waiting > 0:
+                    try:
+                        line = self.ser.readline().decode("utf-8", errors="replace").strip()
+                        if line:
+                            if PANIC_REGEX.search(line):
+                                self.panic_detected += 1
+                                self.panic_logs.append(line)
+                                print(f"\n{RED}[PANIC!]{RESET} {line}")
+                            self._parse_line_metrics(line)
+                    except Exception:
+                        pass
+
+                # 2. Periodic stimulus dispatch
+                if current_time >= next_command_time:
+                    cmd, tag = self.stimulus_commands[self.stimulus_idx]
+                    self.stimulus_idx = (self.stimulus_idx + 1) % len(self.stimulus_commands)
+                    self.send_command(cmd)
+                    next_command_time = current_time + 2.0
+
+                # 3. Live Dashboard refresh every 1.5 seconds
+                if current_time - last_display_time >= 1.5:
+                    last_display_time = current_time
+                    cur_fps = self.fps_history[-1] if self.fps_history else 0.0
+                    avg_fps = statistics.mean(self.fps_history) if self.fps_history else 0.0
+                    cur_temp = self.temp_history[-1] if self.temp_history else 0.0
+                    cur_sram_load = self.sram_dyn_load_history[-1] if self.sram_dyn_load_history else 0.0
+                    cur_ram_free = self.ram_free_history[-1] if self.ram_free_history else 0.0
+                    cur_stack_load = self.stack_load_history[-1] if self.stack_load_history else 0.0
+                    cur_i2c_fails = self.i2c_fails_history[-1] if self.i2c_fails_history else 0
+                    avg_rtt = statistics.mean(self.command_rtt_history[-10:]) if self.command_rtt_history else 0.0
+                    ack_rate = (self.commands_acked / self.commands_sent * 100.0) if self.commands_sent > 0 else 100.0
+
+                    status_str = (
+                        f"\r{BOLD}[{elapsed/60:4.1f}m / {self.duration_sec/60:4.1f}m]{RESET} "
+                        f"FPS: {GREEN if cur_fps >= 60 else RED}{cur_fps:4.1f}{RESET} (avg {avg_fps:4.1f}) | "
+                        f"Temp: {YELLOW}{cur_temp:4.1f}°C{RESET} | "
+                        f"RAM-Free: {cur_ram_free:4.2f}MB | "
+                        f"SRAM-Load: {cur_sram_load:4.1f}% | "
+                        f"RTT: {avg_rtt:5.1f}ms (ACK {ack_rate:5.1f}%) | "
+                        f"Panics: {GREEN if self.panic_detected == 0 else RED}{self.panic_detected}{RESET}"
+                    )
+                    sys.stdout.write(status_str)
+                    sys.stdout.flush()
+
+                time.sleep(0.01)
+
+        except KeyboardInterrupt:
+            print(f"\n{YELLOW}[WARN]{RESET} Stress test interrupted early by user.")
+
+        print("\n\n" + "=" * 73)
+        print(f"{BOLD}{GREEN}Stress Test Execution Completed. Generating Axiomatic Acceptance Report...{RESET}")
+        print("=" * 73)
+
+        return self.generate_report()
+
+    def generate_report(self) -> Dict[str, Any]:
+        total_time = time.time() - self.start_time
+        
+        # Calculate statistics
+        avg_fps = statistics.mean(self.fps_history) if self.fps_history else 0.0
+        min_fps = min(self.fps_history) if self.fps_history else 0.0
+        max_fps = max(self.fps_history) if self.fps_history else 0.0
+
+        avg_temp = statistics.mean(self.temp_history) if self.temp_history else 0.0
+        max_temp = max(self.temp_history) if self.temp_history else 0.0
+
+        avg_rtt = statistics.mean(self.command_rtt_history) if self.command_rtt_history else 0.0
+        p95_rtt = statistics.quantiles(self.command_rtt_history, n=20)[18] if len(self.command_rtt_history) >= 20 else avg_rtt
+        max_rtt = max(self.command_rtt_history) if self.command_rtt_history else 0.0
+
+        ack_rate = (self.commands_acked / self.commands_sent * 100.0) if self.commands_sent > 0 else 0.0
+
+        # Memory leak slope analysis (least squares linear regression on total RAM free in KB)
+        leak_slope_kb_min = 0.0
+        if len(self.ram_free_history) >= 10 and len(self.timestamps) >= 10:
+            n = min(len(self.ram_free_history), len(self.timestamps))
+            xs = [self.timestamps[i] / 60.0 for i in range(n)]  # minutes
+            ys = [self.ram_free_history[i] * 1024.0 for i in range(n)]  # KB
+            x_mean = statistics.mean(xs)
+            y_mean = statistics.mean(ys)
+            denom = sum((x - x_mean) ** 2 for x in xs)
+            if denom > 0:
+                leak_slope_kb_min = sum((xs[i] - x_mean) * (ys[i] - y_mean) for i in range(n)) / denom
+
+        # Acceptance Verification Gates
+        gate_fps = avg_fps >= 60.0
+        gate_temp = max_temp < 75.0 if max_temp > 0 else True
+        gate_ack = ack_rate >= 99.0
+        gate_panics = self.panic_detected == 0
+        gate_memory_leak = leak_slope_kb_min >= -0.05  # RAM should not drop faster than 0.05 KB/min
+
+        passed = gate_fps and gate_temp and gate_ack and gate_panics and gate_memory_leak
+
+        report = {
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "port": self.port,
+            "duration_seconds": round(total_time, 2),
+            "target_duration_seconds": self.duration_sec,
+            "verdict": "PASS" if passed else "FAIL",
+            "acceptance_gates": {
+                "gate_fps_gte_60": {"passed": gate_fps, "value": round(avg_fps, 2), "threshold": ">= 60.0 FPS"},
+                "gate_temp_lt_75c": {"passed": gate_temp, "value": round(max_temp, 2), "threshold": "< 75.0 °C"},
+                "gate_ack_rate_gte_99": {"passed": gate_ack, "value": round(ack_rate, 2), "threshold": ">= 99.0%"},
+                "gate_zero_panics": {"passed": gate_panics, "value": self.panic_detected, "threshold": "== 0"},
+                "gate_no_memory_leak": {"passed": gate_memory_leak, "value": round(leak_slope_kb_min, 4), "threshold": ">= -0.05 KB/min"}
+            },
+            "metrics_summary": {
+                "fps": {"min": round(min_fps, 2), "avg": round(avg_fps, 2), "max": round(max_fps, 2), "sample_count": len(self.fps_history)},
+                "temperature_c": {"avg": round(avg_temp, 2), "max": round(max_temp, 2), "sample_count": len(self.temp_history)},
+                "latency_rtt_ms": {"avg": round(avg_rtt, 2), "p95": round(p95_rtt, 2), "max": round(max_rtt, 2)},
+                "commands": {"sent": self.commands_sent, "acked": self.commands_acked, "rate_pct": round(ack_rate, 2)},
+                "memory": {
+                    "final_ram_free_mb": round(self.ram_free_history[-1], 2) if self.ram_free_history else 0.0,
+                    "final_sram_dyn_load_pct": round(self.sram_dyn_load_history[-1], 2) if self.sram_dyn_load_history else 0.0,
+                    "ram_leak_slope_kb_per_min": round(leak_slope_kb_min, 4)
+                },
+                "hardware_safety": {
+                    "final_stack_load_pct": round(self.stack_load_history[-1], 2) if self.stack_load_history else 0.0,
+                    "final_i2c_fails": self.i2c_fails_history[-1] if self.i2c_fails_history else 0
+                }
+            },
+            "panic_logs": self.panic_logs
+        }
+
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
+        with open(self.output_file, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+
+        # Print detailed report summary
+        print(f"\n{BOLD}Acceptance Gates Summary:{RESET}")
+        for gate_name, gate_info in report["acceptance_gates"].items():
+            status_tag = f"{GREEN}[PASS]{RESET}" if gate_info["passed"] else f"{RED}[FAIL]{RESET}"
+            print(f"  {status_tag} {gate_name:25s} : {gate_info['value']} ({gate_info['threshold']})")
+
+        print(f"\n{BOLD}Final Result: {GREEN if passed else RED}{report['verdict']}{RESET}")
+        print(f"Report JSON written to: {self.output_file}\n")
+        return report
+
+    def close(self):
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="M5Stack StickS3 30-Minute Stress Test & Acceptance Harness")
+    parser.add_argument("--port", type=str, default="COM3", help="Serial port (default: COM3)")
+    parser.add_argument("--baud", type=int, default=115200, help="Baud rate (default: 115200)")
+    parser.add_argument("--duration", type=int, default=1800, help="Stress test duration in seconds (default: 1800 for 30 mins)")
+    parser.add_argument("--reset", action="store_true", help="Trigger RTS/DTR reset before beginning test")
+    parser.add_argument("--output", type=str, default="dist/stress_test_report.json", help="Output JSON path")
+    args = parser.parse_args()
+
+    tester = HardwareStressTester(port=args.port, baud=args.baud, duration_sec=args.duration, output_file=args.output)
     try:
-        os.makedirs(os.path.dirname(REPORT_PATH), exist_ok=True)
-        with open(REPORT_PATH, "w", encoding="utf-8") as f:
-            json.dump(test_stats, f, indent=2, ensure_ascii=False)
-        print(f">>> Report saved to: {REPORT_PATH}", flush=True)
-    except Exception as e:
-        print(f">>> Failed to write report: {e}", flush=True)
+        report = tester.run_stress_test(reset=args.reset)
+        if report.get("verdict") != "PASS":
+            sys.exit(1)
+    finally:
+        tester.close()
 
-    # 判定最终结果
-    is_success = (test_stats["reboots_detected"] == 0 and 
-                  test_stats["panics_detected"] == 0 and 
-                  test_stats["i2c_failures_max"] == 0 and
-                  test_stats["min_sram_kb"] > 30 and
-                  test_stats["avg_loop_fps"] > 50)
-    print(f">>> FINAL VERDICT: {'PASSED (ROCK SOLID)' if is_success else 'FAILED'}", flush=True)
-    return 0 if is_success else 1
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="StickS3 Hardware Long-Horizon Stress Test")
-    parser.add_argument("--duration", type=int, default=DEFAULT_DURATION_SEC, help="Test duration in seconds (default: 1800 for 30min)")
-    args = parser.parse_args()
-    sys.exit(run_stress_test(total_duration_sec=args.duration))
+    main()

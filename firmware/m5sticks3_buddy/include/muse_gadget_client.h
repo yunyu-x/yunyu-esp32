@@ -38,7 +38,11 @@ enum class HatchCommandType {
     CHAT_SEND,    // >chat=
     FACE_SET,     // >face=
     STATUS_QUERY, // --status
-    ROBOT_COMMAND // >robot=
+    ROBOT_COMMAND, // >robot=
+    ACT_COMMAND,   // >act= 或 >action=
+    COMBO_COMMAND, // >combo=
+    LIMB_COMMAND,  // >limb=
+    GROWTH_QUERY   // >exp 或 >growth
 };
 
 struct HatchParsedMessage {
@@ -84,6 +88,36 @@ public:
                 face.pop_back();
             }
             msg.payload = face;
+        } else if (line.rfind(">act=", 0) == 0) {
+            msg.type = HatchCommandType::ACT_COMMAND;
+            std::string act = line.substr(5);
+            while (!act.empty() && (act.back() == '\r' || act.back() == '\n' || act.back() == ' ')) {
+                act.pop_back();
+            }
+            msg.payload = act;
+        } else if (line.rfind(">action=", 0) == 0) {
+            msg.type = HatchCommandType::ACT_COMMAND;
+            std::string act = line.substr(8);
+            while (!act.empty() && (act.back() == '\r' || act.back() == '\n' || act.back() == ' ')) {
+                act.pop_back();
+            }
+            msg.payload = act;
+        } else if (line.rfind(">combo=", 0) == 0) {
+            msg.type = HatchCommandType::COMBO_COMMAND;
+            std::string combo = line.substr(7);
+            while (!combo.empty() && (combo.back() == '\r' || combo.back() == '\n' || combo.back() == ' ')) {
+                combo.pop_back();
+            }
+            msg.payload = combo;
+        } else if (line.rfind(">limb=", 0) == 0) {
+            msg.type = HatchCommandType::LIMB_COMMAND;
+            std::string limb = line.substr(6);
+            while (!limb.empty() && (limb.back() == '\r' || limb.back() == '\n' || limb.back() == ' ')) {
+                limb.pop_back();
+            }
+            msg.payload = limb;
+        } else if (line.rfind(">exp", 0) == 0 || line.rfind(">growth", 0) == 0) {
+            msg.type = HatchCommandType::GROWTH_QUERY;
         } else if (line.rfind(">robot=", 0) == 0) {
             msg.type = HatchCommandType::ROBOT_COMMAND;
             msg.payload = line.substr(7);
@@ -120,14 +154,14 @@ public:
     }
 
     // 格式化输出为 @status JSON 响应行
-    static std::string formatStatusJson(float v_bus, float fps, bool wifi_connected, const std::string& wifi_mode, const std::string& ip_str, const std::string& face) {
-        char buf[280];
+    static std::string formatStatusJson(float v_bus, float fps, bool wifi_connected, const std::string& wifi_mode, const std::string& ip_str, const std::string& face, float temp_c = 0.0f) {
+        char buf[320];
         snprintf(buf, sizeof(buf),
-            "@status {\"board\":\"M5Stack StickS3\",\"chat\":true,\"device\":{\"wifi\":{\"state\":\"%s\",\"mode\":\"%s\",\"ip\":\"%s\"},\"hatch\":{\"state\":\"connected\"},\"v_bus\":%.2f,\"fps\":%.1f,\"face\":\"%s\"}}\n",
+            "@status {\"board\":\"M5Stack StickS3\",\"chat\":true,\"device\":{\"wifi\":{\"state\":\"%s\",\"mode\":\"%s\",\"ip\":\"%s\"},\"hatch\":{\"state\":\"connected\"},\"v_bus\":%.2f,\"fps\":%.1f,\"temp_c\":%.1f,\"face\":\"%s\"}}\n",
             wifi_connected ? "connected" : "disconnected",
             wifi_mode.c_str(),
             ip_str.c_str(),
-            v_bus, fps, face.c_str());
+            v_bus, fps, temp_c, face.c_str());
         return std::string(buf);
     }
 

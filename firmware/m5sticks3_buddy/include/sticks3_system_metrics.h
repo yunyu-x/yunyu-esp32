@@ -22,6 +22,10 @@ inline void updateSystemLoopFPS() {
     }
 }
 
+inline float getChipTemperature() {
+    return temperatureRead();
+}
+
 inline void printSystemDiagnostics() {
     static uint32_t s_last_diag = 0;
     if (millis() - s_last_diag >= 2000) {
@@ -49,9 +53,11 @@ inline void printSystemDiagnostics() {
         uint32_t max_block = (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
         uint32_t stack_hwm = (uint32_t)uxTaskGetStackHighWaterMark(NULL);
         float stack_load = (8192 > stack_hwm) ? ((float)(8192 - stack_hwm) / 8192.0f) * 100.0f : 0.0f;
+        float chip_temp = temperatureRead();
 
-        Serial.printf("[StickS3-SYS] FPS: %.1f | RAM: free=%.2fMB (Load: %.1f%%) | SRAM: free=%uKB, max_block=%uKB (DynLoad: %.1f%%) | Stack: free=%uB (Load: %.1f%%) | I2C_Tx: %lu (Fails: %lu)\n",
+        Serial.printf("[StickS3-SYS] FPS: %.1f | Temp: %.1fC | RAM: free=%.2fMB (Load: %.1f%%) | SRAM: free=%uKB, max_block=%uKB (DynLoad: %.1f%%) | Stack: free=%uB (Load: %.1f%%) | I2C_Tx: %lu (Fails: %lu)\n",
                       getSystemLoopFPS(),
+                      chip_temp,
                       free_ram_mb,
                       ram_overall_load,
                       (unsigned)(free_sram / 1024),

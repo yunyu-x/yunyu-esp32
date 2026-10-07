@@ -564,3 +564,96 @@ def test_pet_avatar_switching_full_stack():
     assert r_switch2.status_code == 200
     assert r_switch2.json()["active_pet"] == "jollybot"
 
+
+# -----------------------------------------------------------------------------
+# Test 10: Full-Body Bear Kinematics, Limbs & Tamagotchi Growth Full Stack
+# -----------------------------------------------------------------------------
+def test_bear_kinematics_and_growth_system_full_stack():
+    """
+    Validates full-body Bear avatar kinematics, limb action invocation,
+    combo chaining, Tamagotchi growth progression, and Serial Hatch framing.
+    """
+    dev = LingCubeDeviceState("LingCube-BearKinematics")
+    reg = DeviceSkillRegistry(dev)
+
+    # 1. Tool schema verification
+    schemas = reg.get_tools_schema()
+    tool_names = [t["function"]["name"] for t in schemas]
+    assert "sticks3_control_bear" in tool_names
+
+    bear_tool = next(t for t in schemas if t["function"]["name"] == "sticks3_control_bear")
+    assert "action" in bear_tool["function"]["parameters"]["properties"]
+    assert "combo" in bear_tool["function"]["parameters"]["properties"]
+    assert "duration_ms" in bear_tool["function"]["parameters"]["properties"]
+
+    # 2. Tool execution - single action & EXP gain
+    initial_xp = reg.xp
+    r_act = reg.execute_tool("sticks3_control_bear", {"action": "kungfu", "duration_ms": 3000})
+    assert r_act["success"] is True
+    assert r_act["action"] == "kungfu"
+    assert r_act["xp"] == initial_xp + 15
+    assert "kungfu" in r_act["message"]
+
+    # 3. Tool execution - combo action sequence
+    r_combo = reg.execute_tool("sticks3_control_bear", {
+        "action": "bow",
+        "combo": ["bow", "kungfu", "cheer"],
+        "duration_ms": 6000
+    })
+    assert r_combo["success"] is True
+    assert r_combo["combo"] == ["bow", "kungfu", "cheer"]
+    assert "bow -> kungfu -> cheer" in r_combo["message"]
+
+    # 4. Natural language intent extraction via BailianAgentEngine
+    engine = BailianAgentEngine(reg, force_mock=True)
+
+    tools_wave, reply_wave, face_wave = engine._mock_semantic_plan("小熊，给我挥挥手打个招呼吧")
+    assert any(t["name"] == "sticks3_control_bear" and t["args"]["action"] == "wave" for t in tools_wave)
+    assert "WAVE" in reply_wave
+
+    tools_kungfu, reply_kungfu, face_kungfu = engine._mock_semantic_plan("来一段中国功夫表演！")
+    assert any(t["name"] == "sticks3_control_bear" and t["args"]["action"] == "kungfu" for t in tools_kungfu)
+    assert "KUNGFU" in reply_kungfu
+
+    tools_combo, reply_combo, face_combo = engine._mock_semantic_plan("请展示一套连招组合动作")
+    assert any(t["name"] == "sticks3_control_bear" and len(t["args"].get("combo", [])) == 3 for t in tools_combo)
+    assert "连续肢体动作" in reply_combo
+
+    # 5. Serial Hatch Manager protocol frames
+    hatch = SerialHatchManager(agent_engine=engine, device_state=dev)
+
+    # >act=wave
+    f_act = hatch.handle_line(">act=wave")
+    assert len(f_act) == 1
+    assert "@act" in f_act[0]
+    act_data = json.loads(f_act[0].split(" ", 1)[1])
+    assert act_data["action"] == "wave"
+    assert act_data["status"] == "started"
+    assert act_data["combo"] is False
+
+    # >combo=bow,kungfu,cheer
+    f_combo = hatch.handle_line(">combo=bow,kungfu,cheer")
+    assert len(f_combo) == 1
+    assert "@act" in f_combo[0]
+    combo_data = json.loads(f_combo[0].split(" ", 1)[1])
+    assert combo_data["combo"] is True
+    assert combo_data["sequence"] == ["bow", "kungfu", "cheer"]
+
+    # >limb=left_arm:45
+    f_limb = hatch.handle_line(">limb=left_arm:45")
+    assert len(f_limb) == 1
+    limb_data = json.loads(f_limb[0].split(" ", 1)[1])
+    assert limb_data["limb"] == "left_arm:45"
+    assert limb_data["status"] == "target_set"
+
+    # >growth / >exp
+    f_growth = hatch.handle_line(">growth")
+    assert len(f_growth) == 1
+    assert "@growth" in f_growth[0]
+    growth_data = json.loads(f_growth[0].split(" ", 1)[1])
+    assert "level" in growth_data
+    assert "title" in growth_data
+    assert "rom_pct" in growth_data
+    assert growth_data["rom_pct"] >= 55
+
+

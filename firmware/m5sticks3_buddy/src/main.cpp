@@ -39,6 +39,7 @@
 #include "sticks3_wakeword.h"
 #include "muse_gadget_client.h"
 #include "muse_pixel.h"
+#include "sticks3_bear_kinematics.h"
 
 using namespace sticks3::protocol;
 
@@ -187,6 +188,37 @@ void onNewTextMessage(const String& msg, const String& source) {
     
     Serial.printf("\n[CHAT-RX] >>> [%s] (#%u): \"%s\"\n",
                   source.c_str(), (unsigned)total_ble_msgs_received, clean_msg.c_str());
+
+    // 增加小熊交互成长经验值
+    sticks3::BearGrowthManager::getInstance().addExp(10, "User Dialogue");
+
+    // 小熊四肢自然语言动作语义解析
+    auto& bear_ctrl = sticks3::BearKinematicsController::getInstance();
+    if (clean_msg.indexOf("挥手") >= 0 || clean_msg.indexOf("打招呼") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_WAVE);
+    } else if (clean_msg.indexOf("鼓掌") >= 0 || clean_msg.indexOf("拍手") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_CLAP);
+    } else if (clean_msg.indexOf("跳舞") >= 0 || clean_msg.indexOf("扭一扭") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_DANCE);
+    } else if (clean_msg.indexOf("功夫") >= 0 || clean_msg.indexOf("武术") >= 0 || clean_msg.indexOf("打拳") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_KUNGFU);
+    } else if (clean_msg.indexOf("太极") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_TAICHI);
+    } else if (clean_msg.indexOf("伸懒腰") >= 0 || clean_msg.indexOf("打哈欠") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_STRETCH);
+    } else if (clean_msg.indexOf("鞠躬") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_BOW);
+    } else if (clean_msg.indexOf("跳一个") >= 0 || clean_msg.indexOf("跳起来") >= 0 || clean_msg.indexOf("蹦") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_JUMP);
+    } else if (clean_msg.indexOf("坐下") >= 0 || clean_msg.indexOf("坐好") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_SIT);
+    } else if (clean_msg.indexOf("趴下") >= 0 || clean_msg.indexOf("躺下") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_LIE);
+    } else if (clean_msg.indexOf("欢呼") >= 0 || clean_msg.indexOf("庆祝") >= 0 || clean_msg.indexOf("举手") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_CHEER);
+    } else if (clean_msg.indexOf("单脚") >= 0 || clean_msg.indexOf("金鸡独立") >= 0 || clean_msg.indexOf("平衡") >= 0) {
+        bear_ctrl.triggerAction(sticks3::BEAR_ACT_BALANCE);
+    }
 
     // 检查是否为控制指令
     if (clean_msg.equalsIgnoreCase("wifi") || clean_msg.equalsIgnoreCase("scan")) {
@@ -549,11 +581,54 @@ void readBMI270(float& roll, float& pitch) {
     }
 }
 
-// Meta Muse 官方原版 Jollybot 过程化像素艺术小熊渲染适配器 (移植自 muse_pixel.c)
+// ============================================================================
+// High-Fidelity Disney & Apple Craftsmanship Full-Body Jollybot Engine
+// ----------------------------------------------------------------------------
+// 1. 全身四肢与躯干骨骼学 (Full-Body & Limbs Kinematics): 头部、双耳、躯干胸腹、左右手臂手爪、左右腿脚脚掌
+// 2. 6 轴 IMU 动态姿态解算 (BMI270 Posture Fusion): 倾斜重心平衡、滑步踉跄、失重惊吓、跳跃与碰撞弹性缓冲
+// 3. 情绪状态机联动 (Mood State Machine): 12 种情绪驱动四肢姿态 (鼓掌、垂臂、抱头、抚腮、舞蹈、打坐等)
+// 4. 灵宠养成系统 (Tamagotchi / RPG Growth System): 互动升级 (Lv.1 萌新 ~ Lv.5 机甲元尊)、肢体活动度 (ROM) 随等级成长
+// 5. 自然语言动作与组合控制 (Macro Combo & Limb Control): 挥手、鼓掌、跳舞、功夫、太极、伸懒腰、鞠躬等宏序列
+// 6. 苹果工艺审美与零字幕沉浸大屏：取消中文字幕气泡，全面释放 202px 完整高度空间
+// ============================================================================
+
+// 肢体抗锯齿圆角胶囊骨骼绘制
+static void drawBearLimbCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, int r, uint16_t col, uint16_t border_col) {
+    d.fillCircle(x1, y1, r, col);
+    d.fillCircle(x2, y2, r, col);
+    for (int dr = -r + 1; dr <= r - 1; dr++) {
+        d.drawLine(x1 + dr, y1, x2 + dr, y2, col);
+        d.drawLine(x1, y1 + dr, x2, y2 + dr, col);
+    }
+    d.drawCircle(x1, y1, r, border_col);
+    d.drawCircle(x2, y2, r, border_col);
+}
+
+// 萌熊前爪 (掌心肉垫 + 3 颗萌小豆)
+static void drawBearPaw(LovyanGFX& d, int x, int y, int r, uint16_t main_col, uint16_t pad_col) {
+    d.fillCircle(x, y, r, main_col);
+    d.drawCircle(x, y, r, 0x8220);
+    d.fillCircle(x, y + 1, r - 3, pad_col);
+    d.fillCircle(x - 3, y - r + 1, 1, pad_col);
+    d.fillCircle(x,     y - r,     1, pad_col);
+    d.fillCircle(x + 3, y - r + 1, 1, pad_col);
+}
+
+// 萌熊脚掌 (椭圆大肉垫 + 3 颗萌趾豆)
+static void drawBearFoot(LovyanGFX& d, int x, int y, int rx, int ry, uint16_t main_col, uint16_t pad_col) {
+    d.fillEllipse(x, y, rx, ry, main_col);
+    d.drawEllipse(x, y, rx, ry, 0x8220);
+    d.fillEllipse(x, y + 1, rx - 3, ry - 3, pad_col);
+    d.fillCircle(x - 4, y - ry + 2, 1, pad_col);
+    d.fillCircle(x,     y - ry + 1, 1, pad_col);
+    d.fillCircle(x + 4, y - ry + 2, 1, pad_col);
+}
+
 void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMood cur_m, sticks3::BailianAgentState bl_state, uint8_t mic_vu, bool ble_conn, bool wifi_conn, bool is_hs, uint8_t speaker_vol) {
     const int W = SCREEN_W;
+    const uint32_t now = millis();
 
-    // 1. 顶部状态栏 (0 ~ 18)
+    // 1. 顶部状态栏 (0 ~ 18) - Apple HIG 磨砂胶囊风格
     out_d.fillRect(0, 0, W, 18, 0x0841);
     out_d.setTextDatum(ML_DATUM);
     char vol_buf[16];
@@ -592,64 +667,266 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         out_d.drawString("!NET", 113, 9);
     }
 
-    // 2. 映射与解算 Meta 原生 Jollybot 姿态
-    muse_pose_t pose;
-    static muse_mode_t s_last_mode = MUSE_MODE_BOOT;
-    static uint32_t s_mode_enter_ms = 0;
+    // 2. 传感器动力学平滑与微状态解算 (BMI270 物理同理心)
+    static float s_smooth_roll = 0.0f;
+    static float s_smooth_pitch = 0.0f;
+    static float s_last_amag = 1.0f;
+    static uint32_t s_dizzy_until = 0;
+    static uint32_t s_last_blink = 0;
+    static bool s_is_blinking = false;
 
-    muse_mode_t cur_mode = MUSE_MODE_IDLE;
-    if (bl_state == sticks3::BL_STATE_LISTENING) {
-        cur_mode = MUSE_MODE_LISTENING;
-    } else if (bl_state == sticks3::BL_STATE_THINKING) {
-        cur_mode = MUSE_MODE_THINKING;
-    } else if (bl_state == sticks3::BL_STATE_SPEAKING) {
-        cur_mode = MUSE_MODE_SPEAKING;
-    } else if (bl_state == sticks3::BL_STATE_ERROR || bl_state == sticks3::BL_STATE_INTERRUPTED) {
-        cur_mode = MUSE_MODE_ERROR;
-    } else if (cur_m == sticks3::MOOD_SLEEP) {
-        cur_mode = MUSE_MODE_OFF;
-    } else if (cur_m == sticks3::MOOD_DIZZY) {
-        cur_mode = MUSE_MODE_ERROR;
+    s_smooth_roll = s_smooth_roll * 0.82f + imu_roll * 0.18f;
+    s_smooth_pitch = s_smooth_pitch * 0.82f + imu_pitch * 0.18f;
+
+    float a_mag = std::sqrt(imu_ax * imu_ax + imu_ay * imu_ay + imu_az * imu_az);
+    float diff_a = std::abs(a_mag - s_last_amag);
+    s_last_amag = a_mag;
+
+    if (diff_a > 1.25f || a_mag > 2.1f) {
+        s_dizzy_until = now + 3200;
+    }
+
+    // 3. 全身骨骼动力学逆向运动学解算 (IK Kinematics Solver)
+    sticks3::BearFullBodySkeleton skel;
+    sticks3::BearKinematicsController::getInstance().solveSkeleton(
+        now, s_smooth_roll, s_smooth_pitch, a_mag, diff_a, cur_m, bl_state, mic_vu, skel
+    );
+
+    // 4. 清空全屏角色渲染画布 (Y: 18 ~ 220，取消中文字幕气泡，全面释放 202px 完整高度空间)
+    out_d.fillRect(0, 18, W, 202, 0x0000);
+
+    // 地面软阴影 (Soft Ambient Occlusion Contact Shadow)
+    if (!skel.is_jumping) {
+        int sh_y = (skel.is_sitting) ? (int)(skel.body_y + 18) : (int)(skel.body_y + 40);
+        out_d.fillEllipse((int)skel.body_x, sh_y, (int)(skel.body_w * 0.58f), 5, 0x18C3);
+    }
+
+    // 5. 下肢绘制 (双腿与脚掌，居于躯干底层)
+    int hip_lx = (int)(skel.body_x - 13);
+    int hip_ly = (int)(skel.body_y + 14);
+    int hip_rx = (int)(skel.body_x + 13);
+    int hip_ry = (int)(skel.body_y + 14);
+
+    if (skel.is_sitting) {
+        // 坐姿：双腿向两侧外八盘坐，露出前方肉垫
+        int foot_lx = (int)(skel.body_x - 24);
+        int foot_ly = (int)(skel.body_y + 16);
+        int foot_rx = (int)(skel.body_x + 24);
+        int foot_ry = (int)(skel.body_y + 16);
+        drawBearLimbCapsule(out_d, hip_lx, hip_ly, foot_lx, foot_ly, 7, 0xD444, 0x8220);
+        drawBearLimbCapsule(out_d, hip_rx, hip_ry, foot_rx, foot_ry, 7, 0xD444, 0x8220);
+        drawBearFoot(out_d, foot_lx, foot_ly, 9, 8, 0xD444, 0xFCB2);
+        drawBearFoot(out_d, foot_rx, foot_ry, 9, 8, 0xD444, 0xFCB2);
     } else {
-        cur_mode = MUSE_MODE_IDLE;
+        // 站立/运动姿态：随 IMU 倾角重心动态下蹲/提脚
+        int foot_lx = (int)(skel.body_x - 14 + skel.left_leg.flex_x);
+        int foot_ly = (int)(skel.body_y + 36 + skel.left_leg.flex_y);
+        int foot_rx = (int)(skel.body_x + 14 + skel.right_leg.flex_x);
+        int foot_ry = (int)(skel.body_y + 36 + skel.right_leg.flex_y);
+
+        drawBearLimbCapsule(out_d, hip_lx, hip_ly, foot_lx, foot_ly, 6, 0xD444, 0x8220);
+        drawBearLimbCapsule(out_d, hip_rx, hip_ry, foot_rx, foot_ry, 6, 0xD444, 0x8220);
+        drawBearFoot(out_d, foot_lx, foot_ly, 8, 7, 0xD444, 0xFCB2);
+        drawBearFoot(out_d, foot_rx, foot_ry, 8, 7, 0xD444, 0xFCB2);
     }
 
-    if (cur_mode != s_last_mode) {
-        s_last_mode = cur_mode;
-        s_mode_enter_ms = millis();
+    // 6. 躯干胸腹绘制 (Warm Honey Caramel 3D Volume)
+    int bx = (int)skel.body_x;
+    int by = (int)skel.body_y;
+    int bw2 = (int)(skel.body_w * 0.5f);
+    int bh2 = (int)(skel.body_h * 0.5f);
+
+    out_d.fillEllipse(bx, by + 2, bw2 + 1, bh2 + 1, 0x6180); // 底部阴影
+    out_d.fillEllipse(bx, by, bw2, bh2, 0xD444);             // 焦糖暖棕主躯干
+    out_d.drawArc(bx - 1, by - 2, bw2 - 4, bw2 - 2, 210, 280, 0xFEE8); // 苹果高光晕
+
+    // 肚肚奶白大圆贴 (Vanilla Cream Belly Patch)
+    out_d.fillEllipse(bx, by + 3, bw2 - 8, bh2 - 8, 0xFFFE);
+    out_d.drawEllipse(bx, by + 3, bw2 - 8, bh2 - 8, 0xCE58);
+
+    // 养成等级徽章 (Chest Growth Badge)
+    auto& growth_mgr = sticks3::BearGrowthManager::getInstance();
+    uint16_t badge_col = growth_mgr.getBadgeColor();
+    out_d.fillCircle(bx, by - 9, 3, badge_col);
+    out_d.drawCircle(bx, by - 9, 4, 0xFFFF);
+
+    // 7. 上肢与前爪绘制 (Forearms & Paws)
+    int sh_lx = bx - 18;
+    int sh_ly = by - 8;
+    int sh_rx = bx + 18;
+    int sh_ry = by - 8;
+
+    float rad_l = skel.left_arm.angle_deg * 0.0174533f;
+    float rad_r = skel.right_arm.angle_deg * 0.0174533f;
+
+    int paw_lx = sh_lx - (int)(22.0f * std::sin(rad_l)) + (int)skel.left_arm.flex_x;
+    int paw_ly = sh_ly + (int)(22.0f * std::cos(rad_l)) + (int)skel.left_arm.flex_y;
+    int paw_rx = sh_rx + (int)(22.0f * std::sin(rad_r)) + (int)skel.right_arm.flex_x;
+    int paw_ry = sh_ry + (int)(22.0f * std::cos(rad_r)) + (int)skel.right_arm.flex_y;
+
+    drawBearLimbCapsule(out_d, sh_lx, sh_ly, paw_lx, paw_ly, 5, 0xD444, 0x8220);
+    drawBearLimbCapsule(out_d, sh_rx, sh_ry, paw_rx, paw_ry, 5, 0xD444, 0x8220);
+    drawBearPaw(out_d, paw_lx, paw_ly, 6, 0xD444, 0xFCB2);
+    drawBearPaw(out_d, paw_rx, paw_ry, 6, 0xD444, 0xFCB2);
+
+    // 鼓掌拍手冲击粒子
+    if (sticks3::BearKinematicsController::getInstance().getCurrentAction() == sticks3::BEAR_ACT_CLAP) {
+        out_d.drawPixel(bx, by - 4, 0xFFE0);
+        out_d.drawPixel(bx - 1, by - 5, 0xFFFF);
+        out_d.drawPixel(bx + 1, by - 5, 0xFFFF);
     }
 
-    pose.mode = cur_mode;
-    pose.t = (float)millis() / 1000.0f;
-    pose.mode_t = (float)(millis() - s_mode_enter_ms) / 1000.0f;
-    pose.level = (float)mic_vu / 100.0f;
-    if (pose.level > 1.0f) pose.level = 1.0f;
-    pose.happy = (cur_m == sticks3::MOOD_HAPPY || cur_m == sticks3::MOOD_EAT || cur_m == sticks3::MOOD_WINK) ? 1.0f : 0.0f;
+    // 8. 头部与面容表情 (Head & Facial Micro-Expressions)
+    int cx = (int)skel.head_x;
+    int cy = (int)skel.head_y;
 
-    muse_pixel_render(&pose);
-    muse_pixel_set_size(128);
+    // 惯性垂耳 (Follow-Through Flopping Ears)
+    int ear_flop_l = (int)(s_smooth_roll * 0.15f);
+    int ear_flop_r = (int)(-s_smooth_roll * 0.15f);
+    if (bl_state == sticks3::BL_STATE_LISTENING) ear_flop_l -= 5;
 
-    // 3. 渲染 128x128 像素阵列到屏幕正中 (X: 3~131, Y: 22~150)
-    out_d.fillRect(0, 18, W, 4, 0x0000);
-    out_d.fillRect(0, 22, 3, 128, 0x0000);
-    out_d.fillRect(131, 22, 4, 128, 0x0000);
-    out_d.fillRect(0, 150, W, 4, 0x0000);
+    int ex_l = cx - 24;
+    int ey_l = cy - 20 + ear_flop_l;
+    int ex_r = cx + 24;
+    int ey_r = cy - 20 + ear_flop_r;
 
-    uint16_t row_buf[128];
-    for (int r = 0; r < 128; r++) {
-        muse_pixel_scale(row_buf, 128, 0, 127, r, r);
-        out_d.pushImage(3, 22 + r, 128, 1, row_buf);
+    out_d.fillCircle(ex_l, ey_l, 13, 0xB340);
+    out_d.fillCircle(ex_r, ey_r, 13, 0xB340);
+    out_d.drawCircle(ex_l, ey_l, 13, 0x8220);
+    out_d.drawCircle(ex_r, ey_r, 13, 0x8220);
+    out_d.fillCircle(ex_l, ey_l, 6, 0xFEE8);
+    out_d.fillCircle(ex_r, ey_r, 6, 0xFEE8);
+
+    // 熊头主体
+    int rx_head = (int)(28.0f * skel.head_scale_x);
+    int ry_head = (int)(25.0f * skel.head_scale_y);
+    out_d.fillEllipse(cx, cy + 2, rx_head + 1, ry_head + 1, 0x6180);
+    out_d.fillEllipse(cx, cy, rx_head, ry_head, 0xD444);
+    out_d.drawArc(cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, 0xFEE8);
+
+    // 腮红
+    int blush_r = (cur_m == sticks3::MOOD_HAPPY) ? 8 : 5;
+    out_d.fillCircle(cx - 18, cy + 9, blush_r, 0xFCB2);
+    out_d.fillCircle(cx + 18, cy + 9, blush_r, 0xFCB2);
+
+    // 奶白嘴套与玛瑙鼻
+    out_d.fillRoundRect(cx - 14, cy + 1, 28, 19, 9, 0xFFFE);
+    out_d.drawRoundRect(cx - 14, cy + 1, 28, 19, 9, 0xCE58);
+    out_d.fillEllipse(cx, cy + 6, 4, 3, 0x1082);
+    out_d.drawPixel(cx - 1, cy + 5, 0xFFFF); // 钻石高光
+
+    // 迪士尼灵动大眼 (Doe-Eyes)
+    int lx = cx - 12;
+    int ly = cy - 3;
+    int rx = cx + 12;
+    int ry = cy - 3;
+
+    int gaze_x = (int)constrain(s_smooth_roll * 0.08f, -3.0f, 3.0f);
+    int gaze_y = (int)constrain(s_smooth_pitch * 0.06f, -3.0f, 3.0f);
+
+    if (!s_is_blinking && (now - s_last_blink > (2800 + (now % 2000)))) {
+        s_is_blinking = true;
+        s_last_blink = now;
+    }
+    if (s_is_blinking && (now - s_last_blink > 160)) {
+        s_is_blinking = false;
+        s_last_blink = now;
     }
 
-    // 4. 对话字幕气泡区 (Y: 154 ~ 216)
-    out_d.fillRoundRect(2, 154, W - 4, 62, 6, 0x10A2);
-    out_d.drawRoundRect(2, 154, W - 4, 62, 6, 0x2965);
+    bool is_dizzy = (s_dizzy_until > now || cur_m == sticks3::MOOD_DIZZY);
+    bool is_tumble = (std::abs(s_smooth_roll) > 45.0f || a_mag < 0.35f);
 
-    // 5. 底部宠物标识条 (Y: 220 ~ 240)
+    if (cur_m == sticks3::MOOD_SLEEP) {
+        out_d.drawArc(lx, ly, 5, 7, 15, 165, 0x1082);
+        out_d.drawArc(rx, ry, 5, 7, 15, 165, 0x1082);
+    } else if (s_is_blinking) {
+        out_d.drawArc(lx, ly, 5, 6, 10, 170, 0x1082);
+        out_d.drawArc(rx, ry, 5, 6, 10, 170, 0x1082);
+    } else if (cur_m == sticks3::MOOD_HAPPY) {
+        out_d.fillCircle(lx, ly - 1, 6, 0x1082);
+        out_d.fillCircle(lx, ly + 3, 6, 0xD444);
+        out_d.fillCircle(rx, ry - 1, 6, 0x1082);
+        out_d.fillCircle(rx, ry + 3, 6, 0xD444);
+    } else if (is_dizzy) {
+        out_d.drawCircle(lx, ly, 3, 0xFE60);
+        out_d.drawCircle(lx, ly, 5, 0xFE60);
+        out_d.drawCircle(rx, ry, 3, 0xFE60);
+        out_d.drawCircle(rx, ry, 5, 0xFE60);
+    } else if (is_tumble) {
+        out_d.fillCircle(lx, ly, 7, 0xFFFF);
+        out_d.drawCircle(lx, ly, 7, 0x1082);
+        out_d.fillCircle(lx + gaze_x, ly + gaze_y, 3, 0x0110);
+        out_d.fillCircle(rx, ry, 7, 0xFFFF);
+        out_d.drawCircle(rx, ry, 7, 0x1082);
+        out_d.fillCircle(rx + gaze_x, ry + gaze_y, 3, 0x0110);
+    } else {
+        out_d.fillRoundRect(lx - 5, ly - 8, 10, 16, 5, 0x0110);
+        out_d.fillRoundRect(rx - 5, ry - 8, 10, 16, 5, 0x0110);
+        out_d.fillCircle(lx + gaze_x, ly + gaze_y + 1, 3, 0x35BF);
+        out_d.fillCircle(rx + gaze_x, ry + gaze_y + 1, 3, 0x35BF);
+        out_d.fillCircle(lx + gaze_x - 1, ly + gaze_y - 2, 2, 0xFFFF);
+        out_d.fillCircle(rx + gaze_x - 1, ry + gaze_y - 2, 2, 0xFFFF);
+        out_d.drawPixel(lx + gaze_x + 2, ly + gaze_y + 2, 0xFFFF);
+        out_d.drawPixel(rx + gaze_x + 2, ry + gaze_y + 2, 0xFFFF);
+    }
+
+    // 动态嘴型 (TTS 唇音同步)
+    int my = cy + 12;
+    if (bl_state == sticks3::BL_STATE_SPEAKING) {
+        int mouth_open = 2 + (mic_vu * 10) / 100;
+        if (mouth_open > 12) mouth_open = 12;
+        out_d.fillRoundRect(cx - 6, my - 2, 12, mouth_open, 3, 0x4000);
+        out_d.fillRoundRect(cx - 2, my - 2, 4, 2, 1, 0xFFFF);
+        out_d.fillCircle(cx, my + mouth_open - 3, 2, 0xF980);
+    } else if (is_tumble) {
+        out_d.drawCircle(cx, my + 1, 4, 0x1082);
+    } else if (is_dizzy) {
+        out_d.drawCircle(cx, my + 1, 3, 0x1082);
+    } else if (cur_m == sticks3::MOOD_HAPPY) {
+        out_d.drawArc(cx, my, 4, 5, 20, 160, 0x1082);
+    } else {
+        out_d.drawArc(cx, my, 3, 4, 30, 150, 0x1082);
+    }
+
+    // 挂件与情绪粒子 (爱心、雷达波、Zzz、光点)
+    if (cur_m == sticks3::MOOD_HAPPY) {
+        int heart_y = cy - 30 - ((now / 40) % 12);
+        out_d.setTextColor(0xF810, 0x0000);
+        out_d.setTextDatum(MC_DATUM);
+        out_d.drawString("♥", cx, heart_y);
+    } else if (bl_state == sticks3::BL_STATE_LISTENING) {
+        int wave_r = 16 + ((now / 60) % 8);
+        out_d.drawArc(ex_l, ey_l, wave_r, wave_r + 1, 190, 280, 0x07FF);
+    } else if (bl_state == sticks3::BL_STATE_THINKING) {
+        int dot_step = (now / 200) % 3;
+        out_d.fillCircle(cx + 26, cy - 28, (dot_step == 0) ? 3 : 2, 0xFFE0);
+        out_d.fillCircle(cx + 33, cy - 32, (dot_step == 1) ? 3 : 2, 0xFFE0);
+    } else if (is_dizzy) {
+        float ang = (float)(now % 1000) / 1000.0f * 6.28f;
+        for (int i = 0; i < 3; i++) {
+            float a = ang + i * 2.094f;
+            int sx = cx + (int)(std::cos(a) * 22.0f);
+            int sy = cy - 24 + (int)(std::sin(a) * 6.0f);
+            out_d.drawPixel(sx, sy, 0xFFE0);
+            out_d.drawPixel(sx + 1, sy, 0xFFFF);
+        }
+    } else if (cur_m == sticks3::MOOD_SLEEP) {
+        int z_off = (now / 60) % 18;
+        out_d.setTextColor(0x07FF, 0x0000);
+        out_d.setTextDatum(MC_DATUM);
+        out_d.drawString("z", cx + 20 + (z_off % 4), cy - 22 - z_off);
+        out_d.drawString("Z", cx + 28 + (z_off % 6), cy - 30 - z_off);
+    }
+
+    // 9. 底部灵宠养成与系统硬件全维度看板 (Y: 220 ~ 240) - 沉浸式展示等级与EXP
     out_d.fillRect(0, 220, W, 20, 0x0000);
     out_d.setTextDatum(ML_DATUM);
-    out_d.setTextColor(0xFDE0, 0x0000); // 金色
-    out_d.drawString("★ Meta Jollybot | 像素宠", 4, 230);
+    char footer_buf[64];
+    snprintf(footer_buf, sizeof(footer_buf), "★ Lv.%u %s | %uP | %.0fF | %.0fC", 
+             growth_mgr.getLevel(), growth_mgr.getLevelTitle(), growth_mgr.getExp(),
+             sticks3::getSystemLoopFPS(), sticks3::getChipTemperature());
+    out_d.setTextColor(0xFDE0, 0x0000); // 华丽香槟金
+    out_d.drawString(footer_buf, 3, 230);
 }
 
 void setup() {
@@ -827,7 +1104,10 @@ void setup() {
         }
         prefs_pet.end();
     }
-    Serial.printf("[BOOT] Active Pet Avatar: %s\n", (g_active_pet == PET_JOLLYBOT) ? "Meta Jollybot (Pixel Art)" : "灵伴悄悄 (Procedural Vector)");
+    Serial.printf("[BOOT] Active Pet Avatar: %s\n", (g_active_pet == PET_JOLLYBOT) ? "Meta Jollybot (Full-Body Disney Bear)" : "灵伴悄悄 (Procedural Vector)");
+
+    // 初始化小熊骨骼动力学与养成系统
+    sticks3::BearKinematicsController::getInstance().init();
 
     // 播放开机上扬和弦音
     if (audio_ok) {
@@ -1080,6 +1360,34 @@ void loop() {
                             uint8_t mood = muse_gadget::mapFaceStringToMood(parsed.payload);
                             sticks3::StickS3Avatar::getInstance().setMood(static_cast<sticks3::AvatarMood>(mood));
                             Serial.printf("@chat {\"type\":\"face_set\",\"face\":\"%s\",\"success\":true}\n", parsed.payload.c_str());
+                        } else if (parsed.type == muse_gadget::HatchCommandType::ACT_COMMAND) {
+                            sticks3::BearAction act = sticks3::stringToBearAction(parsed.payload);
+                            sticks3::BearKinematicsController::getInstance().triggerAction(act);
+                            sticks3::StickS3Audio::getInstance().playTone(1700, 30, 0.40f);
+                            auto& g = sticks3::BearGrowthManager::getInstance();
+                            Serial.printf("@act {\"action\":\"%s\",\"status\":\"playing\",\"exp\":%u,\"level\":%u,\"title\":\"%s\"}\n",
+                                          parsed.payload.c_str(), g.getExp(), g.getLevel(), g.getLevelTitle());
+                        } else if (parsed.type == muse_gadget::HatchCommandType::COMBO_COMMAND) {
+                            std::vector<sticks3::BearAction> combo_list;
+                            std::string s = parsed.payload;
+                            size_t pos = 0;
+                            while ((pos = s.find(',')) != std::string::npos) {
+                                std::string token = s.substr(0, pos);
+                                combo_list.push_back(sticks3::stringToBearAction(token));
+                                s.erase(0, pos + 1);
+                            }
+                            if (!s.empty()) combo_list.push_back(sticks3::stringToBearAction(s));
+                            sticks3::BearKinematicsController::getInstance().triggerCombo(combo_list);
+                            sticks3::StickS3Audio::getInstance().playTone(1800, 40, 0.45f);
+                            auto& g = sticks3::BearGrowthManager::getInstance();
+                            Serial.printf("@act {\"combo\":\"%s\",\"count\":%u,\"level\":%u,\"title\":\"%s\"}\n",
+                                          parsed.payload.c_str(), (unsigned)combo_list.size(), g.getLevel(), g.getLevelTitle());
+                        } else if (parsed.type == muse_gadget::HatchCommandType::LIMB_COMMAND) {
+                            Serial.printf("@act {\"type\":\"limb_ack\",\"payload\":\"%s\",\"success\":true}\n", parsed.payload.c_str());
+                        } else if (parsed.type == muse_gadget::HatchCommandType::GROWTH_QUERY) {
+                            auto& g = sticks3::BearGrowthManager::getInstance();
+                            Serial.printf("@growth {\"level\":%u,\"title\":\"%s\",\"exp\":%u,\"next_exp\":%u,\"rom_pct\":%.0f}\n",
+                                          g.getLevel(), g.getLevelTitle(), g.getExp(), g.getNextLevelExp(), g.getRomMultiplier() * 100.0f);
                         } else if (parsed.type == muse_gadget::HatchCommandType::ROBOT_COMMAND) {
                             Serial.printf("@chat {\"type\":\"robot_ack\",\"cmd\":\"%s\",\"success\":true}\n", parsed.payload.c_str());
                         } else if (parsed.type == muse_gadget::HatchCommandType::STATUS_QUERY) {
@@ -1090,7 +1398,8 @@ void loop() {
                                 cfg_mgr.isStaConnected(),
                                 cfg_mgr.isHotspot() ? "HOT" : "WiFi",
                                 cfg_mgr.getStaIP().c_str(),
-                                "active"
+                                "active",
+                                sticks3::getChipTemperature()
                             );
                             Serial.print(status_json.c_str());
                         }
@@ -1267,7 +1576,7 @@ void loop() {
                 auto cur_m = sticks3::StickS3Avatar::getInstance().getMood();
                 if (g_active_pet == PET_JOLLYBOT) {
                     renderJollybot(out_d, subtitle, cur_m, bl.getState(), mic_vu, device_connected, cfg_mgr.isStaConnected(), cfg_mgr.isHotspot(), cur_speaker_vol);
-                    drawChineseText(out_d, subtitle, 6, 158, 123, 14, 0xFFFF, 0x10A2);
+                    // 小熊全肢体模式：完全免除中文字幕遮挡，202px 无撕裂大画布沉浸式展示全身与四肢运动
                 } else {
                     String tag = (bl.getState() == sticks3::BL_STATE_SPEAKING) ? "说话中" :
                                  (bl.getState() == sticks3::BL_STATE_LISTENING) ? (bl.isWakeWindowOpen() ? "连麦聆听" : "等待唤醒") :

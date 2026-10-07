@@ -272,6 +272,37 @@ class DeviceSkillRegistry:
                         "required": ["pet"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "sticks3_control_bear",
+                    "description": "控制 M5StickS3 小熊 (Meta Jollybot) 的身体姿态与四肢运动组合，支持自然语言动作（挥手、拍手、跳舞、中国功夫、伸懒腰、鞠躬、趴下、坐下、单脚平衡、欢呼等），并驱动小熊养成经验值增长。",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "action": {
+                                "type": "string",
+                                "enum": [
+                                    "wave", "clap", "dance", "kungfu", "taichi", "stretch",
+                                    "bow", "jump", "sit", "lie", "cheer", "hands_up", "balance"
+                                ],
+                                "description": "目标肢体动作名称：wave(挥手), clap(鼓掌), dance(跳舞), kungfu(中国功夫), taichi(太极), stretch(伸懒腰), bow(鞠躬), jump(跳跃), sit(坐下), lie(趴下), cheer(欢呼), hands_up(举手), balance(金鸡独立)"
+                            },
+                            "combo": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "组合式连续动作序列列表，例如 ['bow', 'kungfu', 'cheer']"
+                            },
+                            "duration_ms": {
+                                "type": "integer",
+                                "default": 2500,
+                                "description": "动作执行持续时间(毫秒)"
+                            }
+                        },
+                        "required": ["action"]
+                    }
+                }
             }
         ]
 
@@ -397,6 +428,30 @@ class DeviceSkillRegistry:
                 "tool": name,
                 "message": msg,
                 "active_pet": self.device.active_pet
+            }
+
+        elif name == "sticks3_control_bear":
+            action = str(args.get("action", "wave")).lower()
+            combo = args.get("combo", [])
+            duration_ms = int(args.get("duration_ms", 2500))
+            self.xp += 15
+            if self.xp >= 100:
+                self.intimacy_level = min(5, self.intimacy_level + (self.xp // 100))
+                self.xp = self.xp % 100
+
+            msg = f"小熊正在执行动作: {action} (经验值 +15，等级: Lv.{self.intimacy_level})"
+            if combo:
+                msg = f"小熊正在执行连续组合动作: {' -> '.join(combo)} (经验值 +20，等级: Lv.{self.intimacy_level})"
+
+            return {
+                "success": True,
+                "tool": name,
+                "action": action,
+                "combo": combo,
+                "duration_ms": duration_ms,
+                "message": msg,
+                "intimacy_level": self.intimacy_level,
+                "xp": self.xp
             }
 
         return {"success": False, "tool": name, "error": f"Unknown tool name '{name}'"}
@@ -578,6 +633,44 @@ class BailianAgentEngine:
             face = "happy"
             pet_display = "Meta Jollybot 像素艺术小熊" if target_pet == "jollybot" else "灵伴悄悄"
             reply += f"[E:happy] 屏幕数字宠物已成功切换为 {pet_display} 啦！"
+
+        # 9. Sticks3 Bear Limb & Kinematics Actions
+        bear_actions = {
+            "挥手": "wave", "招手": "wave", "打招呼": "wave", "wave": "wave",
+            "鼓掌": "clap", "拍手": "clap", "clap": "clap",
+            "跳舞": "dance", "舞动": "dance", "摇摆": "dance", "dance": "dance",
+            "功夫": "kungfu", "中国功夫": "kungfu", "咏春": "kungfu", "kungfu": "kungfu",
+            "太极": "taichi", "太极拳": "taichi", "taichi": "taichi",
+            "伸懒腰": "stretch", "拉伸": "stretch", "stretch": "stretch",
+            "鞠躬": "bow", "敬礼": "bow", "bow": "bow",
+            "跳跃": "jump", "跳一下": "jump", "jump": "jump",
+            "坐下": "sit", "蹲下": "sit", "sit": "sit",
+            "趴下": "lie", "躺下": "lie", "lie": "lie",
+            "欢呼": "cheer", "庆祝": "cheer", "cheer": "cheer",
+            "平衡": "balance", "单脚": "balance", "balance": "balance",
+        }
+        matched_act = None
+        for k, v in bear_actions.items():
+            if k in p:
+                matched_act = v
+                break
+
+        if matched_act or "组合动作" in p or "连招" in p:
+            if "组合" in p or "连招" in p:
+                combo_seq = ["bow", "kungfu", "cheer"]
+                tool_calls.append({
+                    "name": "sticks3_control_bear",
+                    "args": {"action": "bow", "combo": combo_seq, "duration_ms": 6000}
+                })
+                face = "proud"
+                reply += "[E:proud] 收到组合连招指令！迪士尼小熊正在施展连续肢体动作：鞠躬 -> 功夫 -> 欢呼！经验值 +20！"
+            else:
+                tool_calls.append({
+                    "name": "sticks3_control_bear",
+                    "args": {"action": matched_act, "duration_ms": 2500}
+                })
+                face = "happy"
+                reply += f"[E:happy] 迪士尼小熊收到肢体指令，正在为你表演【{matched_act.upper()}】！四肢灵动伸展，经验值 +15！"
 
         if not reply:
             face = "happy"
@@ -960,6 +1053,30 @@ class SerialHatchManager:
                     out_frames.append(f'@chat {{"type": "robot_ack", "error": "unknown action"}}')
             except Exception as e:
                 out_frames.append(f'@chat {{"type": "error", "text": "invalid robot json: {e}"}}')
+
+        elif line.startswith(">act=") or line.startswith(">action="):
+            action = line.split("=", 1)[1].strip().lower()
+            out_frames.append(f'@act {{"action":"{action}","status":"started","combo":false}}')
+
+        elif line.startswith(">combo="):
+            combo_str = line.split("=", 1)[1].strip().lower()
+            actions = [a.strip() for a in combo_str.split(",") if a.strip()]
+            out_frames.append(f'@act {{"action":"{actions[0] if actions else "idle"}","status":"combo_started","sequence":{json.dumps(actions)},"combo":true}}')
+
+        elif line.startswith(">limb="):
+            limb_val = line.split("=", 1)[1].strip().lower()
+            out_frames.append(f'@act {{"limb":"{limb_val}","status":"target_set"}}')
+
+        elif line.strip() in [">growth", ">exp", ">level"]:
+            level = 2
+            xp = 45
+            if self.agent_engine and getattr(self.agent_engine, "registry", None):
+                level = getattr(self.agent_engine.registry, "intimacy_level", 2)
+                xp = getattr(self.agent_engine.registry, "xp", 45)
+            titles = ["萌新小熊", "进阶行者", "灵动武者", "宗师大侠", "机甲元尊"]
+            title = titles[min(len(titles)-1, max(0, level - 1))]
+            rom = 55 + (level - 1) * 12
+            out_frames.append(f'@growth {{"level":{level},"title":"{title}","exp":{xp},"next_exp":100,"rom_pct":{rom}}}')
 
         elif line.strip() == ">status":
             telem = self.device_state.get_telemetry()
