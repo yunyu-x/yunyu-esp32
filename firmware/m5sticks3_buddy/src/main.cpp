@@ -181,6 +181,9 @@ static sticks3::BearAction parseBearActionTag(const String& raw_text, String& cl
     return sticks3::stringToBearAction(tag.c_str());
 }
 
+// 前向声明
+static void broadcastSwarmDanceStep(const sticks3::SwarmDanceStep& step);
+
 // 统一消息处理入口 (处理来自 BLE NUS, WiFi TCP 8080, WiFi UDP 8080, Web 80 与串口的全部文本/汉字)
 void onNewTextMessage(const String& msg, const String& source) {
     if (msg.length() == 0) return;
@@ -214,27 +217,48 @@ void onNewTextMessage(const String& msg, const String& source) {
     Serial.printf("\n[CHAT-RX] >>> [%s] (#%u): \"%s\"\n",
                   source.c_str(), (unsigned)total_ble_msgs_received, clean_msg.c_str());
 
-    // 增加小熊交互成长经验值并检测升级盛典
-    bool leveled_up = sticks3::BearGrowthManager::getInstance().addExp(10, "User Dialogue");
-    if (leveled_up) {
-        sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
-        sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_HAPPY);
-        sticks3::BearKinematicsController::getInstance().triggerAction(sticks3::BEAR_ACT_CHEER, 3500);
-    }
-
     // 小熊四肢自然语言动作语义解析
     auto& bear_ctrl = sticks3::BearKinematicsController::getInstance();
     bool action_triggered = false;
 
+    // 灵宠与灵方多体编队舞曲语义识别 (Swarm Formation Dance)
+    if (clean_msg.indexOf("编队跳舞") >= 0 || clean_msg.indexOf("华尔兹") >= 0) {
+        sticks3::SwarmDanceController::getInstance().startTheme(sticks3::SWARM_DANCE_WALTZ, millis());
+        sticks3::SwarmDanceStep step = sticks3::SwarmDanceController::getInstance().getCurrentStep();
+        bear_ctrl.triggerAction(step.buddy_action, step.duration_ms);
+        broadcastSwarmDanceStep(step);
+        action_triggered = true;
+    } else if (clean_msg.indexOf("太极阵") >= 0 || clean_msg.indexOf("编队太极") >= 0) {
+        sticks3::SwarmDanceController::getInstance().startTheme(sticks3::SWARM_DANCE_ZEN, millis());
+        sticks3::SwarmDanceStep step = sticks3::SwarmDanceController::getInstance().getCurrentStep();
+        bear_ctrl.triggerAction(step.buddy_action, step.duration_ms);
+        broadcastSwarmDanceStep(step);
+        action_triggered = true;
+    } else if (clean_msg.indexOf("太空漫步秀") >= 0 || clean_msg.indexOf("编队漫步") >= 0) {
+        sticks3::SwarmDanceController::getInstance().startTheme(sticks3::SWARM_DANCE_MOONWALK, millis());
+        sticks3::SwarmDanceStep step = sticks3::SwarmDanceController::getInstance().getCurrentStep();
+        bear_ctrl.triggerAction(step.buddy_action, step.duration_ms);
+        broadcastSwarmDanceStep(step);
+        action_triggered = true;
+    } else if (clean_msg.indexOf("机甲破晓") >= 0 || clean_msg.indexOf("机甲舞") >= 0) {
+        sticks3::SwarmDanceController::getInstance().startTheme(sticks3::SWARM_DANCE_CYBER, millis());
+        sticks3::SwarmDanceStep step = sticks3::SwarmDanceController::getInstance().getCurrentStep();
+        bear_ctrl.triggerAction(step.buddy_action, step.duration_ms);
+        broadcastSwarmDanceStep(step);
+        action_triggered = true;
+    }
+
     // 宏组合技语义识别
-    if (clean_msg.indexOf("元气问候") >= 0 || clean_msg.indexOf("问候组合") >= 0) {
-        action_triggered = bear_ctrl.triggerComboByName("greeting");
-    } else if (clean_msg.indexOf("活力健身") >= 0 || clean_msg.indexOf("体能拉练") >= 0 || clean_msg.indexOf("健身组合") >= 0) {
-        action_triggered = bear_ctrl.triggerComboByName("fitness");
-    } else if (clean_msg.indexOf("武学宗师") >= 0 || clean_msg.indexOf("功夫套路") >= 0 || clean_msg.indexOf("武术组合") >= 0) {
-        action_triggered = bear_ctrl.triggerComboByName("martial");
-    } else if (clean_msg.indexOf("赛博连携") >= 0 || clean_msg.indexOf("机甲终极") >= 0 || clean_msg.indexOf("大招") >= 0) {
-        action_triggered = bear_ctrl.triggerComboByName("cyber_supreme");
+    if (!action_triggered) {
+        if (clean_msg.indexOf("元气问候") >= 0 || clean_msg.indexOf("问候组合") >= 0) {
+            action_triggered = bear_ctrl.triggerComboByName("greeting");
+        } else if (clean_msg.indexOf("活力健身") >= 0 || clean_msg.indexOf("体能拉练") >= 0 || clean_msg.indexOf("健身组合") >= 0) {
+            action_triggered = bear_ctrl.triggerComboByName("fitness");
+        } else if (clean_msg.indexOf("武学宗师") >= 0 || clean_msg.indexOf("功夫套路") >= 0 || clean_msg.indexOf("武术组合") >= 0) {
+            action_triggered = bear_ctrl.triggerComboByName("martial");
+        } else if (clean_msg.indexOf("赛博连携") >= 0 || clean_msg.indexOf("机甲终极") >= 0 || clean_msg.indexOf("大招") >= 0) {
+            action_triggered = bear_ctrl.triggerComboByName("cyber_supreme");
+        }
     }
 
     if (!action_triggered) {
@@ -310,6 +334,17 @@ void onNewTextMessage(const String& msg, const String& source) {
             sticks3::BEAR_ACT_STRETCH    // 活泼拉伸
         };
         bear_ctrl.triggerAction(responsive_acts[(s_voice_act_counter++) % 4], 2800);
+    }
+
+    // 多轮语音对话动态加权经验值结算 (轮次加权 + 具身动作连携奖励)
+    uint8_t current_turns = (uint8_t)constrain(total_ble_msgs_received, 1, 15);
+    bool has_act_intent = (detected_act != sticks3::BEAR_ACT_IDLE) || action_triggered;
+    uint16_t exp_gain = sticks3::BearGrowthManager::calculateDialogueExp(current_turns, has_act_intent);
+    bool leveled_up = sticks3::BearGrowthManager::getInstance().addExp(exp_gain, "Multi-Turn Dialogue");
+    if (leveled_up) {
+        sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
+        sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_HAPPY);
+        sticks3::BearKinematicsController::getInstance().triggerAction(sticks3::BEAR_ACT_CHEER, 3500);
     }
 
     // 检查是否为控制指令
@@ -684,7 +719,7 @@ void readBMI270(float& roll, float& pitch) {
 // 6. 苹果工艺审美与零字幕沉浸大屏：取消中文字幕气泡，全面释放 202px 完整高度空间
 // ============================================================================
 
-// 肢体抗锯齿圆角胶囊骨骼绘制
+// 肢体抗锯齿圆角胶囊骨骼绘制 (动漫三色阶 + 边缘逆光光晕)
 static void drawBearLimbCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, int r, uint16_t col, uint16_t border_col) {
     d.fillCircle(x1, y1, r, col);
     d.fillCircle(x2, y2, r, col);
@@ -692,6 +727,8 @@ static void drawBearLimbCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, in
         d.drawLine(x1 + dr, y1, x2 + dr, y2, col);
         d.drawLine(x1, y1 + dr, x2, y2 + dr, col);
     }
+    // 上边缘香草暖金高光细线 (Key Light Highlight)
+    d.drawLine(x1, y1 - r + 1, x2, y2 - r + 1, sticks3::ANIME_COL_KEYLIGHT);
     d.drawCircle(x1, y1, r, border_col);
     d.drawCircle(x2, y2, r, border_col);
 }
@@ -702,34 +739,113 @@ static void drawBearArticulatedLimb(LovyanGFX& d, int x1, int y1, int xm, int ym
     drawBearLimbCapsule(d, xm, ym, x2, y2, r2, col, border_col);
     d.fillCircle(xm, ym, r2, col);
     d.drawCircle(xm, ym, r2, border_col);
+    d.drawPixel(xm, ym - r2 + 1, sticks3::ANIME_COL_KEYLIGHT);
 }
 
 // 萌熊前爪 (掌心肉垫 + 3 颗萌小豆)
 static void drawBearPaw(LovyanGFX& d, int x, int y, int r, uint16_t main_col, uint16_t pad_col) {
     d.fillCircle(x, y, r, main_col);
-    d.drawCircle(x, y, r, 0x8220);
+    d.drawCircle(x, y, r, sticks3::ANIME_COL_OUTLINE);
     d.fillCircle(x, y + 1, r - 3, pad_col);
     d.fillCircle(x - 3, y - r + 1, 1, pad_col);
     d.fillCircle(x,     y - r,     1, pad_col);
     d.fillCircle(x + 3, y - r + 1, 1, pad_col);
+    d.drawPixel(x - 1, y - 1, sticks3::ANIME_COL_KEYLIGHT);
 }
 
 // 萌熊脚掌 (椭圆大肉垫 + 3 颗萌趾豆)
 static void drawBearFoot(LovyanGFX& d, int x, int y, int rx, int ry, uint16_t main_col, uint16_t pad_col) {
     d.fillEllipse(x, y, rx, ry, main_col);
-    d.drawEllipse(x, y, rx, ry, 0x8220);
+    d.drawEllipse(x, y, rx, ry, sticks3::ANIME_COL_OUTLINE);
     d.fillEllipse(x, y + 1, rx - 3, ry - 3, pad_col);
     d.fillCircle(x - 4, y - ry + 2, 1, pad_col);
     d.fillCircle(x,     y - ry + 1, 1, pad_col);
     d.fillCircle(x + 4, y - ry + 2, 1, pad_col);
+    d.drawPixel(x - 2, y - 1, sticks3::ANIME_COL_KEYLIGHT);
 }
 
 // 萌萌毛球小圆尾巴 (Fluffy 3D Ball Tail) - 转身或侧身时显露，带轻微摇尾晃动
 static void drawBearTail(LovyanGFX& d, int tx, int ty, int tr, uint16_t base_col, uint16_t dark_col) {
     d.fillCircle(tx, ty + 1, tr, dark_col);
     d.fillCircle(tx, ty, tr, base_col);
-    d.fillCircle(tx - 1, ty - 1, (tr > 3) ? (tr - 2) : 1, 0xFEE8); // 尾巴立体高光
-    d.drawCircle(tx, ty, tr, 0x8220);
+    d.fillCircle(tx - 1, ty - 1, (tr > 3) ? (tr - 2) : 1, sticks3::ANIME_COL_KEYLIGHT); // 尾巴立体高光
+    d.drawCircle(tx, ty, tr, sticks3::ANIME_COL_OUTLINE);
+}
+
+// 上肢双段独立绘制单元 (供 3D Z-Depth 深度排序调用)
+static void drawBearUpperArmL(LovyanGFX& d, const sticks3::BearFullBodySkeleton& skel, int sh_lx, int sh_ly, int paw_lx, int paw_ly) {
+    drawBearArticulatedLimb(d, sh_lx, sh_ly, (int)skel.elbow_lx, (int)skel.elbow_ly, paw_lx, paw_ly, 5, 5, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+    drawBearPaw(d, paw_lx, paw_ly, 6, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+}
+
+static void drawBearUpperArmR(LovyanGFX& d, const sticks3::BearFullBodySkeleton& skel, int sh_rx, int sh_ry, int paw_rx, int paw_ry) {
+    drawBearArticulatedLimb(d, sh_rx, sh_ry, (int)skel.elbow_rx, (int)skel.elbow_ly, paw_rx, paw_ry, 5, 5, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+    drawBearPaw(d, paw_rx, paw_ry, 6, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+}
+
+// 全屏技能解锁与等级晋升庆典特效 (Skill Unlock Ceremony Overlay)
+static void drawUnlockCeremonyOverlay(LovyanGFX& out_d, uint32_t now, sticks3::BearGrowthManager& gm) {
+    if (!gm.isCeremonyActive(now)) return;
+
+    float phase = gm.getCeremonyPhase(now); // 0.0 ~ 1.0
+    const int W = SCREEN_W;
+    uint8_t lvl = gm.getCeremony().new_level;
+
+    // 1. 金色星芒粒子爆发与星光雨 (12 颗旋转发散星芒)
+    for (int i = 0; i < 12; i++) {
+        float angle = (i * 0.5236f) + (phase * 3.14159f); // 30° 旋转步进
+        float dist = 12.0f + phase * 60.0f;
+        int px = 67 + (int)(std::cos(angle) * dist);
+        int py = 118 + (int)(std::sin(angle) * dist);
+        if (px >= 2 && px < W - 2 && py >= 22 && py < 218) {
+            uint16_t star_col = (i % 2 == 0) ? 0xFFE0 : 0xFFFF;
+            out_d.drawPixel(px, py, star_col);
+            out_d.drawPixel(px + 1, py, star_col);
+            out_d.drawPixel(px, py + 1, star_col);
+        }
+    }
+
+    // 2. 居中悬浮 Apple HIG 磨砂高光质感升级卡片 (Y: 26 ~ 72)
+    int card_w = W - 14; // 121px
+    int card_h = 44;
+    int card_x = 7;
+    int card_y = 26;
+
+    out_d.fillRoundRect(card_x, card_y, card_w, card_h, 8, 0x0841);
+    out_d.drawRoundRect(card_x, card_y, card_w, card_h, 8, 0xFFE0);
+    out_d.drawRoundRect(card_x + 1, card_y + 1, card_w - 2, card_h - 2, 7, 0xFDE0);
+
+    out_d.setTextDatum(MC_DATUM);
+    out_d.setTextColor(0xFFE0, 0x0841);
+    char lvl_buf[32];
+    snprintf(lvl_buf, sizeof(lvl_buf), "★ LEVEL UP! Lv.%u ★", lvl);
+    out_d.drawString(lvl_buf, W / 2, card_y + 13);
+
+    out_d.setTextColor(0x07FF, 0x0841);
+    out_d.drawString(gm.getUnlockedSkillName(lvl), W / 2, card_y + 27);
+
+    out_d.setTextColor(0x9492, 0x0841);
+    out_d.drawString(gm.getUnlockedSkillDesc(lvl), W / 2, card_y + 38);
+}
+
+// 广播三方多设备多体编队舞步序列帧 (UDP 8080 局域网广播)
+static void broadcastSwarmDanceStep(const sticks3::SwarmDanceStep& step) {
+    auto& sdc = sticks3::SwarmDanceController::getInstance();
+    char udp_buf[256];
+    snprintf(udp_buf, sizeof(udp_buf),
+             "{\"cmd\":\"dance_step\",\"theme\":\"%s\",\"seq\":%u,\"bpm\":%u,\"buddy_act\":\"%s\",\"cube_roll\":\"%s\",\"cube_torque\":%.2f,\"epm_pulse\":%s,\"desc\":\"%s\"}\n",
+             sdc.getThemeName(), (unsigned)(step.step_idx + 1), (unsigned)sdc.getBpm(),
+             sticks3::bearActionToString(step.buddy_action), step.cube_roll, step.cube_torque,
+             step.epm_pulse ? "true" : "false", step.desc);
+
+    Serial.printf("@dance_swarm %s", udp_buf);
+
+    if (WiFi.status() == WL_CONNECTED || WiFi.softAPgetStationNum() > 0) {
+        WiFiUDP udp;
+        udp.beginPacket(IPAddress(255, 255, 255, 255), 8080);
+        udp.write((const uint8_t*)udp_buf, strlen(udp_buf));
+        udp.endPacket();
+    }
 }
 
 void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMood cur_m, sticks3::BailianAgentState bl_state, uint8_t mic_vu, bool ble_conn, bool wifi_conn, bool is_hs, uint8_t speaker_vol) {
@@ -802,20 +918,23 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
 
     auto& growth_mgr = sticks3::BearGrowthManager::getInstance();
 
-    // 4. 清空全屏角色渲染画布 (Y: 18 ~ 220，取消中文字幕气泡，全面释放 202px 完整高度空间)
+    // 4. 清空全屏角色渲染画布 (Y: 18 ~ 220，全面释放 202px 完整高度空间)
     out_d.fillRect(0, 18, W, 202, 0x0000);
 
-    // 地面软阴影 (Soft Ambient Occlusion Contact Shadow)
+    // 地面软阴影 (Soft Ambient Occlusion Contact Shadow - 悬浮高度动态衰减)
+    int sh_y = (skel.is_sitting) ? (int)(skel.body_y + 18) : (int)(skel.body_y + 40);
     if (!skel.is_jumping) {
-        int sh_y = (skel.is_sitting) ? (int)(skel.body_y + 18) : (int)(skel.body_y + 40);
-        out_d.fillEllipse((int)skel.body_x, sh_y, (int)(skel.body_w * 0.58f), 5, 0x18C3);
+        out_d.fillEllipse((int)skel.body_x, sh_y, (int)(skel.body_w * 0.58f), 5, sticks3::ANIME_COL_SHADOW);
+    } else {
+        // 跳跃腾空时阴影缩小并淡化
+        out_d.fillEllipse((int)skel.body_x, sh_y, (int)(skel.body_w * 0.35f), 3, 0x18C3);
     }
 
     // 4.5 背景尾巴 (Front View: Tail behind body)
     if (!skel.is_back_view) {
         int tx = (int)skel.joints_screen[sticks3::OP_TAIL].sx;
         int ty = (int)skel.joints_screen[sticks3::OP_TAIL].sy;
-        drawBearTail(out_d, tx, ty, 6, 0xD444, 0x8220);
+        drawBearTail(out_d, tx, ty, 6, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_SHADOW);
     }
 
     // 5. 下肢绘制 (双腿与脚掌，居于躯干底层)
@@ -830,10 +949,10 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         int foot_ly = (int)(skel.body_y + 16);
         int foot_rx = (int)(skel.body_x + 24);
         int foot_ry = (int)(skel.body_y + 16);
-        drawBearLimbCapsule(out_d, hip_lx, hip_ly, foot_lx, foot_ly, 7, 0xD444, 0x8220);
-        drawBearLimbCapsule(out_d, hip_rx, hip_ry, foot_rx, foot_ry, 7, 0xD444, 0x8220);
-        drawBearFoot(out_d, foot_lx, foot_ly, 9, 8, 0xD444, 0xFCB2);
-        drawBearFoot(out_d, foot_rx, foot_ry, 9, 8, 0xD444, 0xFCB2);
+        drawBearLimbCapsule(out_d, hip_lx, hip_ly, foot_lx, foot_ly, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+        drawBearLimbCapsule(out_d, hip_rx, hip_ry, foot_rx, foot_ry, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+        drawBearFoot(out_d, foot_lx, foot_ly, 9, 8, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+        drawBearFoot(out_d, foot_rx, foot_ry, 9, 8, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
     } else {
         // 站立/运动姿态：双段腿部大腿+小腿+膝关节中点，自然屈伸协同
         int foot_lx = (int)(skel.body_x - 14 + skel.left_leg.flex_x);
@@ -841,38 +960,18 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         int foot_rx = (int)(skel.body_x + 14 + skel.right_leg.flex_x);
         int foot_ry = (int)(skel.body_y + 36 + skel.right_leg.flex_y);
 
-        drawBearArticulatedLimb(out_d, hip_lx, hip_ly, (int)skel.knee_lx, (int)skel.knee_ly, foot_lx, foot_ly, 6, 5, 0xD444, 0x8220);
-        drawBearArticulatedLimb(out_d, hip_rx, hip_ry, (int)skel.knee_rx, (int)skel.knee_ry, foot_rx, foot_ry, 6, 5, 0xD444, 0x8220);
-        drawBearFoot(out_d, foot_lx, foot_ly, 8, 7, 0xD444, 0xFCB2);
-        drawBearFoot(out_d, foot_rx, foot_ry, 8, 7, 0xD444, 0xFCB2);
+        drawBearArticulatedLimb(out_d, hip_lx, hip_ly, (int)skel.knee_lx, (int)skel.knee_ly, foot_lx, foot_ly, 6, 5, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+        drawBearArticulatedLimb(out_d, hip_rx, hip_ry, (int)skel.knee_rx, (int)skel.knee_ry, foot_rx, foot_ry, 6, 5, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+        drawBearFoot(out_d, foot_lx, foot_ly, 8, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+        drawBearFoot(out_d, foot_rx, foot_ry, 8, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
     }
 
-    // 6. 躯干胸腹绘制 (Warm Honey Caramel 3D Volume)
+    // 6. 3D 透视深度次序解算 (Painter's Algorithm Z-Depth Sorting)
     int bx = (int)skel.body_x;
     int by = (int)skel.body_y;
     int bw2 = (int)(skel.body_w * 0.5f);
     int bh2 = (int)(skel.body_h * 0.5f);
 
-    out_d.fillEllipse(bx, by + 2, bw2 + 1, bh2 + 1, 0x6180); // 底部阴影
-    out_d.fillEllipse(bx, by, bw2, bh2, 0xD444);             // 焦糖暖棕主躯干
-    out_d.drawArc(bx - 1, by - 2, bw2 - 4, bw2 - 2, 210, 280, 0xFEE8); // 苹果高光晕
-
-    if (!skel.is_back_view) {
-        // 肚肚奶白大圆贴 (Vanilla Cream Belly Patch)
-        out_d.fillEllipse(bx, by + 3, bw2 - 8, bh2 - 8, 0xFFFE);
-        out_d.drawEllipse(bx, by + 3, bw2 - 8, bh2 - 8, 0xCE58);
-
-        // 养成等级徽章 (Chest Growth Badge)
-        uint16_t badge_col = growth_mgr.getBadgeColor();
-        out_d.fillCircle(bx, by - 9, 3, badge_col);
-        out_d.drawCircle(bx, by - 9, 4, 0xFFFF);
-    } else {
-        // 萌熊后背：微暖背脊线与毛绒纹理
-        out_d.drawLine(bx, by - bh2 + 8, bx, by + bh2 - 12, 0xB340);
-        out_d.drawPixel(bx - 1, by - 2, 0xFEE8);
-    }
-
-    // 7. 上肢与前爪绘制 (Forearms & Paws - 双段大臂+前臂+肘关节弧度)
     int sh_lx = bx - 18;
     int sh_ly = by - 8;
     int sh_rx = bx + 18;
@@ -886,10 +985,44 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     int paw_rx = sh_rx + (int)(22.0f * std::sin(rad_r)) + (int)skel.right_arm.flex_x;
     int paw_ry = sh_ry + (int)(22.0f * std::cos(rad_r)) + (int)skel.right_arm.flex_y;
 
-    drawBearArticulatedLimb(out_d, sh_lx, sh_ly, (int)skel.elbow_lx, (int)skel.elbow_ly, paw_lx, paw_ly, 5, 5, 0xD444, 0x8220);
-    drawBearArticulatedLimb(out_d, sh_rx, sh_ry, (int)skel.elbow_rx, (int)skel.elbow_ry, paw_rx, paw_ry, 5, 5, 0xD444, 0x8220);
-    drawBearPaw(out_d, paw_lx, paw_ly, 6, 0xD444, 0xFCB2);
-    drawBearPaw(out_d, paw_rx, paw_ry, 6, 0xD444, 0xFCB2);
+    // 比较手臂世界坐标 Z 与躯干中心 Z 深度:
+    // Z 越大距离相机越远，需在躯干前先行绘制 (背向手臂先画，正向手臂后画)
+    float z_l_arm = skel.joints_world[sticks3::OP_L_WRIST].z;
+    float z_r_arm = skel.joints_world[sticks3::OP_R_WRIST].z;
+    float z_body = skel.joints_world[sticks3::OP_MID_HIP].z;
+
+    bool l_arm_behind = (z_l_arm > z_body);
+    bool r_arm_behind = (z_r_arm > z_body);
+
+    // (A) 绘制处于后方的远景肢体 (Far Limbs)
+    if (l_arm_behind) drawBearUpperArmL(out_d, skel, sh_lx, sh_ly, paw_lx, paw_ly);
+    if (r_arm_behind) drawBearUpperArmR(out_d, skel, sh_rx, sh_ry, paw_rx, paw_ry);
+
+    // (B) 躯干胸腹绘制 (Anime 3-Tone Cel-Shading + 边缘逆光金辉)
+    out_d.fillEllipse(bx, by + 2, bw2 + 1, bh2 + 1, sticks3::ANIME_COL_SHADOW);   // 深可可环境遮蔽
+    out_d.fillEllipse(bx, by, bw2, bh2, sticks3::ANIME_COL_MIDTONE);              // 暖焦糖主躯干
+    out_d.drawArc(bx - 1, by - 2, bw2 - 4, bw2 - 2, 210, 280, sticks3::ANIME_COL_KEYLIGHT); // 主受光金光晕
+    out_d.drawArc(bx + 1, by - 1, bw2 - 1, bw2, 40, 110, sticks3::ANIME_COL_RIMLIGHT);     // 边缘逆光光晕
+
+    if (!skel.is_back_view) {
+        // 肚肚奶白大圆贴 (Vanilla Cream Belly Patch)
+        out_d.fillEllipse(bx, by + 3, bw2 - 8, bh2 - 8, sticks3::ANIME_COL_BELLY);
+        out_d.drawEllipse(bx, by + 3, bw2 - 8, bh2 - 8, sticks3::ANIME_COL_BELLY_SHD);
+
+        // 养成等级徽章 (Chest Growth Badge)
+        uint16_t badge_col = growth_mgr.getBadgeColor();
+        out_d.fillCircle(bx, by - 9, 3, badge_col);
+        out_d.drawCircle(bx, by - 9, 4, 0xFFFF);
+        out_d.drawCircle(bx, by - 9, 5, sticks3::ANIME_COL_RIMLIGHT);
+    } else {
+        // 萌熊后背：微暖背脊线与毛绒纹理
+        out_d.drawLine(bx, by - bh2 + 8, bx, by + bh2 - 12, 0xB340);
+        out_d.drawPixel(bx - 1, by - 2, sticks3::ANIME_COL_KEYLIGHT);
+    }
+
+    // (C) 绘制处于前方的近景肢体 (Foreground Limbs)
+    if (!l_arm_behind) drawBearUpperArmL(out_d, skel, sh_lx, sh_ly, paw_lx, paw_ly);
+    if (!r_arm_behind) drawBearUpperArmR(out_d, skel, sh_rx, sh_ry, paw_rx, paw_ry);
 
     // 动作微动态特效：鼓掌粒子、升龙拳气浪、机甲护盾
     if (sticks3::BearKinematicsController::getInstance().getCurrentAction() == sticks3::BEAR_ACT_CLAP) {
@@ -1084,6 +1217,9 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
             out_d.drawString("?", cx - 22, cy - 26);
         }
     }
+
+    // 8.5 全屏等级晋升与技能解锁庆典特效 (Skill Unlock Ceremony Overlay)
+    drawUnlockCeremonyOverlay(out_d, now, growth_mgr);
 
     // 9. 底部灵宠养成与系统硬件全维度看板 (Y: 220 ~ 240) - 沉浸式展示等级与胶囊EXP进度条
     out_d.fillRect(0, 220, W, 20, 0x0000);
@@ -1764,6 +1900,32 @@ void loop() {
                                           parsed.payload.c_str(), (unsigned)combo_list.size(), g.getLevel(), g.getLevelTitle());
                         } else if (parsed.type == muse_gadget::HatchCommandType::LIMB_COMMAND) {
                             Serial.printf("@act {\"type\":\"limb_ack\",\"payload\":\"%s\",\"success\":true}\n", parsed.payload.c_str());
+                        } else if (parsed.type == muse_gadget::HatchCommandType::DANCE_SWARM) {
+                            sticks3::SwarmDanceTheme theme = sticks3::SWARM_DANCE_WALTZ;
+                            if (parsed.payload == "zen" || parsed.payload == "taichi") theme = sticks3::SWARM_DANCE_ZEN;
+                            else if (parsed.payload == "moonwalk") theme = sticks3::SWARM_DANCE_MOONWALK;
+                            else if (parsed.payload == "cyber") theme = sticks3::SWARM_DANCE_CYBER;
+                            sticks3::SwarmDanceController::getInstance().startTheme(theme, millis());
+                            sticks3::SwarmDanceStep step = sticks3::SwarmDanceController::getInstance().getCurrentStep();
+                            sticks3::BearKinematicsController::getInstance().triggerAction(step.buddy_action, step.duration_ms);
+                            broadcastSwarmDanceStep(step);
+                            Serial.printf("@dance_swarm {\"theme\":\"%s\",\"status\":\"started\",\"bpm\":%u}\n",
+                                          sticks3::SwarmDanceController::getInstance().getThemeName(),
+                                          sticks3::SwarmDanceController::getInstance().getBpm());
+                        } else if (parsed.type == muse_gadget::HatchCommandType::CEREMONY_TRIGGER) {
+                            auto& gm = sticks3::BearGrowthManager::getInstance();
+                            uint8_t target_lvl = gm.getLevel() + 1;
+                            if (parsed.payload != "next" && !parsed.payload.empty()) {
+                                int p_lvl = atoi(parsed.payload.c_str());
+                                if (p_lvl >= 1 && p_lvl <= 5) target_lvl = (uint8_t)p_lvl;
+                            }
+                            if (target_lvl > 5) target_lvl = 5;
+                            gm.setLevel(target_lvl);
+                            gm.triggerCeremony(target_lvl, millis());
+                            sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
+                            sticks3::BearKinematicsController::getInstance().triggerAction(sticks3::BEAR_ACT_CHEER, 3500);
+                            Serial.printf("@ceremony {\"level\":%u,\"skill\":\"%s\",\"desc\":\"%s\",\"active\":true}\n",
+                                          target_lvl, gm.getUnlockedSkillName(target_lvl), gm.getUnlockedSkillDesc(target_lvl));
                         } else if (parsed.type == muse_gadget::HatchCommandType::GROWTH_QUERY) {
                             auto& g = sticks3::BearGrowthManager::getInstance();
                             Serial.printf("@growth {\"level\":%u,\"title\":\"%s\",\"exp\":%u,\"next_exp\":%u,\"rom_pct\":%.0f}\n",
@@ -1906,6 +2068,16 @@ void loop() {
                 last_bl_try = millis();
                 Serial.println("[AUTO-CONNECT] STA Online & Key present -> Connecting to Bailian...");
                 bl_client.connect();
+            }
+        }
+
+        // 4.9 更新灵宠与灵方三方编队舞步律动时序 (Swarm Dance Update)
+        bool swarm_step_changed = false;
+        sticks3::SwarmDanceStep cur_swarm_step;
+        if (sticks3::SwarmDanceController::getInstance().update(millis(), swarm_step_changed, cur_swarm_step)) {
+            if (swarm_step_changed) {
+                sticks3::BearKinematicsController::getInstance().triggerAction(cur_swarm_step.buddy_action, cur_swarm_step.duration_ms);
+                broadcastSwarmDanceStep(cur_swarm_step);
             }
         }
 

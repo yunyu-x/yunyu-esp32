@@ -23,6 +23,17 @@
 
 namespace sticks3 {
 
+// 动漫风三色阶高保真渲染调色板 (Anime 3-Tone Shading Palette - RGB565)
+constexpr uint16_t ANIME_COL_MIDTONE   = 0xD444; // 暖焦糖主躯干 (Midtone)
+constexpr uint16_t ANIME_COL_KEYLIGHT  = 0xFEE8; // 香草暖金主受光面 (Key Light Highlight)
+constexpr uint16_t ANIME_COL_SHADOW    = 0x6180; // 深可可环境遮蔽阴影 (Ambient Occlusion Shadow)
+constexpr uint16_t ANIME_COL_RIMLIGHT  = 0xFFC0; // 边缘逆光金辉 (Rim Light Highlight)
+constexpr uint16_t ANIME_COL_OUTLINE   = 0x8220; // 醇厚轮廓线 (Outline)
+constexpr uint16_t ANIME_COL_BELLY     = 0xFFFE; // 奶油肚肚圆贴 (Vanilla Belly)
+constexpr uint16_t ANIME_COL_BELLY_SHD = 0xCE58; // 肚肚阴影轮廓
+constexpr uint16_t ANIME_COL_PAD       = 0xFCB2; // 樱花粉肉垫与腮红 (Paws & Blush)
+constexpr uint16_t ANIME_COL_EYE_IRIS  = 0x35BF; // 灵动深海蓝紫虹膜 (Anime Eye Iris)
+
 // 肢体宏动作枚举 (按 5 级技能树递进组织)
 enum BearAction {
     BEAR_ACT_IDLE = 0,
@@ -107,6 +118,14 @@ inline const char* bearActionToString(BearAction act) {
         default: return "idle";
     }
 }
+
+// 技能解锁盛典状态结构体 (Skill Unlock Ceremony)
+struct SkillUnlockCeremony {
+    bool active;
+    uint8_t new_level;
+    uint32_t start_time;
+    uint32_t duration_ms;
+};
 
 // 灵宠成长管理器与技能树系统 (Tamagotchi / RPG Growth System)
 class BearGrowthManager {
@@ -254,6 +273,61 @@ public:
         }
     }
 
+    // 多轮语音对话与互动动态加权经验值结算 (连续深度交流激励)
+    static uint16_t calculateDialogueExp(uint8_t turns, bool has_action_intent = false) {
+        uint16_t base = 10;
+        uint16_t bonus = 0;
+        if (turns >= 3) {
+            bonus = (turns - 2) * 5;
+            if (bonus > 25) bonus = 25; // 最多奖励 25 EXP 加成
+        }
+        if (has_action_intent) bonus += 15;
+        return base + bonus;
+    }
+
+    // 技能解锁盛典控制接口 (Skill Unlock Ceremony)
+    void triggerCeremony(uint8_t lvl, uint32_t now) {
+        _ceremony.active = true;
+        _ceremony.new_level = lvl;
+        _ceremony.start_time = now;
+        _ceremony.duration_ms = 3500;
+    }
+
+    bool isCeremonyActive(uint32_t now) const {
+        if (!_ceremony.active) return false;
+        return (now - _ceremony.start_time) < _ceremony.duration_ms;
+    }
+
+    float getCeremonyPhase(uint32_t now) const {
+        if (!_ceremony.active) return 0.0f;
+        uint32_t elapsed = now - _ceremony.start_time;
+        if (elapsed >= _ceremony.duration_ms) return 1.0f;
+        return (float)elapsed / (float)_ceremony.duration_ms;
+    }
+
+    const SkillUnlockCeremony& getCeremony() const { return _ceremony; }
+    void stopCeremony() { _ceremony.active = false; }
+
+    const char* getUnlockedSkillName(uint8_t lvl) const {
+        switch (lvl) {
+            case 2: return "欢呼雀跃 & 鼓掌拍手";
+            case 3: return "摇摆舞步 & 华丽旋转";
+            case 4: return "太极云手 & 咏春连击";
+            case 5: return "升龙霸天 & 太空漫步 & 赛博护盾";
+            default: return "基础萌熊肢体";
+        }
+    }
+
+    const char* getUnlockedSkillDesc(uint8_t lvl) const {
+        switch (lvl) {
+            case 2: return "解锁萌趣互动与拍手肢体";
+            case 3: return "解锁节奏律动与核心自平衡";
+            case 4: return "解锁东方传统武学连携招式";
+            case 5: return "解锁机甲终极奥义与能量屏障";
+            default: return "初生萌态四肢";
+        }
+    }
+
     // 累积互动经验值 (声音对话+10, 抚摸+5, 动作训练+15, 组合技+25)
     bool addExp(uint16_t gain, const char* reason = "") {
         _exp += gain;
@@ -262,6 +336,7 @@ public:
         if (_exp >= threshold && _level < 5) {
             _level++;
             level_up = true;
+            triggerCeremony(_level, millis());
             Serial.printf("[GROWTH-UP] ★ Congratulation! Bear Leveled Up to Lv.%u (%s)! %s\n",
                           _level, getLevelTitle(), reason);
         } else {
@@ -289,9 +364,164 @@ public:
     }
 
 private:
-    BearGrowthManager() : _exp(25), _level(1) {}
+    BearGrowthManager() : _exp(25), _level(1), _ceremony{false, 1, 0, 3500} {}
     uint32_t _exp;
     uint8_t _level;
+    SkillUnlockCeremony _ceremony;
+};
+
+// 三方多设备多体编队舞步主题 (Swarm Formation Dance Themes)
+enum SwarmDanceTheme {
+    SWARM_DANCE_WALTZ = 0,    // 元气华尔兹
+    SWARM_DANCE_ZEN,          // 太极云手阵
+    SWARM_DANCE_MOONWALK,     // 太空漫步秀
+    SWARM_DANCE_CYBER         // 机甲破晓舞
+};
+
+struct SwarmDanceStep {
+    uint8_t step_idx;
+    uint16_t duration_ms;
+    BearAction buddy_action;
+    const char* cube_roll;     // "+X", "-X", "+Y", "-Y", "NONE"
+    float cube_torque;        // 0.25 ~ 0.35
+    bool epm_pulse;
+    const char* desc;
+};
+
+// 灵宠与灵方多体编队舞步控制器 (Swarm Dance Controller)
+class SwarmDanceController {
+public:
+    static SwarmDanceController& getInstance() {
+        static SwarmDanceController instance;
+        return instance;
+    }
+
+    bool startTheme(SwarmDanceTheme theme, uint32_t now) {
+        _current_theme = theme;
+        _is_dancing = true;
+        _start_time = now;
+        _current_step_idx = 0;
+        _step_start_time = now;
+        return true;
+    }
+
+    bool isDancing() const { return _is_dancing; }
+    SwarmDanceTheme getTheme() const { return _current_theme; }
+    uint8_t getStepIndex() const { return _current_step_idx; }
+
+    const char* getThemeName() const {
+        switch (_current_theme) {
+            case SWARM_DANCE_WALTZ: return "waltz";
+            case SWARM_DANCE_ZEN: return "zen";
+            case SWARM_DANCE_MOONWALK: return "moonwalk";
+            case SWARM_DANCE_CYBER: return "cyber";
+            default: return "waltz";
+        }
+    }
+
+    const char* getThemeTitle() const {
+        switch (_current_theme) {
+            case SWARM_DANCE_WALTZ: return "元气华尔兹";
+            case SWARM_DANCE_ZEN: return "太极云手阵";
+            case SWARM_DANCE_MOONWALK: return "太空漫步秀";
+            case SWARM_DANCE_CYBER: return "机甲破晓舞";
+            default: return "元气华尔兹";
+        }
+    }
+
+    uint16_t getBpm() const {
+        switch (_current_theme) {
+            case SWARM_DANCE_WALTZ: return 120;
+            case SWARM_DANCE_ZEN: return 80;
+            case SWARM_DANCE_MOONWALK: return 130;
+            case SWARM_DANCE_CYBER: return 140;
+            default: return 120;
+        }
+    }
+
+    SwarmDanceStep getCurrentStep() const {
+        return getStepForTheme(_current_theme, _current_step_idx);
+    }
+
+    bool update(uint32_t now, bool& out_step_changed, SwarmDanceStep& out_step) {
+        out_step_changed = false;
+        if (!_is_dancing) return false;
+
+        SwarmDanceStep step = getCurrentStep();
+        if (now - _step_start_time >= step.duration_ms) {
+            _current_step_idx++;
+            if (_current_step_idx >= 4) { // 每支舞步由 4 个律动节拍小节组成
+                _is_dancing = false;
+                _current_step_idx = 0;
+                return false;
+            }
+            _step_start_time = now;
+            out_step_changed = true;
+            out_step = getCurrentStep();
+        } else {
+            out_step = step;
+        }
+        return true;
+    }
+
+    void stop() {
+        _is_dancing = false;
+        _current_step_idx = 0;
+    }
+
+    static SwarmDanceStep getStepForTheme(SwarmDanceTheme theme, uint8_t idx) {
+        idx = idx % 4;
+        switch (theme) {
+            case SWARM_DANCE_WALTZ: {
+                const SwarmDanceStep steps[4] = {
+                    {0, 1000, BEAR_ACT_DANCE, "+X", 0.28f, false, "律动摇摆步"},
+                    {1, 1000, BEAR_ACT_SPIN, "-X", 0.30f, false, "华丽自旋"},
+                    {2, 1000, BEAR_ACT_CLAP, "+Y", 0.25f, true, "节拍对掌击打"},
+                    {3, 1000, BEAR_ACT_CHEER, "-Y", 0.25f, false, "谢幕欢呼"}
+                };
+                return steps[idx];
+            }
+            case SWARM_DANCE_ZEN: {
+                const SwarmDanceStep steps[4] = {
+                    {0, 1200, BEAR_ACT_TAICHI, "-X", 0.22f, false, "行云流水云手"},
+                    {1, 1200, BEAR_ACT_BALANCE, "+X", 0.22f, false, "金鸡独立单腿立"},
+                    {2, 1000, BEAR_ACT_BOW, "-Y", 0.20f, true, "礼敬作揖"},
+                    {3, 1200, BEAR_ACT_SIT, "NONE", 0.0f, false, "盘坐静息"}
+                };
+                return steps[idx];
+            }
+            case SWARM_DANCE_MOONWALK: {
+                const SwarmDanceStep steps[4] = {
+                    {0, 1000, BEAR_ACT_MOONWALK, "-Y", 0.32f, false, "太空滑步后撤"},
+                    {1, 1000, BEAR_ACT_WINGCHUN, "+Y", 0.30f, true, "高速日字冲拳"},
+                    {2, 800,  BEAR_ACT_WAVE, "+X", 0.25f, false, "单手致意"},
+                    {3, 1000, BEAR_ACT_SPIN, "-X", 0.32f, false, "芭蕾滑步终结"}
+                };
+                return steps[idx];
+            }
+            case SWARM_DANCE_CYBER: {
+                const SwarmDanceStep steps[4] = {
+                    {0, 1000, BEAR_ACT_CYBER_DEFENSE, "NONE", 0.0f, true, "机甲能量光盾"},
+                    {1, 1000, BEAR_ACT_DRAGON_PUNCH, "+X", 0.35f, false, "升龙拳飞天暴扣"},
+                    {2, 1000, BEAR_ACT_PUSHUP, "-X", 0.28f, false, "战术撑地蓄力"},
+                    {3, 1000, BEAR_ACT_JUMP, "+Y", 0.32f, true, "腾空爆裂跃进"}
+                };
+                return steps[idx];
+            }
+        }
+        return {0, 1000, BEAR_ACT_DANCE, "+X", 0.28f, false, "律动摇摆步"};
+    }
+
+private:
+    SwarmDanceController()
+        : _current_theme(SWARM_DANCE_WALTZ), _is_dancing(false),
+          _start_time(0), _current_step_idx(0), _step_start_time(0) {}
+
+    SwarmDanceTheme _current_theme;
+    bool _is_dancing;
+    uint32_t _start_time;
+    uint8_t _current_step_idx;
+    uint32_t _step_start_time;
 };
 
 // 肢体末端执行器姿态 (含肘/膝关节屈曲解算参数)

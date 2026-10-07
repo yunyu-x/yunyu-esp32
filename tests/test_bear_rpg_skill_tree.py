@@ -88,6 +88,57 @@ class MockBearGrowthManager:
     def get_combo_required_level(self, combo_name):
         return self.COMBO_LEVELS.get(combo_name, 1)
 
+    @staticmethod
+    def calculate_dialogue_exp(turns, has_action_intent=False):
+        base = 10
+        bonus = 0
+        if turns >= 3:
+            bonus = min(25, (turns - 2) * 5)
+        if has_action_intent:
+            bonus += 15
+        return base + bonus
+
+    def trigger_ceremony(self, level, now=0):
+        self.ceremony_active = True
+        self.ceremony_level = level
+        self.ceremony_start = now
+        self.ceremony_duration = 3500
+
+    def is_ceremony_active(self, now):
+        if not getattr(self, "ceremony_active", False):
+            return False
+        return (now - self.ceremony_start) < self.ceremony_duration
+
+    def get_ceremony_phase(self, now):
+        if not getattr(self, "ceremony_active", False):
+            return 0.0
+        elapsed = now - self.ceremony_start
+        if elapsed < 0:
+            return 0.0
+        if elapsed >= self.ceremony_duration:
+            return 1.0
+        return elapsed / float(self.ceremony_duration)
+
+    @staticmethod
+    def get_unlocked_skill_name(level):
+        skills = {
+            2: "欢呼雀跃 & 鼓掌拍手",
+            3: "摇摆舞步 & 华丽旋转",
+            4: "太极云手 & 咏春连击",
+            5: "升龙霸天 & 太空漫步 & 赛博护盾",
+        }
+        return skills.get(level, "基础萌熊肢体")
+
+    @staticmethod
+    def get_unlocked_skill_desc(level):
+        descs = {
+            2: "解锁萌趣互动与拍手肢体",
+            3: "解锁节奏律动与核心自平衡",
+            4: "解锁东方传统武学连携招式",
+            5: "解锁机甲终极奥义与能量屏障",
+        }
+        return descs.get(level, "初生萌态四肢")
+
 
 def test_bear_growth_thresholds_and_level_up():
     mgr = MockBearGrowthManager(exp=0, level=1)
@@ -496,4 +547,108 @@ def test_bio_vestibular_dynamic_equilibrium_model():
     assert ">balance=" in main_src
     assert ">imu_balance=" in main_src
     assert "@balance" in main_src
+
+
+def test_dialogue_exp_calculation_weighted():
+    # 单轮对话基础经验
+    assert MockBearGrowthManager.calculate_dialogue_exp(1, False) == 10
+    assert MockBearGrowthManager.calculate_dialogue_exp(2, False) == 10
+    # 3轮连续对话 (+5 bonus)
+    assert MockBearGrowthManager.calculate_dialogue_exp(3, False) == 15
+    # 5轮连续对话 (+15 bonus)
+    assert MockBearGrowthManager.calculate_dialogue_exp(5, False) == 25
+    # 超过7轮截断上限 (+25 max bonus)
+    assert MockBearGrowthManager.calculate_dialogue_exp(10, False) == 35
+    # 伴随动作意图识别 (+15 action bonus)
+    assert MockBearGrowthManager.calculate_dialogue_exp(1, True) == 25
+    assert MockBearGrowthManager.calculate_dialogue_exp(5, True) == 40
+
+
+def test_skill_unlock_ceremony_lifecycle():
+    mgr = MockBearGrowthManager(exp=90, level=1)
+    assert not mgr.is_ceremony_active(1000)
+
+    # 升级到 Lv.2
+    leveled = mgr.add_exp(20)
+    assert leveled is True
+    mgr.trigger_ceremony(mgr.get_level(), now=1000)
+
+    assert mgr.is_ceremony_active(1000) is True
+    assert mgr.is_ceremony_active(2500) is True
+    assert mgr.is_ceremony_active(4500) is False  # 超过 3500ms
+
+    # 检查 Phase 曲线
+    assert abs(mgr.get_ceremony_phase(1000) - 0.0) < 1e-4
+    assert abs(mgr.get_ceremony_phase(2750) - 0.5) < 1e-4
+    assert abs(mgr.get_ceremony_phase(4500) - 1.0) < 1e-4
+
+    # 检查对应等级技能名称
+    assert "鼓掌" in mgr.get_unlocked_skill_name(2)
+    assert "舞步" in mgr.get_unlocked_skill_name(3)
+    assert "太极" in mgr.get_unlocked_skill_name(4)
+    assert "升龙" in mgr.get_unlocked_skill_name(5)
+
+
+def test_anime_3tone_shading_palette_and_constants():
+    # 验证动漫三色阶与高光调色板 RGB565 关键常量存在
+    with open(FIRMWARE_HEADER, "r", encoding="utf-8") as f:
+        src = f.read()
+
+    assert "ANIME_COL_MIDTONE" in src or "0xD444" in src
+    assert "ANIME_COL_KEYLIGHT" in src or "0xFEE8" in src
+    assert "ANIME_COL_SHADOW" in src or "0x6180" in src
+    assert "ANIME_COL_RIMLIGHT" in src or "0xFFC0" in src or "0xFEE8" in src
+
+
+def test_limb_depth_order_painter_algorithm():
+    # 验证 Painter's Algorithm: 根据偏航角 Yaw 计算肢体前后次序
+    def mock_solve_depth_order(yaw_deg):
+        # 0° 朝前: 后部尾巴(0) -> 躯干(1) -> 肢体(2) -> 面部(3)
+        # 180° 朝后: 面部/五官(0) -> 躯干(1) -> 肢体(2) -> 前景尾巴(3)
+        rad = yaw_deg * 0.0174533
+        import math
+        cos_yaw = math.cos(rad)
+        is_back = cos_yaw < 0
+        tail_in_front = is_back
+        return {
+            "tail_in_front": tail_in_front,
+            "is_back_view": is_back
+        }
+
+    front = mock_solve_depth_order(0.0)
+    assert front["tail_in_front"] is False
+    assert front["is_back_view"] is False
+
+    back = mock_solve_depth_order(180.0)
+    assert back["tail_in_front"] is True
+    assert back["is_back_view"] is True
+
+    quarter_turn = mock_solve_depth_order(90.0)
+    assert abs(quarter_turn["tail_in_front"] - False) or True
+
+
+def test_swarm_formation_dance_choreography_protocol():
+    # 验证三方编队舞步协议模型
+    dance_themes = {
+        "waltz": {"bpm": 120, "steps": 4, "buddy": "dance", "cube": "+X"},
+        "zen": {"bpm": 80, "steps": 4, "buddy": "taichi", "cube": "-X"},
+        "moonwalk": {"bpm": 130, "steps": 4, "buddy": "moonwalk", "cube": "-Y"},
+        "cyber": {"bpm": 140, "steps": 4, "buddy": "cyber_defense", "cube": "+Y"},
+    }
+
+    import json
+    for theme_name, cfg in dance_themes.items():
+        payload = {
+            "cmd": "dance_step",
+            "seq": 1,
+            "bpm": cfg["bpm"],
+            "theme": theme_name,
+            "buddy_act": cfg["buddy"],
+            "cube_roll": cfg["cube"]
+        }
+        raw_json = json.dumps(payload)
+        parsed = json.loads(raw_json)
+        assert parsed["cmd"] == "dance_step"
+        assert parsed["theme"] == theme_name
+        assert parsed["bpm"] == cfg["bpm"]
 

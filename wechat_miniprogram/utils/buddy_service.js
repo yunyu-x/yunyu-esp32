@@ -1180,6 +1180,34 @@ class BuddyService {
     return { success: true, mode: "sim" };
   }
 
+  // 灵宠与灵方多体舞团编队特技 (Swarm Dance)
+  async triggerSwarmDance(theme = "waltz") {
+    haptics.vibrate("heavy");
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("dance_swarm", { action: "dance_swarm", theme });
+      return { success: true, mode: "ble", theme };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("dance_swarm", { theme });
+      return { success: true, mode: "wifi", theme };
+    }
+    return { success: true, mode: "sim", theme };
+  }
+
+  // 技能树升级盛典与全屏庆典特技 (Skill Unlock Ceremony)
+  async triggerCeremony(level = 0) {
+    haptics.notification();
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("ceremony", { action: "ceremony", level });
+      return { success: true, mode: "ble", level };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("ceremony", { level });
+      return { success: true, mode: "wifi", level };
+    }
+    return { success: true, mode: "sim", level };
+  }
+
   // OpenPose 独立关节控制
   async setBearJoint(jointId, angle) {
     const id = parseInt(jointId, 10) || 0;

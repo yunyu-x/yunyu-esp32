@@ -42,7 +42,9 @@ enum class HatchCommandType {
     ACT_COMMAND,   // >act= 或 >action=
     COMBO_COMMAND, // >combo=
     LIMB_COMMAND,  // >limb=
-    GROWTH_QUERY   // >exp 或 >growth
+    GROWTH_QUERY,  // >exp 或 >growth
+    DANCE_SWARM,   // >dance_swarm= 或 >swarm_dance=
+    CEREMONY_TRIGGER // >ceremony= 或 >levelup
 };
 
 struct HatchParsedMessage {
@@ -116,6 +118,30 @@ public:
                 limb.pop_back();
             }
             msg.payload = limb;
+        } else if (line.rfind(">dance_swarm=", 0) == 0) {
+            msg.type = HatchCommandType::DANCE_SWARM;
+            std::string dance = line.substr(13);
+            while (!dance.empty() && (dance.back() == '\r' || dance.back() == '\n' || dance.back() == ' ')) {
+                dance.pop_back();
+            }
+            msg.payload = dance;
+        } else if (line.rfind(">swarm_dance=", 0) == 0) {
+            msg.type = HatchCommandType::DANCE_SWARM;
+            std::string dance = line.substr(13);
+            while (!dance.empty() && (dance.back() == '\r' || dance.back() == '\n' || dance.back() == ' ')) {
+                dance.pop_back();
+            }
+            msg.payload = dance;
+        } else if (line.rfind(">ceremony=", 0) == 0) {
+            msg.type = HatchCommandType::CEREMONY_TRIGGER;
+            std::string lvl = line.substr(10);
+            while (!lvl.empty() && (lvl.back() == '\r' || lvl.back() == '\n' || lvl.back() == ' ')) {
+                lvl.pop_back();
+            }
+            msg.payload = lvl;
+        } else if (line.rfind(">levelup", 0) == 0) {
+            msg.type = HatchCommandType::CEREMONY_TRIGGER;
+            msg.payload = "next";
         } else if (line.rfind(">exp", 0) == 0 || line.rfind(">growth", 0) == 0) {
             msg.type = HatchCommandType::GROWTH_QUERY;
         } else if (line.rfind(">robot=", 0) == 0) {

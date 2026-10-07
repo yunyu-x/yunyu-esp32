@@ -116,6 +116,16 @@ public:
         doc_status["sta_ssid"] = cfg.getConfig().wifi_ssid;
         doc_status["sta_rssi"] = cfg.getStaRSSI();
 
+        // 灵宠小熊技能树等级、经验与盛典状态
+        const auto& bear_gm = BearGrowthManager::getInstance();
+        doc_status["bear_level"] = bear_gm.getLevel();
+        doc_status["bear_title"] = bear_gm.getLevelTitle();
+        doc_status["bear_exp"] = bear_gm.getExp();
+        doc_status["bear_next_exp"] = bear_gm.getNextLevelExp();
+        doc_status["ceremony_active"] = bear_gm.isCeremonyActive(millis());
+        doc_status["swarm_dancing"] = SwarmDanceController::getInstance().isDancing();
+        doc_status["swarm_theme"] = SwarmDanceController::getInstance().getThemeName();
+
         String json_status;
         serializeJson(doc_status, json_status);
         _pCharStatus->setValue((uint8_t*)json_status.c_str(), json_status.length());
@@ -305,6 +315,23 @@ public:
                 StickS3Avatar::getInstance().generateDiaryEntry("主人从手机同步了一条新的生活备忘给我。");
                 notifyDiary(StickS3Avatar::getInstance().getStats().current_diary);
             }
+        } else if (action == "dance_swarm" || action == "swarm_dance") {
+            String theme_str = doc["theme"] | "waltz";
+            SwarmDanceTheme theme = SWARM_DANCE_WALTZ;
+            if (theme_str == "zen" || theme_str == "taichi") theme = SWARM_DANCE_ZEN;
+            else if (theme_str == "moonwalk") theme = SWARM_DANCE_MOONWALK;
+            else if (theme_str == "cyber") theme = SWARM_DANCE_CYBER;
+            SwarmDanceController::getInstance().startTheme(theme, millis());
+            SwarmDanceStep step = SwarmDanceController::getInstance().getCurrentStep();
+            BearKinematicsController::getInstance().triggerAction(step.buddy_action, step.duration_ms);
+            StickS3Audio::getInstance().playTone(1900, 40, 0.45f);
+        } else if (action == "ceremony" || action == "levelup") {
+            uint8_t lvl = doc["level"] | (BearGrowthManager::getInstance().getLevel() + 1);
+            if (lvl > 5) lvl = 5;
+            BearGrowthManager::getInstance().setLevel(lvl);
+            BearGrowthManager::getInstance().triggerCeremony(lvl, millis());
+            StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
+            BearKinematicsController::getInstance().triggerAction(BEAR_ACT_CHEER, 3500);
         } else if (action == "wifi_cfg") {
             String ssid = "";
             String pwd = "";

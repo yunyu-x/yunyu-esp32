@@ -257,6 +257,52 @@
     </view>
   </view>
 
+  <!-- 灵宠与灵方多体编队舞团控制台 -->
+  <view class="swarm-dance-card">
+    <view class="swarm-dance-header">
+      <view class="swarm-title-row">
+        <text class="swarm-title">🎭 灵宠与灵方舞团编队</text>
+        <text class="swarm-status-tag {{isSwarmDancing ? 'dancing-active' : ''}}">
+          {{isSwarmDancing ? '💃 编队巡演中' : '🎵 就绪'}}
+        </text>
+      </view>
+      <text class="swarm-sub">屏内小熊 3D 起舞，桌上灵方微型机器人翻滚对偶</text>
+    </view>
+    <view class="swarm-dance-grid">
+      <button class="swarm-dance-btn btn-waltz" bindtap="handleTriggerSwarmDance" data-theme="waltz">
+        <text class="swarm-btn-icon">💃</text>
+        <view class="swarm-btn-text">
+          <text class="swarm-btn-name">元气华尔兹</text>
+          <text class="swarm-btn-meta">120 BPM · 摇摆自旋</text>
+        </view>
+      </button>
+      <button class="swarm-dance-btn btn-zen" bindtap="handleTriggerSwarmDance" data-theme="zen">
+        <text class="swarm-btn-icon">🥋</text>
+        <view class="swarm-btn-text">
+          <text class="swarm-btn-name">太极云手阵</text>
+          <text class="swarm-btn-meta">80 BPM · 行云流水</text>
+        </view>
+      </button>
+      <button class="swarm-dance-btn btn-moonwalk" bindtap="handleTriggerSwarmDance" data-theme="moonwalk">
+        <text class="swarm-btn-icon">👟</text>
+        <view class="swarm-btn-text">
+          <text class="swarm-btn-name">太空漫步秀</text>
+          <text class="swarm-btn-meta">130 BPM · 滑步冲拳</text>
+        </view>
+      </button>
+      <button class="swarm-dance-btn btn-cyber" bindtap="handleTriggerSwarmDance" data-theme="cyber">
+        <text class="swarm-btn-icon">⚡</text>
+        <view class="swarm-btn-text">
+          <text class="swarm-btn-name">机甲破晓舞</text>
+          <text class="swarm-btn-meta">140 BPM · 升龙飞天</text>
+        </view>
+      </button>
+    </view>
+    <button class="btn-ceremony-trigger" bindtap="handleTriggerCeremony">
+      <text>★ 触发技能解锁盛典特效</text>
+    </button>
+  </view>
+
   <!-- 连接与信道快捷栏 -->
   <view class="connect-grid">
     <button class="btn-connect {{isBleMode ? 'btn-active' : ''}}" bindtap="handleToggleBle">

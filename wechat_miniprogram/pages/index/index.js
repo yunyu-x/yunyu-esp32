@@ -83,7 +83,11 @@ Page({
       "左膝关节 (L_Knee)"
     ],
     selectedJointIndex: 0,
-    selectedJointAngle: 0
+    selectedJointAngle: 0,
+
+    // 多体编队舞团状态
+    isSwarmDancing: false,
+    currentDanceTheme: ""
   },
 
   onLoad() {
@@ -377,6 +381,30 @@ Page({
     this.setData({ selectedJointAngle: 0 });
     this.buddyService.clearBearJoints();
     wx.showToast({ title: "全身姿态已复位", icon: "none" });
+  },
+
+  // 7. 灵宠与灵方多体舞团编队控制
+  handleTriggerSwarmDance(e) {
+    const theme = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.theme) || "waltz";
+    const themeNames = {
+      waltz: "元气华尔兹",
+      zen: "太极云手阵",
+      moonwalk: "太空漫步秀",
+      cyber: "机甲破晓舞"
+    };
+    const title = themeNames[theme] || "元气舞曲";
+    this.setData({ isSwarmDancing: true, currentDanceTheme: theme });
+    this.buddyService.triggerSwarmDance(theme);
+    wx.showToast({ title: `🎭 启动舞曲: ${title}`, icon: "none" });
+    setTimeout(() => {
+      this.setData({ isSwarmDancing: false });
+    }, 4500);
+  },
+
+  // 8. 技能解锁全屏庆典特技
+  handleTriggerCeremony() {
+    this.buddyService.triggerCeremony(0);
+    wx.showToast({ title: "★ 触发技能解锁盛典!", icon: "none" });
   },
 
   // Tab 页面跳转导航

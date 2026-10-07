@@ -739,3 +739,116 @@
 .joint-slider-wrap {
   margin-top: 6rpx;
 }
+
+/* ================= 灵宠与灵方多体舞团编队控制台 ================= */
+.swarm-dance-card {
+  background: var(--ios-card-bg, #1C1C1E);
+  border-radius: 28rpx;
+  padding: 24rpx;
+  border: 0.5px solid rgba(255, 215, 0, 0.25);
+  box-shadow: 0 4rpx 20rpx rgba(255, 215, 0, 0.08);
+}
+
+.swarm-dance-header {
+  margin-bottom: 16rpx;
+}
+
+.swarm-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.swarm-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #FFD700;
+}
+
+.swarm-status-tag {
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.08);
+  color: #8E8E93;
+}
+
+.dancing-active {
+  background: rgba(255, 215, 0, 0.2);
+  color: #FFD700;
+  border: 0.5px solid rgba(255, 215, 0, 0.5);
+}
+
+.swarm-sub {
+  font-size: 20rpx;
+  color: #8E8E93;
+  margin-top: 4rpx;
+  display: block;
+}
+
+.swarm-dance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12rpx;
+}
+
+.swarm-dance-btn {
+  background: var(--ios-secondary-bg, #2C2C2E);
+  border-radius: 20rpx;
+  padding: 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  width: 100% !important;
+  margin: 0;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.swarm-dance-btn:active {
+  transform: scale(0.98);
+}
+
+.swarm-btn-icon {
+  font-size: 36rpx;
+}
+
+.swarm-btn-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.swarm-btn-name {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.swarm-btn-meta {
+  font-size: 18rpx;
+  color: #8E8E93;
+  margin-top: 2rpx;
+}
+
+.btn-waltz { border-color: rgba(236, 72, 153, 0.3); }
+.btn-zen { border-color: rgba(16, 185, 129, 0.3); }
+.btn-moonwalk { border-color: rgba(59, 130, 246, 0.3); }
+.btn-cyber { border-color: rgba(168, 85, 247, 0.3); }
+
+.btn-ceremony-trigger {
+  margin-top: 14rpx;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.15));
+  border: 0.5px solid #FFD700;
+  border-radius: 16rpx;
+  color: #FFD700;
+  font-size: 22rpx;
+  font-weight: 700;
+  height: 64rpx;
+  min-height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100% !important;
+}
