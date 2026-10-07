@@ -117,19 +117,19 @@ public:
         }
     }
 
-    // 解析大模型返回文本中的 [E:xxx] 情绪标签并自动提取纯净文本
+    // 解析大模型返回文本中的 [E:xxx] 情绪标签并自动提取纯净文本 (支持出现在文本任意位置)
     static AvatarMood parseEmotionTag(const String& raw_text, String& clean_text) {
         clean_text = raw_text;
-        if (!raw_text.startsWith("[E:") && !raw_text.startsWith("[e:")) {
-            return MOOD_IDLE;
-        }
-        int close_idx = raw_text.indexOf(']');
+        int pos = raw_text.indexOf("[E:");
+        if (pos < 0) pos = raw_text.indexOf("[e:");
+        if (pos < 0) return MOOD_IDLE;
+        int close_idx = raw_text.indexOf(']', pos);
         if (close_idx < 0) return MOOD_IDLE;
 
-        String tag = raw_text.substring(3, close_idx);
+        String tag = raw_text.substring(pos + 3, close_idx);
         tag.toLowerCase();
         tag.trim();
-        clean_text = raw_text.substring(close_idx + 1);
+        clean_text = raw_text.substring(0, pos) + raw_text.substring(close_idx + 1);
         clean_text.trim();
 
         if (tag == "happy") return MOOD_HAPPY;

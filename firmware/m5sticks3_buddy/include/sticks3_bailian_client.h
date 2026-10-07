@@ -39,10 +39,23 @@ enum BailianAgentState {
     BL_STATE_ERROR
 };
 
+} // namespace sticks3
+
+#include "sticks3_bear_kinematics.h"
+
+namespace sticks3 {
+
 using BailianTextCallback = std::function<void(const String& user_text, const String& ai_text, bool is_final)>;
 using BailianStateCallback = std::function<void(BailianAgentState old_state, BailianAgentState new_state)>;
 using BailianUserSpeechCallback = std::function<void(const String& user_text)>;
 using BailianSpeechStartedCallback = std::function<void()>;
+using BailianToolCallHandler = std::function<String(const String& name, const String& call_id, const String& arguments)>;
+
+struct BailianPendingTool {
+    String call_id;
+    String name;
+    String args;
+};
 
 // 线程安全互斥锁 RAII 守卫 (替代底层硬件自旋锁 portMUX_TYPE，彻底消除 INT_WDT 中断看门狗复位与死锁)
 class BailianTextLockGuard {
@@ -91,12 +104,16 @@ public:
         _pending_final_ai_reply = "";
         _ws_send_mutex = xSemaphoreCreateMutex();
         _text_mutex = xSemaphoreCreateMutex();
+        _tool_mutex = xSemaphoreCreateMutex();
+        _last_executed_call_id = "";
+        _on_tool_call = nullptr;
     }
 
     void setTextCallback(BailianTextCallback cb) { _on_text = cb; }
     void setStateCallback(BailianStateCallback cb) { _on_state = cb; }
     void setUserSpeechCallback(BailianUserSpeechCallback cb) { _on_user_speech = cb; }
     void setSpeechStartedCallback(BailianSpeechStartedCallback cb) { _on_speech_started = cb; }
+    void setToolCallHandler(BailianToolCallHandler cb) { _on_tool_call = cb; }
 
     bool begin() {
         Serial.println("[BAILIAN] Initializing Bailian Realtime Voice Subsystem...");
@@ -266,6 +283,11 @@ static const char* DASHSCOPE_ROOT_CA =
         _response_done_received = false;
         _is_response_cancelled = false;
         _server_in_speech = false;
+        if (_tool_mutex && xSemaphoreTake(_tool_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+            _pending_tools.clear();
+            _last_executed_call_id = "";
+            xSemaphoreGive(_tool_mutex);
+        }
         setState(BL_STATE_DISCONNECTED);
     }
 
@@ -509,6 +531,45 @@ static const char* DASHSCOPE_ROOT_CA =
             if (_on_text && ai_copy.length() > 0) {
                 _on_text(user_copy, ai_copy, true);
             }
+        }
+
+        // 2.10 异步执行大模型 Function Calling 工具调用 (在 loopTask 中执行，彻底遵循公理二)
+        BailianPendingTool tool_job;
+        bool has_tool_job = false;
+        if (_tool_mutex && xSemaphoreTake(_tool_mutex, pdMS_TO_TICKS(15)) == pdTRUE) {
+            if (!_pending_tools.empty()) {
+                tool_job = _pending_tools.front();
+                _pending_tools.erase(_pending_tools.begin());
+                has_tool_job = true;
+            }
+            xSemaphoreGive(_tool_mutex);
+        }
+
+        if (has_tool_job && isConnected()) {
+            Serial.printf("[BAILIAN-TOOL] Executing Function Call '%s' (call_id: %s, args: %s)\n",
+                          tool_job.name.c_str(), tool_job.call_id.c_str(), tool_job.args.c_str());
+            String output_json = "";
+            if (_on_tool_call) {
+                output_json = _on_tool_call(tool_job.name, tool_job.call_id, tool_job.args);
+            }
+            if (output_json.length() == 0) {
+                output_json = executeDefaultTool(tool_job.name, tool_job.args);
+            }
+
+            // 发送 function_call_output 回执给百炼服务端
+            JsonDocument call_resp;
+            call_resp["type"] = "conversation.item.create";
+            JsonObject item = call_resp["item"].to<JsonObject>();
+            item["type"] = "function_call_output";
+            item["call_id"] = tool_job.call_id;
+            item["output"] = output_json;
+            String call_resp_str;
+            serializeJson(call_resp, call_resp_str);
+            sendWsTextWithRetry(call_resp_str.c_str(), call_resp_str.length(), 4, pdMS_TO_TICKS(100));
+
+            // 触发大模型根据工具调用结果继续生成后续拟人语音
+            const char* resp_create = "{\"type\":\"response.create\"}";
+            sendWsTextWithRetry(resp_create, strlen(resp_create), 4, pdMS_TO_TICKS(100));
         }
 
         // 3. 在线且处于 LISTENING 模式时，流式读取麦克风并推流到百炼
@@ -767,6 +828,35 @@ static const char* DASHSCOPE_ROOT_CA =
         }
     }
 
+    String executeDefaultTool(const String& name, const String& args) {
+        JsonDocument d;
+        deserializeJson(d, args);
+        if (name == "sticks3_control_bear") {
+            const char* act_str = d["action"] | "";
+            uint32_t dur = d["duration_ms"] | 2800;
+            BearAction act = stringToBearAction(act_str);
+            BearKinematicsController::getInstance().triggerAction(act, dur);
+            Serial.printf("[BAILIAN-TOOL-DEFAULT] Bear action '%s' triggered\n", act_str);
+            return "{\"status\":\"success\",\"action\":\"" + String(act_str) + "\"}";
+        } else if (name == "sticks3_set_avatar") {
+            const char* exp_str = d["expression"] | "";
+            AvatarMood m = MOOD_IDLE;
+            if (strcmp(exp_str, "happy") == 0) m = MOOD_HAPPY;
+            else if (strcmp(exp_str, "curious") == 0) m = MOOD_CURIOUS;
+            else if (strcmp(exp_str, "proud") == 0) m = MOOD_PROUD;
+            else if (strcmp(exp_str, "sleepy") == 0 || strcmp(exp_str, "sleep") == 0) m = MOOD_SLEEP;
+            else if (strcmp(exp_str, "dizzy") == 0) m = MOOD_DIZZY;
+            else if (strcmp(exp_str, "shock") == 0) m = MOOD_SHOCK;
+            else if (strcmp(exp_str, "wink") == 0) m = MOOD_WINK;
+            StickS3Avatar::getInstance().setMood(m);
+            Serial.printf("[BAILIAN-TOOL-DEFAULT] Avatar mood '%s' set\n", exp_str);
+            return "{\"status\":\"success\",\"expression\":\"" + String(exp_str) + "\"}";
+        } else if (name == "get_device_telemetry") {
+            return "{\"status\":\"success\",\"battery_mv\":4100,\"wifi\":\"connected\"}";
+        }
+        return "{\"status\":\"unknown_tool\"}";
+    }
+
 private:
     void setState(BailianAgentState new_state) {
         if (new_state == BL_STATE_LISTENING || new_state == BL_STATE_CONNECTED_IDLE) {
@@ -799,8 +889,14 @@ private:
             cfg_mgr.saveBailianVoice("Tina");
         }
 
-        // 智能构建并注入多轮上下文记忆
-        String dynamic_prompt = StickS3MemoryStore::getInstance().buildMemoryContextPrompt(cfg.bailian_prompt);
+        // 智能构建并注入多轮上下文记忆与肢体动作提示词
+        String prompt_base = cfg.bailian_prompt;
+        if (prompt_base.indexOf("sticks3_control_bear") == -1 && prompt_base.indexOf("[ACT:") == -1) {
+            prompt_base += " 你拥有生动的全身四肢与迪士尼拟人身体。当对话或被要求做动作时，请直接调用工具 sticks3_control_bear 或在回复文字中附带动作标签："
+                           "[ACT:wave]挥手、[ACT:clap]鼓掌、[ACT:dance]跳舞、[ACT:kungfu]功夫、[ACT:taichi]太极、[ACT:stretch]伸懒腰、[ACT:bow]鞠躬、[ACT:jump]跳跃、[ACT:sit]坐下、[ACT:lie]趴下、[ACT:cheer]欢呼、[ACT:balance]金鸡独立。"
+                           "每次回复开头可用方括号标注情绪标签：[E:happy]、[E:curious]、[E:proud]、[E:sleepy]、[E:dizzy]、[E:wink]或[E:idle]。";
+        }
+        String dynamic_prompt = StickS3MemoryStore::getInstance().buildMemoryContextPrompt(prompt_base);
 
         JsonDocument doc;
         doc["type"] = "session.update";
@@ -839,6 +935,86 @@ private:
         turn["silence_duration_ms"] = 300; // 优化静音判定尾长为 300ms (大幅降低停顿等待延迟)
         turn["create_response"] = true;
         turn["interrupt_response"] = true;
+
+        // 设备端直连阿里云百炼：直接向 DashScope 注册原生具身控制与拟态表情 Function Calling 工具
+        JsonArray tools = session["tools"].to<JsonArray>();
+
+        // 1. 小熊四肢运动控制
+        JsonObject tool_bear = tools.add<JsonObject>();
+        tool_bear["type"] = "function";
+        tool_bear["name"] = "sticks3_control_bear";
+        tool_bear["description"] = "控制 M5StickS3 小熊 (Meta Jollybot) 的四肢运动与身体姿态。动作包括：wave(挥手), clap(鼓掌), dance(跳舞), kungfu(中国功夫), taichi(太极), stretch(伸懒腰), bow(鞠躬), jump(跳跃), sit(坐下), lie(趴下), cheer(欢呼), balance(金鸡独立)。";
+        JsonObject bear_params = tool_bear["parameters"].to<JsonObject>();
+        bear_params["type"] = "object";
+        JsonObject bear_props = bear_params["properties"].to<JsonObject>();
+        JsonObject act_prop = bear_props["action"].to<JsonObject>();
+        act_prop["type"] = "string";
+        act_prop["description"] = "目标动作名称";
+        JsonArray act_enum = act_prop["enum"].to<JsonArray>();
+        act_enum.add("wave");
+        act_enum.add("clap");
+        act_enum.add("dance");
+        act_enum.add("kungfu");
+        act_enum.add("taichi");
+        act_enum.add("stretch");
+        act_enum.add("bow");
+        act_enum.add("jump");
+        act_enum.add("sit");
+        act_enum.add("lie");
+        act_enum.add("cheer");
+        act_enum.add("balance");
+        JsonArray bear_req = bear_params["required"].to<JsonArray>();
+        bear_req.add("action");
+
+        // 2. 拟态表情设置
+        JsonObject tool_avatar = tools.add<JsonObject>();
+        tool_avatar["type"] = "function";
+        tool_avatar["name"] = "sticks3_set_avatar";
+        tool_avatar["description"] = "改变屏幕上伴侣小熊的面部表情与情绪状态。";
+        JsonObject av_params = tool_avatar["parameters"].to<JsonObject>();
+        av_params["type"] = "object";
+        JsonObject av_props = av_params["properties"].to<JsonObject>();
+        JsonObject exp_prop = av_props["expression"].to<JsonObject>();
+        exp_prop["type"] = "string";
+        exp_prop["description"] = "目标表情";
+        JsonArray exp_enum = exp_prop["enum"].to<JsonArray>();
+        exp_enum.add("happy");
+        exp_enum.add("curious");
+        exp_enum.add("proud");
+        exp_enum.add("sleepy");
+        exp_enum.add("dizzy");
+        exp_enum.add("shock");
+        exp_enum.add("wink");
+        exp_enum.add("idle");
+        JsonArray av_req = av_params["required"].to<JsonArray>();
+        av_req.add("expression");
+
+        // 3. 伴侣形象切换
+        JsonObject tool_pet = tools.add<JsonObject>();
+        tool_pet["type"] = "function";
+        tool_pet["name"] = "sticks3_switch_pet";
+        tool_pet["description"] = "切换屏幕上的数字伴侣形象：'jollybot'(迪士尼小熊) 或 'qiaoqiao'(灵伴悄悄)。";
+        JsonObject pet_params = tool_pet["parameters"].to<JsonObject>();
+        pet_params["type"] = "object";
+        JsonObject pet_props = pet_params["properties"].to<JsonObject>();
+        JsonObject pet_prop = pet_props["pet"].to<JsonObject>();
+        pet_prop["type"] = "string";
+        pet_prop["description"] = "目标宠物名称";
+        JsonArray pet_enum = pet_prop["enum"].to<JsonArray>();
+        pet_enum.add("jollybot");
+        pet_enum.add("qiaoqiao");
+        JsonArray pet_req = pet_params["required"].to<JsonArray>();
+        pet_req.add("pet");
+
+        // 4. 硬件遥测状态查询
+        JsonObject tool_telem = tools.add<JsonObject>();
+        tool_telem["type"] = "function";
+        tool_telem["name"] = "get_device_telemetry";
+        tool_telem["description"] = "查询 StickS3 伴侣硬件的物理遥测数据(电量、IMU姿态角、FPS、内存负荷)。";
+        JsonObject telem_params = tool_telem["parameters"].to<JsonObject>();
+        telem_params["type"] = "object";
+
+        session["tool_choice"] = "auto";
 
         String json_out;
         serializeJson(doc, json_out);
@@ -1215,6 +1391,40 @@ private:
                 Serial.printf("[BAILIAN] User said: \"%s\"\n", user_text);
             }
         }
+        // 6.5 大模型 Function Calling 工具调用事件 (支持 response.function_call_arguments.done 与 item.created)
+        else if (strcmp(type, "response.function_call_arguments.done") == 0) {
+            const char* call_id = doc["call_id"] | "";
+            const char* fn_name = doc["name"] | "";
+            const char* fn_args = doc["arguments"] | "";
+            if (strlen(call_id) > 0 && strlen(fn_name) > 0) {
+                if (String(call_id) != _last_executed_call_id) {
+                    _last_executed_call_id = call_id;
+                    if (_tool_mutex && xSemaphoreTake(_tool_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+                        _pending_tools.push_back({String(call_id), String(fn_name), String(fn_args)});
+                        xSemaphoreGive(_tool_mutex);
+                    }
+                    Serial.printf("[BAILIAN-EVENT] Function call received: %s (call_id: %s)\n", fn_name, call_id);
+                }
+            }
+        }
+        else if (strcmp(type, "conversation.item.created") == 0 || strcmp(type, "response.output_item.done") == 0) {
+            const char* item_type = doc["item"]["type"] | "";
+            if (strcmp(item_type, "function_call") == 0) {
+                const char* call_id = doc["item"]["call_id"] | "";
+                const char* fn_name = doc["item"]["name"] | "";
+                const char* fn_args = doc["item"]["arguments"] | "";
+                if (strlen(call_id) > 0 && strlen(fn_name) > 0) {
+                    if (String(call_id) != _last_executed_call_id) {
+                        _last_executed_call_id = call_id;
+                        if (_tool_mutex && xSemaphoreTake(_tool_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+                            _pending_tools.push_back({String(call_id), String(fn_name), String(fn_args)});
+                            xSemaphoreGive(_tool_mutex);
+                        }
+                        Serial.printf("[BAILIAN-EVENT] Function call item received: %s (call_id: %s)\n", fn_name, call_id);
+                    }
+                }
+            }
+        }
         // 7. 回复完成
         else if (strcmp(type, "response.done") == 0) {
             _server_response_active = false;
@@ -1326,6 +1536,10 @@ private:
     BailianStateCallback _on_state;
     BailianUserSpeechCallback _on_user_speech;
     BailianSpeechStartedCallback _on_speech_started;
+    BailianToolCallHandler _on_tool_call;
+    SemaphoreHandle_t _tool_mutex;
+    std::vector<BailianPendingTool> _pending_tools;
+    String _last_executed_call_id;
 };
 
 } // namespace sticks3

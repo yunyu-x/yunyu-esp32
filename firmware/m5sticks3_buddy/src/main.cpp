@@ -164,6 +164,23 @@ static bool btnB_clicked = false;
 
 void sendToHost(const std::string& msg);
 
+// 解析大模型返回文本中的 [ACT:xxx] 肢体动作标签
+static sticks3::BearAction parseBearActionTag(const String& raw_text, String& clean_text) {
+    clean_text = raw_text;
+    int pos = raw_text.indexOf("[ACT:");
+    if (pos < 0) pos = raw_text.indexOf("[act:");
+    if (pos < 0) return sticks3::BEAR_ACT_IDLE;
+    int close_idx = raw_text.indexOf(']', pos);
+    if (close_idx < 0) return sticks3::BEAR_ACT_IDLE;
+
+    String tag = raw_text.substring(pos + 5, close_idx);
+    tag.toLowerCase();
+    tag.trim();
+    clean_text = raw_text.substring(0, pos) + raw_text.substring(close_idx + 1);
+    clean_text.trim();
+    return sticks3::stringToBearAction(tag.c_str());
+}
+
 // 统一消息处理入口 (处理来自 BLE NUS, WiFi TCP 8080, WiFi UDP 8080, Web 80 与串口的全部文本/汉字)
 void onNewTextMessage(const String& msg, const String& source) {
     if (msg.length() == 0) return;
@@ -179,6 +196,14 @@ void onNewTextMessage(const String& msg, const String& source) {
     if (detected_mood != sticks3::MOOD_IDLE) {
         sticks3::StickS3Avatar::getInstance().setMood(detected_mood);
         clean_msg = emotion_clean_text;
+    }
+
+    // 自动解析 [ACT:xxx] 肢体动作标签并驱动小熊四肢
+    String act_clean_text;
+    sticks3::BearAction detected_act = parseBearActionTag(clean_msg, act_clean_text);
+    if (detected_act != sticks3::BEAR_ACT_IDLE) {
+        sticks3::BearKinematicsController::getInstance().triggerAction(detected_act);
+        clean_msg = act_clean_text;
     }
 
     latest_ble_msg = clean_msg;
@@ -1152,6 +1177,59 @@ void setup() {
     });
     sticks3::StickS3BailianClient::getInstance().setSpeechStartedCallback([]() {
         sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_LISTEN);
+    });
+
+    // 8.8 注册设备端直连阿里云百炼原生具身工具调用 (Function Calling) 处理器
+    sticks3::StickS3BailianClient::getInstance().setToolCallHandler([](const String& name, const String& call_id, const String& args) -> String {
+        JsonDocument doc;
+        deserializeJson(doc, args);
+        if (name == "sticks3_control_bear") {
+            const char* act_str = doc["action"] | "";
+            uint32_t dur = doc["duration_ms"] | 2800;
+            sticks3::BearAction act = sticks3::stringToBearAction(act_str);
+            sticks3::BearKinematicsController::getInstance().triggerAction(act, dur);
+            Serial.printf("[MAIN-TOOL] Executed Bear Action: %s (%ums)\n", act_str, (unsigned)dur);
+            return "{\"status\":\"success\",\"action\":\"" + String(act_str) + "\"}";
+        } else if (name == "sticks3_set_avatar") {
+            const char* exp_str = doc["expression"] | "";
+            sticks3::AvatarMood mood = sticks3::MOOD_IDLE;
+            if (strcmp(exp_str, "happy") == 0) mood = sticks3::MOOD_HAPPY;
+            else if (strcmp(exp_str, "curious") == 0) mood = sticks3::MOOD_CURIOUS;
+            else if (strcmp(exp_str, "proud") == 0) mood = sticks3::MOOD_PROUD;
+            else if (strcmp(exp_str, "sleepy") == 0 || strcmp(exp_str, "sleep") == 0) mood = sticks3::MOOD_SLEEP;
+            else if (strcmp(exp_str, "dizzy") == 0) mood = sticks3::MOOD_DIZZY;
+            else if (strcmp(exp_str, "shock") == 0) mood = sticks3::MOOD_SHOCK;
+            else if (strcmp(exp_str, "wink") == 0) mood = sticks3::MOOD_WINK;
+            sticks3::StickS3Avatar::getInstance().setMood(mood);
+            Serial.printf("[MAIN-TOOL] Executed Avatar Mood: %s\n", exp_str);
+            return "{\"status\":\"success\",\"expression\":\"" + String(exp_str) + "\"}";
+        } else if (name == "sticks3_switch_pet") {
+            const char* pet_str = doc["pet"] | "";
+            if (strcmp(pet_str, "jollybot") == 0) {
+                g_active_pet = PET_JOLLYBOT;
+            } else if (strcmp(pet_str, "qiaoqiao") == 0) {
+                g_active_pet = PET_QIAOQIAO;
+            }
+            Preferences p;
+            if (p.begin("sticks3_cfg", false)) {
+                p.putUChar("active_pet", (uint8_t)g_active_pet);
+                p.end();
+            }
+            Serial.printf("[MAIN-TOOL] Switched Active Pet: %s\n", pet_str);
+            return "{\"status\":\"success\",\"pet\":\"" + String(pet_str) + "\"}";
+        } else if (name == "get_device_telemetry") {
+            char buf[256];
+            uint32_t free_sram = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+            snprintf(buf, sizeof(buf),
+                     "{\"status\":\"success\",\"fps\":%.1f,\"temp\":%.1f,\"free_sram_kb\":%u,\"roll\":%.1f,\"pitch\":%.1f,\"pet\":\"%s\"}",
+                     sticks3::getSystemLoopFPS(),
+                     sticks3::getChipTemperature(),
+                     (unsigned)(free_sram / 1024),
+                     imu_roll, imu_pitch,
+                     (g_active_pet == PET_JOLLYBOT) ? "jollybot" : "qiaoqiao");
+            return String(buf);
+        }
+        return "{\"status\":\"unknown_tool\"}";
     });
 
     // 预分配 BLE 二进制缓冲，杜绝临界区内存二次分配
