@@ -941,17 +941,14 @@ public:
         float yaw_smooth = constrain(dt * 12.0f * agility, 0.05f, 0.85f);
         _smooth_yaw_deg += (_target_yaw_deg - _smooth_yaw_deg) * yaw_smooth;
 
-        // 2. 有机呼吸浮沉与弹性果冻形变 (Organic Breathing & Squash-Stretch)
-        float breath = std::sin(t * 2.4f) * 1.6f;
-        float belly_breath = std::cos(t * 2.4f) * 1.3f;
+        // 2. 迪士尼影院法则 1: 有机呼吸浮沉与体积守恒挤压拉伸 (Squash & Stretch Volume Preservation: W * H = Constant)
+        float breath = std::sin(t * 2.4f) * 1.8f;
+        float belly_breath = std::cos(t * 2.4f) * 1.5f;
 
-        out_skel.squash_x = 1.0f + 0.025f * std::cos(t * 2.4f);
-        out_skel.squash_y = 1.0f - 0.025f * std::cos(t * 2.4f);
-
+        float cur_squash_y = 1.0f - 0.035f * std::cos(t * 2.4f);
         if (diff_a > 0.40f) {
-            float bump_osc = std::sin(t * 18.0f) * 0.18f;
-            out_skel.squash_x += bump_osc;
-            out_skel.squash_y -= bump_osc;
+            float bump_osc = std::sin(t * 18.0f) * 0.16f;
+            cur_squash_y -= bump_osc;
         }
 
         // 3. 仿生前庭重力自平衡反射动力学模型 (Bio-Vestibular Dynamic Equilibrium)
@@ -1124,39 +1121,42 @@ public:
                 break;
             }
             case BEAR_ACT_JUMP: {
-                // 雀跃跳起：预备蓄力下蹲(0~0.25) -> 爆发起跳腾空(0.25~0.7) -> 落地缓冲(0.7~1.0)
-                if (act_phase < 0.25f) {
-                    // Anticipation 蓄力深蹲
-                    float p = act_phase / 0.25f;
-                    target_body_shift_y = 10.0f * p;
-                    target_l_leg_deg = 20.0f;
-                    target_r_leg_deg = 20.0f;
-                    target_l_arm_deg = 30.0f;
-                    target_r_arm_deg = 30.0f;
-                } else if (act_phase < 0.75f) {
-                    // Explosive Stretch 腾空起飞
-                    float jump_p = (act_phase - 0.25f) / 0.5f;
-                    float jump_h = std::sin(jump_p * 3.14159f) * 26.0f;
+                // 迪士尼影院法则 2 (Anticipation) & 1 (Squash & Stretch):
+                // 蓄力深蹲(0~0.22) -> 爆发腾空(0.22~0.70) -> 触地果冻缓冲(0.70~1.0)
+                if (act_phase < 0.22f) {
+                    float p = act_phase / 0.22f;
+                    target_body_shift_y = 12.0f * p;
+                    target_l_leg_deg = 24.0f;
+                    target_r_leg_deg = 24.0f;
+                    target_l_arm_deg = 32.0f;
+                    target_r_arm_deg = 32.0f;
+                    cur_squash_y = 0.84f; // 蓄力挤压
+                } else if (act_phase < 0.70f) {
+                    float jump_p = (act_phase - 0.22f) / 0.48f;
+                    float jump_h = std::sin(jump_p * 3.14159f) * 28.0f;
                     target_body_shift_y = -jump_h;
-                    target_l_arm_deg = 155.0f * rom;
-                    target_r_arm_deg = 155.0f * rom;
-                    target_l_leg_deg = 16.0f;
-                    target_r_leg_deg = 16.0f;
+                    target_l_arm_deg = 158.0f * rom;
+                    target_r_arm_deg = 158.0f * rom;
+                    target_l_leg_deg = 15.0f;
+                    target_r_leg_deg = 15.0f;
+                    cur_squash_y = 1.24f; // 腾空纵向拉长
                 } else {
-                    // Recovery 落地回弹
-                    float rec_p = (act_phase - 0.75f) / 0.25f;
-                    target_body_shift_y = 6.0f * (1.0f - rec_p);
+                    float rec_p = (act_phase - 0.70f) / 0.30f;
+                    // 触地冲击波与果冻阻尼定势
+                    float impact_rebound = std::sin(rec_p * 3.14159f) * 0.16f;
+                    cur_squash_y = 0.86f + (1.0f - rec_p) * 0.14f - impact_rebound;
+                    target_body_shift_y = 7.0f * (1.0f - rec_p);
                 }
                 break;
             }
             case BEAR_ACT_DANCE: {
-                // 摇摆跳舞：节奏摆臀(Sway)、双臂上下律动交替，双脚随拍子轻踩
+                // 摇摆跳舞：节奏摆臀(Sway)、双臂上下圆弧律动交替，双脚随拍子轻踩
                 float sway = std::sin(t * 6.0f);
-                target_body_shift_x = sway * 9.0f;
-                target_body_tilt = sway * 14.0f;
-                target_head_tilt = -sway * 8.0f;
-                target_l_arm_deg = (92.0f + 55.0f * sway) * rom;
-                target_r_arm_deg = (92.0f - 55.0f * sway) * rom;
+                target_body_shift_x = sway * 10.0f;
+                target_body_tilt = sway * 15.0f;
+                target_head_tilt = -sway * 9.0f;
+                target_l_arm_deg = (92.0f + 58.0f * sway) * rom;
+                target_r_arm_deg = (92.0f - 58.0f * sway) * rom;
                 target_l_arm_ef = 6.0f * sway;
                 target_r_arm_ef = -6.0f * sway;
                 target_l_leg_fy = (sway > 0) ? -5.0f : 0.0f;
@@ -1166,45 +1166,47 @@ public:
             case BEAR_ACT_BALANCE: {
                 // 金鸡独立：右腿单立，左腿屈膝悬空收起，双臂大鹏展翅微幅振荡平衡
                 float bal_wobble = std::sin(t * 7.5f) * 8.0f;
-                target_l_leg_deg = 38.0f;
-                target_l_leg_fy = -13.0f;
+                target_l_leg_deg = 40.0f;
+                target_l_leg_fy = -14.0f;
                 target_r_leg_deg = 5.0f;
-                target_l_arm_deg = (85.0f + bal_wobble) * rom;
-                target_r_arm_deg = (85.0f - bal_wobble) * rom;
+                target_l_arm_deg = (88.0f + bal_wobble) * rom;
+                target_r_arm_deg = (88.0f - bal_wobble) * rom;
                 target_body_tilt = bal_wobble * 0.6f;
                 target_l_arm_ef = 4.0f;
                 target_r_arm_ef = -4.0f;
                 break;
             }
             case BEAR_ACT_LIE: {
-                // 趴下休息：平趴地面，四肢向外舒展
-                target_body_shift_y = 22.0f;
-                target_l_arm_deg = 78.0f;
-                target_r_arm_deg = 78.0f;
-                target_l_leg_deg = 78.0f;
-                target_r_leg_deg = 78.0f;
+                // 趴下休息：平趴地面，四肢向外舒展 (安全几何)
+                target_body_shift_y = 16.0f;
+                target_l_arm_deg = 75.0f;
+                target_r_arm_deg = 75.0f;
+                target_l_leg_deg = 75.0f;
+                target_r_leg_deg = 75.0f;
+                cur_squash_y = 0.88f;
                 break;
             }
             case BEAR_ACT_PUSHUP: {
                 // 俯卧撑锻炼：伏地上下推起，双臂大屈伸，呼哧呼哧
                 float pu_cycle = (std::sin(t * 5.0f) + 1.0f) * 0.5f; // 0.0 ~ 1.0
-                target_body_shift_y = 16.0f + pu_cycle * 8.0f;
+                target_body_shift_y = 12.0f + pu_cycle * 8.0f;
                 target_l_leg_deg = 65.0f;
                 target_r_leg_deg = 65.0f;
-                target_l_arm_deg = 50.0f + pu_cycle * 30.0f;
-                target_r_arm_deg = 50.0f + pu_cycle * 30.0f;
+                target_l_arm_deg = 48.0f + pu_cycle * 32.0f;
+                target_r_arm_deg = 48.0f + pu_cycle * 32.0f;
                 target_l_arm_ef = 12.0f - pu_cycle * 6.0f;
                 target_r_arm_ef = -12.0f + pu_cycle * 6.0f;
+                cur_squash_y = 0.90f + pu_cycle * 0.12f;
                 break;
             }
             case BEAR_ACT_KUNGFU: {
                 // 中国功夫：深蹲马步、右前推掌、左手护腰握拳、躯干侧旋
                 target_body_shift_y = 6.0f;
                 target_body_tilt = -6.0f;
-                target_r_arm_deg = 108.0f * rom;
+                target_r_arm_deg = 110.0f * rom;
                 target_r_arm_fx = 12.0f;
                 target_r_arm_ef = 4.0f;
-                target_l_arm_deg = 38.0f;
+                target_l_arm_deg = 36.0f;
                 target_l_arm_fx = -8.0f;
                 target_l_arm_ef = 9.0f;
                 target_l_leg_deg = 24.0f;
@@ -1213,13 +1215,13 @@ public:
                 break;
             }
             case BEAR_ACT_TAICHI: {
-                // 太极云手：行云流水双手圆周运化，重心柔和游走
+                // 太极云手：行云流水双手圆周运化 (Arcs 原则)，重心柔和游走
                 float tc = t * 2.2f;
-                target_l_arm_deg = (80.0f + 42.0f * std::sin(tc)) * rom;
-                target_r_arm_deg = (80.0f + 42.0f * std::cos(tc)) * rom;
+                target_l_arm_deg = (82.0f + 44.0f * std::sin(tc)) * rom;
+                target_r_arm_deg = (82.0f + 44.0f * std::cos(tc)) * rom;
                 target_l_arm_ef = 8.0f * std::cos(tc);
                 target_r_arm_ef = -8.0f * std::sin(tc);
-                target_body_shift_x = std::sin(tc) * 7.0f;
+                target_body_shift_x = std::sin(tc) * 8.0f;
                 target_body_tilt = std::sin(tc) * 6.0f;
                 break;
             }
@@ -1228,8 +1230,8 @@ public:
                 float punch_speed = t * 14.0f;
                 float p_l = std::sin(punch_speed);
                 float p_r = std::sin(punch_speed + 3.14159f);
-                target_l_arm_deg = (90.0f + 30.0f * p_l) * rom;
-                target_r_arm_deg = (90.0f + 30.0f * p_r) * rom;
+                target_l_arm_deg = (92.0f + 32.0f * p_l) * rom;
+                target_r_arm_deg = (92.0f + 32.0f * p_r) * rom;
                 target_l_arm_fx = (p_l > 0) ? 14.0f : -2.0f;
                 target_r_arm_fx = (p_r > 0) ? -14.0f : 2.0f;
                 target_body_tilt = p_l * 5.0f;
@@ -1239,21 +1241,23 @@ public:
                 break;
             }
             case BEAR_ACT_DRAGON_PUNCH: {
-                // 升龙拳飞天暴扣：前摇蓄力下沉 -> 右拳直冲云霄 -> 滞空霸气旋转
-                if (act_phase < 0.25f) {
+                // 升龙拳飞天暴扣：前摇蓄力下沉(0~0.22) -> 右拳直冲云霄(0.22~0.68) -> 滞空霸气收招(0.68~1.0)
+                if (act_phase < 0.22f) {
                     target_body_shift_y = 12.0f;
                     target_r_arm_deg = 20.0f;
                     target_l_arm_deg = 35.0f;
                     target_r_arm_ef = 10.0f;
-                } else if (act_phase < 0.70f) {
-                    float launch_p = (act_phase - 0.25f) / 0.45f;
-                    float punch_h = std::sin(launch_p * 3.14159f) * 32.0f;
+                    cur_squash_y = 0.86f; // 蓄力深蹲压缩
+                } else if (act_phase < 0.68f) {
+                    float launch_p = (act_phase - 0.22f) / 0.46f;
+                    float punch_h = std::sin(launch_p * 3.14159f) * 34.0f;
                     target_body_shift_y = -punch_h;
                     target_r_arm_deg = 180.0f * rom;
                     target_r_arm_fx = 6.0f;
                     target_l_arm_deg = 45.0f;
                     target_body_tilt = 15.0f;
                     target_head_tilt = -14.0f; // 仰头望天
+                    cur_squash_y = 1.25f; // 冲天纵向拉长
                 } else {
                     target_body_shift_y = 4.0f;
                     target_r_arm_deg = 60.0f;
@@ -1377,27 +1381,34 @@ public:
         _smooth_body_shift_x += (target_body_shift_x - _smooth_body_shift_x) * smooth_factor;
         _smooth_body_shift_y += (target_body_shift_y - _smooth_body_shift_y) * smooth_factor;
 
-        // 6. 最终装配骨骼输出 (Assembly into Final Skeleton)
+        // 6. 最终装配骨骼输出 (Assembly into Final Skeleton - 严格体积守恒与防崩溃几何硬钳位)
+        out_skel.squash_y = constrain(cur_squash_y, 0.75f, 1.35f);
+        out_skel.squash_x = 1.0f / out_skel.squash_y; // 迪士尼体积守恒定理: W * H = C
+
         out_skel.body_x = target_body_x + _smooth_body_shift_x;
         out_skel.body_y = target_body_y + _smooth_body_shift_y;
         out_skel.body_w = 46.0f * out_skel.squash_x;
-        out_skel.body_h = 50.0f * out_skel.squash_y + belly_breath;
+        out_skel.body_h = 49.0f * out_skel.squash_y + belly_breath;
         out_skel.body_tilt = _smooth_body_tilt;
 
         if (out_skel.is_sitting) {
-            out_skel.body_h -= 8.0f;
-            out_skel.body_w += 6.0f;
+            out_skel.body_h -= 6.0f;
+            out_skel.body_w += 5.0f;
         } else if (out_skel.is_lying) {
-            out_skel.body_h -= 18.0f;
-            out_skel.body_w += 16.0f;
+            out_skel.body_h -= 10.0f; // 绝不过度压缩，预留充足安全高度
+            out_skel.body_w += 12.0f;
         }
+
+        // 几何安全硬下限保护 (Zero-Panic Law: 杜绝非正数尺寸)
+        out_skel.body_w = std::max(34.0f, out_skel.body_w);
+        out_skel.body_h = std::max(36.0f, out_skel.body_h);
 
         // 头部锚点
         out_skel.head_x = out_skel.body_x + tilt_dx * 0.35f;
         out_skel.head_y = out_skel.body_y - 42.0f + breath * 0.4f;
         out_skel.head_tilt = _smooth_head_tilt;
-        out_skel.head_scale_x = out_skel.squash_x;
-        out_skel.head_scale_y = out_skel.squash_y;
+        out_skel.head_scale_x = constrain(out_skel.squash_x, 0.70f, 1.30f);
+        out_skel.head_scale_y = constrain(out_skel.squash_y, 0.70f, 1.30f);
 
         // 四肢赋值
         out_skel.left_arm.angle_deg = _smooth_left_arm_deg;
@@ -1429,7 +1440,7 @@ public:
         float rad_l = out_skel.left_arm.angle_deg * 0.0174533f;
         float rad_r = out_skel.right_arm.angle_deg * 0.0174533f;
 
-        float arm_reach = 25.5f; // 四肢舒展度提升，动作张力更具表现力
+        float arm_reach = 27.5f; // 四肢舒展度提升，动作张力更具表现力
         float paw_lx = sh_lx - (arm_reach * std::sin(rad_l)) + out_skel.left_arm.flex_x;
         float paw_ly = sh_ly + (arm_reach * std::cos(rad_l)) + out_skel.left_arm.flex_y;
         float paw_rx = sh_rx + (arm_reach * std::sin(rad_r)) + out_skel.right_arm.flex_x;
