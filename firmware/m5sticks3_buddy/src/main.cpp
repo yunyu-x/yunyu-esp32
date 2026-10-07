@@ -724,6 +724,14 @@ static void drawBearFoot(LovyanGFX& d, int x, int y, int rx, int ry, uint16_t ma
     d.fillCircle(x + 4, y - ry + 2, 1, pad_col);
 }
 
+// 萌萌毛球小圆尾巴 (Fluffy 3D Ball Tail) - 转身或侧身时显露，带轻微摇尾晃动
+static void drawBearTail(LovyanGFX& d, int tx, int ty, int tr, uint16_t base_col, uint16_t dark_col) {
+    d.fillCircle(tx, ty + 1, tr, dark_col);
+    d.fillCircle(tx, ty, tr, base_col);
+    d.fillCircle(tx - 1, ty - 1, (tr > 3) ? (tr - 2) : 1, 0xFEE8); // 尾巴立体高光
+    d.drawCircle(tx, ty, tr, 0x8220);
+}
+
 void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMood cur_m, sticks3::BailianAgentState bl_state, uint8_t mic_vu, bool ble_conn, bool wifi_conn, bool is_hs, uint8_t speaker_vol) {
     const int W = SCREEN_W;
     const uint32_t now = millis();
@@ -792,6 +800,8 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         now, s_smooth_roll, s_smooth_pitch, a_mag, diff_a, cur_m, bl_state, mic_vu, skel
     );
 
+    auto& growth_mgr = sticks3::BearGrowthManager::getInstance();
+
     // 4. 清空全屏角色渲染画布 (Y: 18 ~ 220，取消中文字幕气泡，全面释放 202px 完整高度空间)
     out_d.fillRect(0, 18, W, 202, 0x0000);
 
@@ -799,6 +809,13 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     if (!skel.is_jumping) {
         int sh_y = (skel.is_sitting) ? (int)(skel.body_y + 18) : (int)(skel.body_y + 40);
         out_d.fillEllipse((int)skel.body_x, sh_y, (int)(skel.body_w * 0.58f), 5, 0x18C3);
+    }
+
+    // 4.5 背景尾巴 (Front View: Tail behind body)
+    if (!skel.is_back_view) {
+        int tx = (int)skel.joints_screen[sticks3::OP_TAIL].sx;
+        int ty = (int)skel.joints_screen[sticks3::OP_TAIL].sy;
+        drawBearTail(out_d, tx, ty, 6, 0xD444, 0x8220);
     }
 
     // 5. 下肢绘制 (双腿与脚掌，居于躯干底层)
@@ -840,15 +857,20 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     out_d.fillEllipse(bx, by, bw2, bh2, 0xD444);             // 焦糖暖棕主躯干
     out_d.drawArc(bx - 1, by - 2, bw2 - 4, bw2 - 2, 210, 280, 0xFEE8); // 苹果高光晕
 
-    // 肚肚奶白大圆贴 (Vanilla Cream Belly Patch)
-    out_d.fillEllipse(bx, by + 3, bw2 - 8, bh2 - 8, 0xFFFE);
-    out_d.drawEllipse(bx, by + 3, bw2 - 8, bh2 - 8, 0xCE58);
+    if (!skel.is_back_view) {
+        // 肚肚奶白大圆贴 (Vanilla Cream Belly Patch)
+        out_d.fillEllipse(bx, by + 3, bw2 - 8, bh2 - 8, 0xFFFE);
+        out_d.drawEllipse(bx, by + 3, bw2 - 8, bh2 - 8, 0xCE58);
 
-    // 养成等级徽章 (Chest Growth Badge)
-    auto& growth_mgr = sticks3::BearGrowthManager::getInstance();
-    uint16_t badge_col = growth_mgr.getBadgeColor();
-    out_d.fillCircle(bx, by - 9, 3, badge_col);
-    out_d.drawCircle(bx, by - 9, 4, 0xFFFF);
+        // 养成等级徽章 (Chest Growth Badge)
+        uint16_t badge_col = growth_mgr.getBadgeColor();
+        out_d.fillCircle(bx, by - 9, 3, badge_col);
+        out_d.drawCircle(bx, by - 9, 4, 0xFFFF);
+    } else {
+        // 萌熊后背：微暖背脊线与毛绒纹理
+        out_d.drawLine(bx, by - bh2 + 8, bx, by + bh2 - 12, 0xB340);
+        out_d.drawPixel(bx - 1, by - 2, 0xFEE8);
+    }
 
     // 7. 上肢与前爪绘制 (Forearms & Paws - 双段大臂+前臂+肘关节弧度)
     int sh_lx = bx - 18;
@@ -900,139 +922,167 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     int ex_r = cx + 24;
     int ey_r = cy - 20 + ear_flop_r;
 
-    out_d.fillCircle(ex_l, ey_l, 13, 0xB340);
-    out_d.fillCircle(ex_r, ey_r, 13, 0xB340);
-    out_d.drawCircle(ex_l, ey_l, 13, 0x8220);
-    out_d.drawCircle(ex_r, ey_r, 13, 0x8220);
-    out_d.fillCircle(ex_l, ey_l, 6, 0xFEE8);
-    out_d.fillCircle(ex_r, ey_r, 6, 0xFEE8);
+    if (skel.is_back_view) {
+        // --- 3D 萌熊后脑勺与萌背视角 (Back View: Head & Ear Backs, Foreground Tail) ---
+        // 耳朵背面 (深焦糖绒毛阴影，无浅色内耳贴)
+        out_d.fillCircle(ex_l, ey_l, 13, 0xB340);
+        out_d.fillCircle(ex_r, ey_r, 13, 0xB340);
+        out_d.drawCircle(ex_l, ey_l, 13, 0x8220);
+        out_d.drawCircle(ex_r, ey_r, 13, 0x8220);
 
-    // 熊头主体
-    int rx_head = (int)(28.0f * skel.head_scale_x);
-    int ry_head = (int)(25.0f * skel.head_scale_y);
-    out_d.fillEllipse(cx, cy + 2, rx_head + 1, ry_head + 1, 0x6180);
-    out_d.fillEllipse(cx, cy, rx_head, ry_head, 0xD444);
-    out_d.drawArc(cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, 0xFEE8);
+        // 熊头主体 (圆润后脑勺)
+        int rx_head = (int)(28.0f * skel.head_scale_x);
+        int ry_head = (int)(25.0f * skel.head_scale_y);
+        out_d.fillEllipse(cx, cy + 2, rx_head + 1, ry_head + 1, 0x6180);
+        out_d.fillEllipse(cx, cy, rx_head, ry_head, 0xD444);
+        out_d.drawArc(cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, 0xFEE8);
 
-    // 腮红
-    int blush_r = (cur_m == sticks3::MOOD_HAPPY) ? 8 : 5;
-    out_d.fillCircle(cx - 18, cy + 9, blush_r, 0xFCB2);
-    out_d.fillCircle(cx + 18, cy + 9, blush_r, 0xFCB2);
+        // 后脑勺呆萌毛茸小发旋/呆毛 (Back Hair Tuft)
+        out_d.fillTriangle(cx - 4, cy - ry_head + 2, cx, cy - ry_head - 4, cx + 4, cy - ry_head + 2, 0xD444);
+        out_d.drawTriangle(cx - 4, cy - ry_head + 2, cx, cy - ry_head - 4, cx + 4, cy - ry_head + 2, 0x8220);
 
-    // 奶白嘴套与玛瑙鼻
-    out_d.fillRoundRect(cx - 14, cy + 1, 28, 19, 9, 0xFFFE);
-    out_d.drawRoundRect(cx - 14, cy + 1, 28, 19, 9, 0xCE58);
-    out_d.fillEllipse(cx, cy + 6, 4, 3, 0x1082);
-    out_d.drawPixel(cx - 1, cy + 5, 0xFFFF); // 钻石高光
-
-    // 迪士尼灵动大眼 (Doe-Eyes)
-    int lx = cx - 12;
-    int ly = cy - 3;
-    int rx = cx + 12;
-    int ry = cy - 3;
-
-    int gaze_x = (int)constrain(s_smooth_roll * 0.08f, -3.0f, 3.0f);
-    int gaze_y = (int)constrain(s_smooth_pitch * 0.06f, -3.0f, 3.0f);
-
-    if (!s_is_blinking && (now - s_last_blink > (2800 + (now % 2000)))) {
-        s_is_blinking = true;
-        s_last_blink = now;
-    }
-    if (s_is_blinking && (now - s_last_blink > 160)) {
-        s_is_blinking = false;
-        s_last_blink = now;
-    }
-
-    bool is_dizzy = (s_dizzy_until > now || cur_m == sticks3::MOOD_DIZZY);
-    bool is_tumble = (std::abs(s_smooth_roll) > 45.0f || a_mag < 0.35f);
-
-    if (cur_m == sticks3::MOOD_SLEEP) {
-        out_d.drawArc(lx, ly, 5, 7, 15, 165, 0x1082);
-        out_d.drawArc(rx, ry, 5, 7, 15, 165, 0x1082);
-    } else if (s_is_blinking) {
-        out_d.drawArc(lx, ly, 5, 6, 10, 170, 0x1082);
-        out_d.drawArc(rx, ry, 5, 6, 10, 170, 0x1082);
-    } else if (cur_m == sticks3::MOOD_HAPPY) {
-        out_d.fillCircle(lx, ly - 1, 6, 0x1082);
-        out_d.fillCircle(lx, ly + 3, 6, 0xD444);
-        out_d.fillCircle(rx, ry - 1, 6, 0x1082);
-        out_d.fillCircle(rx, ry + 3, 6, 0xD444);
-    } else if (is_dizzy) {
-        out_d.drawCircle(lx, ly, 3, 0xFE60);
-        out_d.drawCircle(lx, ly, 5, 0xFE60);
-        out_d.drawCircle(rx, ry, 3, 0xFE60);
-        out_d.drawCircle(rx, ry, 5, 0xFE60);
-    } else if (is_tumble) {
-        out_d.fillCircle(lx, ly, 7, 0xFFFF);
-        out_d.drawCircle(lx, ly, 7, 0x1082);
-        out_d.fillCircle(lx + gaze_x, ly + gaze_y, 3, 0x0110);
-        out_d.fillCircle(rx, ry, 7, 0xFFFF);
-        out_d.drawCircle(rx, ry, 7, 0x1082);
-        out_d.fillCircle(rx + gaze_x, ry + gaze_y, 3, 0x0110);
+        // 萌萌毛球小圆尾巴绘制在前景最前方！(Fluffy Tail in Foreground)
+        int tx = (int)skel.joints_screen[sticks3::OP_TAIL].sx;
+        int ty = (int)skel.joints_screen[sticks3::OP_TAIL].sy;
+        drawBearTail(out_d, tx, ty, 9, 0xD444, 0x8220);
     } else {
-        out_d.fillRoundRect(lx - 5, ly - 8, 10, 16, 5, 0x0110);
-        out_d.fillRoundRect(rx - 5, ry - 8, 10, 16, 5, 0x0110);
-        out_d.fillCircle(lx + gaze_x, ly + gaze_y + 1, 3, 0x35BF);
-        out_d.fillCircle(rx + gaze_x, ry + gaze_y + 1, 3, 0x35BF);
-        out_d.fillCircle(lx + gaze_x - 1, ly + gaze_y - 2, 2, 0xFFFF);
-        out_d.fillCircle(rx + gaze_x - 1, ry + gaze_y - 2, 2, 0xFFFF);
-        out_d.drawPixel(lx + gaze_x + 2, ly + gaze_y + 2, 0xFFFF);
-        out_d.drawPixel(rx + gaze_x + 2, ry + gaze_y + 2, 0xFFFF);
-    }
+        // --- 3D 萌熊正面立体五官 (Front View: Glossy Anime Doe Eyes, Snout & Particles) ---
+        // 耳朵正面
+        out_d.fillCircle(ex_l, ey_l, 13, 0xB340);
+        out_d.fillCircle(ex_r, ey_r, 13, 0xB340);
+        out_d.drawCircle(ex_l, ey_l, 13, 0x8220);
+        out_d.drawCircle(ex_r, ey_r, 13, 0x8220);
+        out_d.fillCircle(ex_l, ey_l, 6, 0xFEE8);
+        out_d.fillCircle(ex_r, ey_r, 6, 0xFEE8);
 
-    // 动态嘴型 (TTS 唇音同步)
-    int my = cy + 12;
-    if (bl_state == sticks3::BL_STATE_SPEAKING) {
-        int mouth_open = 2 + (mic_vu * 10) / 100;
-        if (mouth_open > 12) mouth_open = 12;
-        out_d.fillRoundRect(cx - 6, my - 2, 12, mouth_open, 3, 0x4000);
-        out_d.fillRoundRect(cx - 2, my - 2, 4, 2, 1, 0xFFFF);
-        out_d.fillCircle(cx, my + mouth_open - 3, 2, 0xF980);
-    } else if (is_tumble) {
-        out_d.drawCircle(cx, my + 1, 4, 0x1082);
-    } else if (is_dizzy) {
-        out_d.drawCircle(cx, my + 1, 3, 0x1082);
-    } else if (cur_m == sticks3::MOOD_HAPPY) {
-        out_d.drawArc(cx, my, 4, 5, 20, 160, 0x1082);
-    } else {
-        out_d.drawArc(cx, my, 3, 4, 30, 150, 0x1082);
-    }
+        // 熊头主体
+        int rx_head = (int)(28.0f * skel.head_scale_x);
+        int ry_head = (int)(25.0f * skel.head_scale_y);
+        out_d.fillEllipse(cx, cy + 2, rx_head + 1, ry_head + 1, 0x6180);
+        out_d.fillEllipse(cx, cy, rx_head, ry_head, 0xD444);
+        out_d.drawArc(cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, 0xFEE8);
 
-    // 挂件与情绪粒子 (爱心、雷达波、Zzz、光点)
-    if (cur_m == sticks3::MOOD_HAPPY) {
-        int heart_y = cy - 30 - ((now / 40) % 12);
-        out_d.setTextColor(0xF810, 0x0000);
-        out_d.setTextDatum(MC_DATUM);
-        out_d.drawString("♥", cx, heart_y);
-    } else if (bl_state == sticks3::BL_STATE_LISTENING) {
-        int wave_r = 16 + ((now / 60) % 8);
-        out_d.drawArc(ex_l, ey_l, wave_r, wave_r + 1, 190, 280, 0x07FF);
-    } else if (bl_state == sticks3::BL_STATE_THINKING) {
-        int dot_step = (now / 200) % 3;
-        out_d.fillCircle(cx + 26, cy - 28, (dot_step == 0) ? 3 : 2, 0xFFE0);
-        out_d.fillCircle(cx + 33, cy - 32, (dot_step == 1) ? 3 : 2, 0xFFE0);
-    } else if (is_dizzy) {
-        float ang = (float)(now % 1000) / 1000.0f * 6.28f;
-        for (int i = 0; i < 3; i++) {
-            float a = ang + i * 2.094f;
-            int sx = cx + (int)(std::cos(a) * 22.0f);
-            int sy = cy - 24 + (int)(std::sin(a) * 6.0f);
-            out_d.drawPixel(sx, sy, 0xFFE0);
-            out_d.drawPixel(sx + 1, sy, 0xFFFF);
+        // 腮红
+        int blush_r = (cur_m == sticks3::MOOD_HAPPY) ? 8 : 5;
+        out_d.fillCircle(cx - 18, cy + 9, blush_r, 0xFCB2);
+        out_d.fillCircle(cx + 18, cy + 9, blush_r, 0xFCB2);
+
+        // 奶白嘴套与玛瑙鼻
+        out_d.fillRoundRect(cx - 14, cy + 1, 28, 19, 9, 0xFFFE);
+        out_d.drawRoundRect(cx - 14, cy + 1, 28, 19, 9, 0xCE58);
+        out_d.fillEllipse(cx, cy + 6, 4, 3, 0x1082);
+        out_d.drawPixel(cx - 1, cy + 5, 0xFFFF); // 钻石高光
+
+        // 迪士尼/日漫灵动双星大眼 (Doe-Eyes)
+        int lx = cx - 12;
+        int ly = cy - 3;
+        int rx = cx + 12;
+        int ry = cy - 3;
+
+        int gaze_x = (int)constrain(s_smooth_roll * 0.08f, -3.0f, 3.0f);
+        int gaze_y = (int)constrain(s_smooth_pitch * 0.06f, -3.0f, 3.0f);
+
+        if (!s_is_blinking && (now - s_last_blink > (2800 + (now % 2000)))) {
+            s_is_blinking = true;
+            s_last_blink = now;
         }
-    } else if (cur_m == sticks3::MOOD_SLEEP) {
-        int z_off = (now / 60) % 18;
-        out_d.setTextColor(0x07FF, 0x0000);
-        out_d.setTextDatum(MC_DATUM);
-        out_d.drawString("z", cx + 20 + (z_off % 4), cy - 22 - z_off);
-        out_d.drawString("Z", cx + 28 + (z_off % 6), cy - 30 - z_off);
-    } else if (skel.is_locked_try) {
-        // 未解锁动作萌态困惑汗滴与问号
-        out_d.fillCircle(cx + 22, cy - 24, 3, 0x07FF);
-        out_d.fillTriangle(cx + 22, cy - 28, cx + 19, cy - 24, cx + 25, cy - 24, 0x07FF);
-        out_d.setTextColor(0xFFE0, 0x0000);
-        out_d.setTextDatum(MC_DATUM);
-        out_d.drawString("?", cx - 22, cy - 26);
+        if (s_is_blinking && (now - s_last_blink > 160)) {
+            s_is_blinking = false;
+            s_last_blink = now;
+        }
+
+        bool is_dizzy = (s_dizzy_until > now || cur_m == sticks3::MOOD_DIZZY);
+        bool is_tumble = (std::abs(s_smooth_roll) > 45.0f || a_mag < 0.35f);
+
+        if (cur_m == sticks3::MOOD_SLEEP) {
+            out_d.drawArc(lx, ly, 5, 7, 15, 165, 0x1082);
+            out_d.drawArc(rx, ry, 5, 7, 15, 165, 0x1082);
+        } else if (s_is_blinking) {
+            out_d.drawArc(lx, ly, 5, 6, 10, 170, 0x1082);
+            out_d.drawArc(rx, ry, 5, 6, 10, 170, 0x1082);
+        } else if (cur_m == sticks3::MOOD_HAPPY) {
+            out_d.fillCircle(lx, ly - 1, 6, 0x1082);
+            out_d.fillCircle(lx, ly + 3, 6, 0xD444);
+            out_d.fillCircle(rx, ry - 1, 6, 0x1082);
+            out_d.fillCircle(rx, ry + 3, 6, 0xD444);
+        } else if (is_dizzy) {
+            out_d.drawCircle(lx, ly, 3, 0xFE60);
+            out_d.drawCircle(lx, ly, 5, 0xFE60);
+            out_d.drawCircle(rx, ry, 3, 0xFE60);
+            out_d.drawCircle(rx, ry, 5, 0xFE60);
+        } else if (is_tumble) {
+            out_d.fillCircle(lx, ly, 7, 0xFFFF);
+            out_d.drawCircle(lx, ly, 7, 0x1082);
+            out_d.fillCircle(lx + gaze_x, ly + gaze_y, 3, 0x0110);
+            out_d.fillCircle(rx, ry, 7, 0xFFFF);
+            out_d.drawCircle(rx, ry, 7, 0x1082);
+            out_d.fillCircle(rx + gaze_x, ry + gaze_y, 3, 0x0110);
+        } else {
+            // 日漫高保真双星水光眼 (Dual-Star Anime Glossy Eyes)
+            out_d.fillRoundRect(lx - 5, ly - 8, 10, 16, 5, 0x0110);
+            out_d.fillRoundRect(rx - 5, ry - 8, 10, 16, 5, 0x0110);
+            out_d.fillCircle(lx + gaze_x, ly + gaze_y + 1, 3, 0x35BF);
+            out_d.fillCircle(rx + gaze_x, ry + gaze_y + 1, 3, 0x35BF);
+            out_d.fillCircle(lx + gaze_x - 1, ly + gaze_y - 2, 2, 0xFFFF);
+            out_d.fillCircle(rx + gaze_x - 1, ry + gaze_y - 2, 2, 0xFFFF);
+            out_d.drawPixel(lx + gaze_x + 2, ly + gaze_y + 2, 0xFFFF);
+            out_d.drawPixel(rx + gaze_x + 2, ry + gaze_y + 2, 0xFFFF);
+        }
+
+        // 动态嘴型 (TTS 唇音同步与猫咪“ω”微笑)
+        int my = cy + 12;
+        if (bl_state == sticks3::BL_STATE_SPEAKING) {
+            int mouth_open = 2 + (mic_vu * 10) / 100;
+            if (mouth_open > 12) mouth_open = 12;
+            out_d.fillRoundRect(cx - 6, my - 2, 12, mouth_open, 3, 0x4000);
+            out_d.fillRoundRect(cx - 2, my - 2, 4, 2, 1, 0xFFFF);
+            out_d.fillCircle(cx, my + mouth_open - 3, 2, 0xF980);
+        } else if (is_tumble) {
+            out_d.drawCircle(cx, my + 1, 4, 0x1082);
+        } else if (is_dizzy) {
+            out_d.drawCircle(cx, my + 1, 3, 0x1082);
+        } else if (cur_m == sticks3::MOOD_HAPPY) {
+            out_d.drawArc(cx, my, 4, 5, 20, 160, 0x1082);
+        } else {
+            out_d.drawArc(cx, my, 3, 4, 30, 150, 0x1082);
+        }
+
+        // 挂件与情绪粒子 (爱心、雷达波、Zzz、光点)
+        if (cur_m == sticks3::MOOD_HAPPY) {
+            int heart_y = cy - 30 - ((now / 40) % 12);
+            out_d.setTextColor(0xF810, 0x0000);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString("♥", cx, heart_y);
+        } else if (bl_state == sticks3::BL_STATE_LISTENING) {
+            int wave_r = 16 + ((now / 60) % 8);
+            out_d.drawArc(ex_l, ey_l, wave_r, wave_r + 1, 190, 280, 0x07FF);
+        } else if (bl_state == sticks3::BL_STATE_THINKING) {
+            int dot_step = (now / 200) % 3;
+            out_d.fillCircle(cx + 26, cy - 28, (dot_step == 0) ? 3 : 2, 0xFFE0);
+            out_d.fillCircle(cx + 33, cy - 32, (dot_step == 1) ? 3 : 2, 0xFFE0);
+        } else if (is_dizzy) {
+            float ang = (float)(now % 1000) / 1000.0f * 6.28f;
+            for (int i = 0; i < 3; i++) {
+                float a = ang + i * 2.094f;
+                int sx = cx + (int)(std::cos(a) * 22.0f);
+                int sy = cy - 24 + (int)(std::sin(a) * 6.0f);
+                out_d.drawPixel(sx, sy, 0xFFE0);
+                out_d.drawPixel(sx + 1, sy, 0xFFFF);
+            }
+        } else if (cur_m == sticks3::MOOD_SLEEP) {
+            int z_off = (now / 60) % 18;
+            out_d.setTextColor(0x07FF, 0x0000);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString("z", cx + 20 + (z_off % 4), cy - 22 - z_off);
+            out_d.drawString("Z", cx + 28 + (z_off % 6), cy - 30 - z_off);
+        } else if (skel.is_locked_try) {
+            // 未解锁动作萌态困惑汗滴与问号
+            out_d.fillCircle(cx + 22, cy - 24, 3, 0x07FF);
+            out_d.fillTriangle(cx + 22, cy - 28, cx + 19, cy - 24, cx + 25, cy - 24, 0x07FF);
+            out_d.setTextColor(0xFFE0, 0x0000);
+            out_d.setTextDatum(MC_DATUM);
+            out_d.drawString("?", cx - 22, cy - 26);
+        }
     }
 
     // 9. 底部灵宠养成与系统硬件全维度看板 (Y: 220 ~ 240) - 沉浸式展示等级与胶囊EXP进度条
@@ -1261,6 +1311,30 @@ void setup() {
             uint32_t dur = doc["duration_ms"] | 2800;
             auto& gm = sticks3::BearGrowthManager::getInstance();
             auto& kc = sticks3::BearKinematicsController::getInstance();
+
+            if (!doc["yaw"].isNull()) {
+                float yaw_val = doc["yaw"].as<float>();
+                kc.setTargetYaw(yaw_val);
+                Serial.printf("[MAIN-TOOL] Executed Bear Yaw: %.1f deg\n", yaw_val);
+                return "{\"status\":\"success\",\"yaw\":" + String(yaw_val, 1) + "}";
+            }
+            if (!doc["turn"].isNull()) {
+                float turn_val = doc["turn"].as<float>();
+                if (turn_val >= 300.0f) {
+                    kc.triggerSpinPirouette(1800);
+                    return "{\"status\":\"success\",\"turn\":360,\"mode\":\"spin\"}";
+                } else {
+                    kc.triggerTurnAround(1400);
+                    return "{\"status\":\"success\",\"turn\":180,\"mode\":\"turn_around\"}";
+                }
+            }
+            if (!doc["joint_id"].isNull() && !doc["joint_angle"].isNull()) {
+                uint8_t j_id = doc["joint_id"].as<uint8_t>();
+                float j_ang = doc["joint_angle"].as<float>();
+                kc.setJointAngle(j_id, j_ang, 0.0f, 0.0f);
+                Serial.printf("[MAIN-TOOL] Executed Bear Joint #%u: %.1f deg\n", (unsigned)j_id, j_ang);
+                return "{\"status\":\"success\",\"joint_id\":" + String(j_id) + ",\"angle\":" + String(j_ang, 1) + "}";
+            }
 
             if (strlen(combo_str) > 0) {
                 bool ok = kc.triggerComboByName(combo_str);
@@ -1594,6 +1668,36 @@ void loop() {
                         c_name.trim();
                         bool ok = sticks3::BearKinematicsController::getInstance().triggerComboByName(c_name.c_str());
                         Serial.printf("@combo {\"combo\":\"%s\",\"success\":%s}\n", c_name.c_str(), ok ? "true" : "false");
+                    } else if (cmd_or_msg.startsWith(">yaw=")) {
+                        float y_val = cmd_or_msg.substring(5).toFloat();
+                        sticks3::BearKinematicsController::getInstance().setTargetYaw(y_val);
+                        Serial.printf("@yaw {\"yaw\":%.1f,\"success\":true}\n", y_val);
+                    } else if (cmd_or_msg.startsWith(">turn=")) {
+                        float t_val = cmd_or_msg.substring(6).toFloat();
+                        if (t_val >= 300.0f) {
+                            sticks3::BearKinematicsController::getInstance().triggerSpinPirouette(1800);
+                            Serial.printf("@turn {\"turn\":360,\"mode\":\"spin\",\"success\":true}\n");
+                        } else {
+                            sticks3::BearKinematicsController::getInstance().triggerTurnAround(1400);
+                            Serial.printf("@turn {\"turn\":180,\"mode\":\"turn_around\",\"success\":true}\n");
+                        }
+                    } else if (cmd_or_msg == ">spin" || cmd_or_msg == ">rotate") {
+                        sticks3::BearKinematicsController::getInstance().triggerSpinPirouette(1800);
+                        Serial.printf("@turn {\"turn\":360,\"mode\":\"spin\",\"success\":true}\n");
+                    } else if (cmd_or_msg.startsWith(">joint=")) {
+                        String args_str = cmd_or_msg.substring(7);
+                        int comma_idx = args_str.indexOf(',');
+                        if (comma_idx > 0) {
+                            uint8_t j_id = args_str.substring(0, comma_idx).toInt();
+                            float j_ang = args_str.substring(comma_idx + 1).toFloat();
+                            sticks3::BearKinematicsController::getInstance().setJointAngle(j_id, j_ang, 0.0f, 0.0f);
+                            Serial.printf("@joint {\"id\":%u,\"angle\":%.1f,\"success\":true}\n", (unsigned)j_id, j_ang);
+                        } else {
+                            Serial.printf("@joint {\"error\":\"invalid_format_use_id_comma_angle\"}\n");
+                        }
+                    } else if (cmd_or_msg == ">joint_clear" || cmd_or_msg == ">joints_reset") {
+                        sticks3::BearKinematicsController::getInstance().clearJointOverrides();
+                        Serial.printf("@joint {\"status\":\"cleared\",\"success\":true}\n");
                     } else if (cmd_or_msg == "factory_reset" || cmd_or_msg == "reset_all") {
                         Serial.println("{\"type\":\"factory_reset\",\"status\":\"executing\"}");
                         sticks3::StickS3ConfigManager::getInstance().clearAllConfig();

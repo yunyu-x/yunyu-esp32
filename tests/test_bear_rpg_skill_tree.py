@@ -28,8 +28,10 @@ class MockBearGrowthManager:
         "wave": 1, "bow": 1, "sit": 1, "stretch": 1,
         # Lv.2
         "clap": 2, "cheer": 2, "jump": 2, "hands_up": 2,
+        "turn_around": 2, "turn": 2,
         # Lv.3
         "dance": 3, "balance": 3, "lie": 3, "pushup": 3,
+        "spin": 3,
         # Lv.4
         "kungfu": 4, "taichi": 4, "wingchun": 4,
         # Lv.5
@@ -248,3 +250,146 @@ def test_firmware_bailian_client_and_main_tool_calling_contract():
     assert "BEAR_ACT_LOCKED_TRY" in main_src
     assert "isActionUnlocked" in main_src
     assert "locked" in main_src
+
+
+# 3. 3D 空间骨骼动力学与 OpenPose 人形关节点测试
+class MockVec3:
+    def __init__(self, x=0.0, y=0.0, z=0.0):
+        self.x = float(x)
+        self.y = float(y)
+        self.z = float(z)
+
+def mock_rotate_euler_3d(p: MockVec3, yaw_deg: float, pitch_deg: float = 0.0, roll_deg: float = 0.0) -> MockVec3:
+    import math
+    deg_to_rad = 0.0174532925
+    ry = yaw_deg * deg_to_rad
+    rp = pitch_deg * deg_to_rad
+    rr = roll_deg * deg_to_rad
+
+    # 1. Yaw (Y-axis)
+    cy, sy = math.cos(ry), math.sin(ry)
+    x1 = p.x * cy + p.z * sy
+    y1 = p.y
+    z1 = -p.x * sy + p.z * cy
+
+    # 2. Pitch (X-axis)
+    cp, sp = math.cos(rp), math.sin(rp)
+    x2 = x1
+    y2 = y1 * cp - z1 * sp
+    z2 = y1 * sp + z1 * cp
+
+    # 3. Roll (Z-axis)
+    cr, sr = math.cos(rr), math.sin(rr)
+    x3 = x2 * cr - y2 * sr
+    y3 = x2 * sr + y2 * cr
+    z3 = z2
+    return MockVec3(x3, y3, z3)
+
+def mock_project_camera(world_p: MockVec3, cam_cx: float = 67.5, cam_cy: float = 118.0, focal: float = 210.0, cam_dist: float = 180.0):
+    denom = max(world_p.z + cam_dist, 12.0)
+    scale = focal / denom
+    sx = cam_cx + world_p.x * scale
+    sy = cam_cy + world_p.y * scale
+    return sx, sy, world_p.z, scale
+
+
+def test_openpose_humanoid_23_keypoints_and_z_depth():
+    joints = {
+        "head": MockVec3(0, -42, 0),
+        "neck": MockVec3(0, -22, 0),
+        "r_ear": MockVec3(24, -58, 2),
+        "l_ear": MockVec3(-24, -58, 2),
+        "r_eye": MockVec3(12, -43, -12),
+        "l_eye": MockVec3(-12, -43, -12),
+        "spine": MockVec3(0, -10, 0),
+        "mid_hip": MockVec3(0, 10, 0),
+        "tail": MockVec3(0, 14, 15),
+        "snout": MockVec3(0, -36, -14),
+        "badge": MockVec3(0, -8, -10),
+    }
+
+    # 1. 正对用户 (Yaw = 0°): 前置器官 Z < 0 (近处)，背部器官 Z > 0 (深处)
+    for name, p in joints.items():
+        rot = mock_rotate_euler_3d(p, 0.0)
+        assert abs(rot.x - p.x) < 1e-4
+        assert abs(rot.y - p.y) < 1e-4
+        assert abs(rot.z - p.z) < 1e-4
+
+    assert joints["snout"].z < 0
+    assert joints["badge"].z < 0
+    assert joints["tail"].z > 0
+
+    # 2. 背面对着用户 (Yaw = 180°): 尾巴转到前排 (Z < 0)，嘴套与徽章转到后排 (Z > 0)
+    tail_rot = mock_rotate_euler_3d(joints["tail"], 180.0)
+    snout_rot = mock_rotate_euler_3d(joints["snout"], 180.0)
+    badge_rot = mock_rotate_euler_3d(joints["badge"], 180.0)
+
+    assert tail_rot.z < 0, f"At yaw=180, tail must face front (z < 0): {tail_rot.z}"
+    assert snout_rot.z > 0, f"At yaw=180, snout must be occluded at back (z > 0): {snout_rot.z}"
+    assert badge_rot.z > 0, f"At yaw=180, badge must be occluded at back (z > 0): {badge_rot.z}"
+
+
+def test_3d_perspective_projection_and_scale():
+    front_p = MockVec3(0, 0, -30)
+    center_p = MockVec3(0, 0, 0)
+    back_p = MockVec3(0, 0, 30)
+
+    _, _, _, scale_front = mock_project_camera(front_p)
+    _, _, _, scale_center = mock_project_camera(center_p)
+    _, _, _, scale_back = mock_project_camera(back_p)
+
+    assert scale_front > scale_center > scale_back
+    assert 0.8 < scale_center < 1.3
+
+
+def test_spin_360_deg_continuous_yaw_revolution():
+    p = MockVec3(10, 0, 0)
+    angles = [0, 90, 180, 270, 360]
+    results = [mock_rotate_euler_3d(p, a) for a in angles]
+
+    # 0° -> (10, 0, 0)
+    assert abs(results[0].x - 10.0) < 1e-3
+    assert abs(results[0].z) < 1e-3
+
+    # 90° -> (0, 0, -10)
+    assert abs(results[1].x) < 1e-3
+    assert abs(results[1].z - (-10.0)) < 1e-3
+
+    # 180° -> (-10, 0, 0)
+    assert abs(results[2].x - (-10.0)) < 1e-3
+
+    # 360° 完整回到起始 (10, 0, 0)
+    assert abs(results[4].x - 10.0) < 1e-3
+    assert abs(results[4].z) < 1e-3
+
+
+def test_firmware_header_has_openpose_and_3d_engine():
+    assert os.path.exists(FIRMWARE_HEADER)
+    with open(FIRMWARE_HEADER, "r", encoding="utf-8") as f:
+        src = f.read()
+
+    # 检查 3D 向量与投影结构
+    assert "struct Vec3f" in src
+    assert "struct ProjectedPoint" in src
+    assert "enum OpenPoseJointId" in src
+    assert "OP_HEAD" in src
+    assert "OP_TAIL" in src
+    assert "OP_JOINT_COUNT" in src
+
+    # 检查 3D 旋转与投影数学实现
+    assert "rotateEuler3D" in src
+    assert "projectCamera" in src
+
+    # 检查骨骼包含 3D 关节点阵列与当前偏航角
+    assert "joints_local" in src
+    assert "joints_world" in src
+    assert "joints_screen" in src
+    assert "current_yaw_deg" in src
+    assert "is_back_view" in src
+
+    # 检查控制器新增 3D 接口
+    assert "setTargetYaw" in src
+    assert "triggerTurnAround" in src
+    assert "triggerSpinPirouette" in src
+    assert "setJointAngle" in src
+    assert "clearJointOverrides" in src

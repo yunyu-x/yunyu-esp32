@@ -49,6 +49,9 @@ enum BearAction {
     BEAR_ACT_DRAGON_PUNCH,// 升龙拳飞天暴扣
     BEAR_ACT_MOONWALK,    // 太空漫步滑步后撤
     BEAR_ACT_CYBER_DEFENSE,// 机甲能量盾张开防守
+    // 3D 偏航与空间旋转动作 (3D Yaw Turning & Rotation)
+    BEAR_ACT_TURN_AROUND, // 180° 萌态转身露尾巴再转回
+    BEAR_ACT_SPIN,        // 360° 华丽芭蕾自旋旋转
     // 特殊交互动作：未解锁技能时的萌态抓头困惑反馈
     BEAR_ACT_LOCKED_TRY   // 挠头抓耳困惑歪头
 };
@@ -72,6 +75,8 @@ inline BearAction stringToBearAction(const std::string& str) {
     if (str == "dragon_punch" || str == "shoryuken" || str == "uppercut") return BEAR_ACT_DRAGON_PUNCH;
     if (str == "moonwalk" || str == "glide" || str == "mj") return BEAR_ACT_MOONWALK;
     if (str == "cyber_defense" || str == "shield" || str == "defense") return BEAR_ACT_CYBER_DEFENSE;
+    if (str == "turn" || str == "turn_around" || str == "turn_back" || str == "back") return BEAR_ACT_TURN_AROUND;
+    if (str == "spin" || str == "rotate" || str == "pirouette") return BEAR_ACT_SPIN;
     if (str == "locked_try" || str == "scratch_head" || str == "puzzled") return BEAR_ACT_LOCKED_TRY;
     return BEAR_ACT_IDLE;
 }
@@ -96,6 +101,8 @@ inline const char* bearActionToString(BearAction act) {
         case BEAR_ACT_DRAGON_PUNCH: return "dragon_punch";
         case BEAR_ACT_MOONWALK: return "moonwalk";
         case BEAR_ACT_CYBER_DEFENSE: return "cyber_defense";
+        case BEAR_ACT_TURN_AROUND: return "turn_around";
+        case BEAR_ACT_SPIN: return "spin";
         case BEAR_ACT_LOCKED_TRY: return "locked_try";
         default: return "idle";
     }
@@ -171,11 +178,13 @@ public:
             case BEAR_ACT_CHEER:
             case BEAR_ACT_JUMP:
             case BEAR_ACT_HANDS_UP:
+            case BEAR_ACT_TURN_AROUND:
                 return 2;
             case BEAR_ACT_DANCE:
             case BEAR_ACT_BALANCE:
             case BEAR_ACT_LIE:
             case BEAR_ACT_PUSHUP:
+            case BEAR_ACT_SPIN:
                 return 3;
             case BEAR_ACT_KUNGFU:
             case BEAR_ACT_TAICHI:
@@ -293,6 +302,105 @@ struct LimbJoint {
     float elbow_flex;  // 肘关节/膝关节弯曲内敛量 (用于计算自然圆弧双段屈伸)
 };
 
+// 3D 浮点三维向量 (3D Cartesian Coordinates)
+struct Vec3f {
+    float x;
+    float y;
+    float z;
+
+    Vec3f() : x(0.0f), y(0.0f), z(0.0f) {}
+    Vec3f(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
+};
+
+// 屏幕透视投影点 (Projected 2D Screen Point with Depth & Perspective Scale)
+struct ProjectedPoint {
+    float sx;     // 屏幕像素坐标 X
+    float sy;     // 屏幕像素坐标 Y
+    float sz;     // 深度 Z (用于 Z-Sorting 绘制排序)
+    float scale;  // 透视缩放系数
+    bool visible; // 是否在视野内
+};
+
+// OpenPose 人形 23 骨骼关节点枚举 (OpenPose Humanoid Keypoint IDs)
+enum OpenPoseJointId {
+    OP_HEAD = 0,         // 头部中枢 (Nose/Head Center)
+    OP_NECK = 1,         // 颈部基座 (Neck Base)
+    OP_R_EAR = 2,        // 右耳 (R_Ear)
+    OP_L_EAR = 3,        // 左耳 (L_Ear)
+    OP_R_EYE = 4,        // 右眼 (R_Eye)
+    OP_L_EYE = 5,        // 左眼 (L_Eye)
+    OP_SPINE = 6,        // 脊柱胸腔 (Spine / MidChest)
+    OP_MID_HIP = 7,      // 骨盆中髋 (Pelvis / MidHip Root)
+    OP_R_SHOULDER = 8,   // 右肩关节 (R_Shoulder)
+    OP_R_ELBOW = 9,      // 右肘关节 (R_Elbow)
+    OP_R_WRIST = 10,     // 右腕/前爪 (R_Wrist / Paw)
+    OP_L_SHOULDER = 11,  // 左肩关节 (L_Shoulder)
+    OP_L_ELBOW = 12,     // 左肘关节 (L_Elbow)
+    OP_L_WRIST = 13,     // 左腕/前爪 (L_Wrist / Paw)
+    OP_R_HIP = 14,       // 右髋关节 (R_Hip)
+    OP_R_KNEE = 15,      // 右膝关节 (R_Knee)
+    OP_R_ANKLE = 16,     // 右踝/脚掌 (R_Ankle / Foot)
+    OP_L_HIP = 17,       // 左髋关节 (L_Hip)
+    OP_L_KNEE = 18,      // 左膝关节 (L_Knee)
+    OP_L_ANKLE = 19,     // 左踝/脚掌 (L_Ankle / Foot)
+    OP_TAIL = 20,        // 毛茸茸小球尾巴 (Tail)
+    OP_SNOUT = 21,       // 奶白立体嘴套与鼻 (Snout)
+    OP_BADGE = 22,       // 胸前成长星芒徽章 (Growth Badge)
+    OP_JOINT_COUNT = 23
+};
+
+// 单关节动力学覆盖配置 (用于单独控制任一关节)
+struct JointManualConfig {
+    float pitch_deg;
+    float roll_deg;
+    float yaw_deg;
+    bool active;
+};
+
+// 3D 欧拉旋转辅助函数 (Yaw -> Pitch -> Roll)
+static inline Vec3f rotateEuler3D(const Vec3f& p, float yaw_deg, float pitch_deg, float roll_deg) {
+    const float kDegToRad = 0.0174532925f;
+    float ry = yaw_deg * kDegToRad;
+    float rp = pitch_deg * kDegToRad;
+    float rr = roll_deg * kDegToRad;
+
+    // 1. Yaw (Y 轴旋转: 水平左右偏航)
+    float cos_y = std::cos(ry);
+    float sin_y = std::sin(ry);
+    float x1 = p.x * cos_y + p.z * sin_y;
+    float y1 = p.y;
+    float z1 = -p.x * sin_y + p.z * cos_y;
+
+    // 2. Pitch (X 轴旋转: 前俯后仰)
+    float cos_p = std::cos(rp);
+    float sin_p = std::sin(rp);
+    float x2 = x1;
+    float y2 = y1 * cos_p - z1 * sin_p;
+    float z2 = y1 * sin_p + z1 * cos_p;
+
+    // 3. Roll (Z 轴旋转: 左右侧倾)
+    float cos_r = std::cos(rr);
+    float sin_r = std::sin(rr);
+    float x3 = x2 * cos_r - y2 * sin_r;
+    float y3 = x2 * sin_r + y2 * cos_r;
+    float z3 = z2;
+
+    return Vec3f(x3, y3, z3);
+}
+
+// 针孔透视相机投影 (Pinhole Perspective Camera Projection)
+static inline ProjectedPoint projectCamera(const Vec3f& world_p, float cam_cx = 67.5f, float cam_cy = 118.0f, float focal = 210.0f, float cam_dist = 180.0f) {
+    ProjectedPoint proj;
+    float denom = world_p.z + cam_dist;
+    if (denom < 12.0f) denom = 12.0f; // 防近裁剪面除零
+    proj.scale = focal / denom;
+    proj.sx = cam_cx + world_p.x * proj.scale;
+    proj.sy = cam_cy + world_p.y * proj.scale;
+    proj.sz = world_p.z;
+    proj.visible = (proj.sx >= -30.0f && proj.sx <= 165.0f && proj.sy >= -30.0f && proj.sy <= 270.0f);
+    return proj;
+}
+
 // 小熊全身骨骼学数据 (Full-Body Biomechanical Skeleton)
 struct BearFullBodySkeleton {
     // 躯干中心锚点 (Center of Mass)
@@ -322,6 +430,16 @@ struct BearFullBodySkeleton {
     float elbow_rx, elbow_ry;
     float knee_lx, knee_ly;
     float knee_rx, knee_ry;
+
+    // 3D OpenPose 人形骨骼空间数据 (3D Humanoid OpenPose Kinematics)
+    Vec3f joints_local[OP_JOINT_COUNT];       // 局部骨骼关键点 (以骨盆为局部原点)
+    Vec3f joints_world[OP_JOINT_COUNT];       // 3D 旋转后世界坐标
+    ProjectedPoint joints_screen[OP_JOINT_COUNT]; // 2D 针孔透视投影屏幕坐标
+
+    float current_yaw_deg;    // 当前水平偏航角 (0° 正面, 180° 背面朝向, 360° 自旋)
+    float current_pitch_deg;  // 当前俯仰角
+    float current_roll_deg;   // 当前侧倾角
+    bool is_back_view;        // 是否背对用户 (背影模式)
 
     // 特殊姿态标志
     bool is_sitting;
@@ -373,6 +491,17 @@ public:
         _smooth_head_tilt = 0.0f;
         _smooth_body_shift_x = 0.0f;
         _smooth_body_shift_y = 0.0f;
+
+        // 3D 偏航与转身状态初始化
+        _target_yaw_deg = 0.0f;
+        _smooth_yaw_deg = 0.0f;
+        _turn_start_time = 0;
+        _turn_duration_ms = 0;
+        _is_turning_around = false;
+        _is_spinning = false;
+        for (int i = 0; i < OP_JOINT_COUNT; i++) {
+            _manual_joints[i] = {0.0f, 0.0f, 0.0f, false};
+        }
     }
 
     // 触发单个动作 (支持等级检查与未解锁萌态回退保护)
@@ -390,6 +519,16 @@ public:
             return false;
         }
 
+        if (act == BEAR_ACT_TURN_AROUND) {
+            triggerTurnAround(duration_ms);
+            gm.addExp(15, "turn_around");
+            return true;
+        } else if (act == BEAR_ACT_SPIN) {
+            triggerSpinPirouette(duration_ms);
+            gm.addExp(15, "spin");
+            return true;
+        }
+
         _combo_queue.clear();
         _combo_idx = 0;
         _current_action = act;
@@ -399,6 +538,53 @@ public:
         gm.addExp(15, bearActionToString(act));
         return true;
     }
+
+    // 3D 偏航与转身控制接口 (Yaw Turn & 3D Control)
+    void setTargetYaw(float yaw_deg) {
+        _target_yaw_deg = yaw_deg;
+        _is_turning_around = false;
+        _is_spinning = false;
+    }
+
+    void triggerTurnAround(uint32_t duration_ms = 1400) {
+        _is_turning_around = true;
+        _is_spinning = false;
+        _turn_start_time = millis();
+        _turn_duration_ms = duration_ms;
+        _current_action = BEAR_ACT_TURN_AROUND;
+        _action_start_time = millis();
+        _action_duration_ms = duration_ms;
+    }
+
+    void triggerSpinPirouette(uint32_t duration_ms = 1800) {
+        _is_spinning = true;
+        _is_turning_around = false;
+        _turn_start_time = millis();
+        _turn_duration_ms = duration_ms;
+        _current_action = BEAR_ACT_SPIN;
+        _action_start_time = millis();
+        _action_duration_ms = duration_ms;
+    }
+
+    // 独立控制指定关节点 (OpenPose Humanoid Keypoint Control)
+    void setJointAngle(uint8_t joint_id, float pitch, float roll, float yaw) {
+        if (joint_id < OP_JOINT_COUNT) {
+            _manual_joints[joint_id].pitch_deg = pitch;
+            _manual_joints[joint_id].roll_deg = roll;
+            _manual_joints[joint_id].yaw_deg = yaw;
+            _manual_joints[joint_id].active = true;
+        }
+    }
+
+    void clearJointOverrides() {
+        for (int i = 0; i < OP_JOINT_COUNT; i++) {
+            _manual_joints[i].active = false;
+        }
+    }
+
+    float getYaw() const { return _smooth_yaw_deg; }
+    bool isTurnAround() const { return _is_turning_around; }
+    bool isSpinning() const { return _is_spinning; }
 
     // 触发宏组合动作序列
     bool triggerCombo(const std::vector<BearAction>& combo) {
@@ -464,6 +650,33 @@ public:
             act_phase = constrain((float)(now - _action_start_time) / (float)_action_duration_ms, 0.0f, 1.0f);
         }
         out_skel.effect_phase = act_phase;
+
+        // 1.5 3D 水平偏航与空间转身/旋转状态机更新
+        if (_is_turning_around) {
+            uint32_t elapsed = now - _turn_start_time;
+            if (elapsed < _turn_duration_ms) {
+                float p = (float)elapsed / (float)_turn_duration_ms;
+                // 缓入缓出 0 -> 180 -> 0 (优雅转身秀尾巴再转回)
+                float s = std::sin(p * 3.14159265f);
+                _target_yaw_deg = s * 180.0f;
+            } else {
+                _is_turning_around = false;
+                _target_yaw_deg = 0.0f;
+            }
+        } else if (_is_spinning) {
+            uint32_t elapsed = now - _turn_start_time;
+            if (elapsed < _turn_duration_ms) {
+                float p = (float)elapsed / (float)_turn_duration_ms;
+                _target_yaw_deg = p * 360.0f;
+            } else {
+                _is_spinning = false;
+                _target_yaw_deg = 0.0f;
+            }
+        }
+
+        // 偏航角平滑插值阻尼 (Smooth Yaw Damping)
+        float yaw_smooth = constrain(dt * 12.0f * agility, 0.05f, 0.85f);
+        _smooth_yaw_deg += (_target_yaw_deg - _smooth_yaw_deg) * yaw_smooth;
 
         // 2. 有机呼吸浮沉与弹性果冻形变 (Organic Breathing & Squash-Stretch)
         float breath = std::sin(t * 2.4f) * 1.6f;
@@ -746,6 +959,20 @@ public:
                 target_body_shift_y = 5.0f;
                 break;
             }
+            case BEAR_ACT_TURN_AROUND: {
+                // 180° 萌态转身秀尾巴：双手微抬侧摆，灵动后脑勺与小尾巴
+                target_l_arm_deg = 25.0f;
+                target_r_arm_deg = 25.0f;
+                target_head_tilt = 5.0f * std::sin(t * 4.0f);
+                break;
+            }
+            case BEAR_ACT_SPIN: {
+                // 360° 华丽芭蕾自旋：双臂展开呈 T 字平举平衡，旋转飘逸跳跃
+                target_l_arm_deg = 75.0f;
+                target_r_arm_deg = 75.0f;
+                target_body_shift_y = -3.0f;
+                break;
+            }
             case BEAR_ACT_LOCKED_TRY: {
                 // 未解锁抓头困惑反馈：右爪挠耳挠头，身体左右困惑歪斜，萌态可掬
                 float scratch = std::sin(t * 11.0f);
@@ -900,6 +1127,56 @@ public:
         out_skel.knee_ly = (hip_ly + foot_ly) * 0.5f;
         out_skel.knee_rx = (hip_rx + foot_rx) * 0.5f + 2.0f;
         out_skel.knee_ry = (hip_ry + foot_ry) * 0.5f;
+
+        // 8. OpenPose 人形 23 关节点 3D 空间装配与透视相机投影 (3D Pose Assembly & Projection)
+        out_skel.current_yaw_deg = _smooth_yaw_deg;
+        out_skel.current_pitch_deg = _smooth_body_tilt;
+        out_skel.current_roll_deg = roll;
+        float rad_yaw = _smooth_yaw_deg * 0.0174533f;
+        out_skel.is_back_view = (std::cos(rad_yaw) < 0.0f);
+
+        // 局部 3D 关节点位置设置 (以中心骨盆 MidHip 为局部基准)
+        out_skel.joints_local[OP_HEAD] = Vec3f(tilt_dx * 0.35f, -42.0f + breath * 0.4f, 0.0f);
+        out_skel.joints_local[OP_NECK] = Vec3f(tilt_dx * 0.20f, -22.0f, 0.0f);
+        out_skel.joints_local[OP_R_EAR] = Vec3f(out_skel.joints_local[OP_HEAD].x + 24.0f, out_skel.joints_local[OP_HEAD].y - 16.0f, 2.0f);
+        out_skel.joints_local[OP_L_EAR] = Vec3f(out_skel.joints_local[OP_HEAD].x - 24.0f, out_skel.joints_local[OP_HEAD].y - 16.0f, 2.0f);
+        out_skel.joints_local[OP_R_EYE] = Vec3f(out_skel.joints_local[OP_HEAD].x + 12.0f, out_skel.joints_local[OP_HEAD].y - 1.0f, -12.0f);
+        out_skel.joints_local[OP_L_EYE] = Vec3f(out_skel.joints_local[OP_HEAD].x - 12.0f, out_skel.joints_local[OP_HEAD].y - 1.0f, -12.0f);
+        out_skel.joints_local[OP_SPINE] = Vec3f(0.0f, -10.0f + belly_breath * 0.5f, 0.0f);
+        out_skel.joints_local[OP_MID_HIP] = Vec3f(0.0f, 10.0f, 0.0f);
+        out_skel.joints_local[OP_R_SHOULDER] = Vec3f(18.0f, -8.0f, 0.0f);
+        out_skel.joints_local[OP_R_ELBOW] = Vec3f(out_skel.elbow_rx - out_skel.body_x, out_skel.elbow_ry - out_skel.body_y, 4.0f);
+        out_skel.joints_local[OP_R_WRIST] = Vec3f(paw_rx - out_skel.body_x, paw_ry - out_skel.body_y, -2.0f);
+        out_skel.joints_local[OP_L_SHOULDER] = Vec3f(-18.0f, -8.0f, 0.0f);
+        out_skel.joints_local[OP_L_ELBOW] = Vec3f(out_skel.elbow_lx - out_skel.body_x, out_skel.elbow_ly - out_skel.body_y, 4.0f);
+        out_skel.joints_local[OP_L_WRIST] = Vec3f(paw_lx - out_skel.body_x, paw_ly - out_skel.body_y, -2.0f);
+        out_skel.joints_local[OP_R_HIP] = Vec3f(13.0f, 14.0f, 0.0f);
+        out_skel.joints_local[OP_R_KNEE] = Vec3f(out_skel.knee_rx - out_skel.body_x, out_skel.knee_ry - out_skel.body_y, 3.0f);
+        out_skel.joints_local[OP_R_ANKLE] = Vec3f(foot_rx - out_skel.body_x, foot_ry - out_skel.body_y, 0.0f);
+        out_skel.joints_local[OP_L_HIP] = Vec3f(-13.0f, 14.0f, 0.0f);
+        out_skel.joints_local[OP_L_KNEE] = Vec3f(out_skel.knee_lx - out_skel.body_x, out_skel.knee_ly - out_skel.body_y, 3.0f);
+        out_skel.joints_local[OP_L_ANKLE] = Vec3f(foot_lx - out_skel.body_x, foot_ly - out_skel.body_y, 0.0f);
+        out_skel.joints_local[OP_TAIL] = Vec3f(std::sin(t * 7.0f) * 3.0f, 14.0f, 15.0f);
+        out_skel.joints_local[OP_SNOUT] = Vec3f(out_skel.joints_local[OP_HEAD].x, out_skel.joints_local[OP_HEAD].y + 6.0f, -14.0f);
+        out_skel.joints_local[OP_BADGE] = Vec3f(0.0f, -8.0f, -10.0f);
+
+        // 叠加关节点手动覆盖微调 (Manual Override)
+        for (int i = 0; i < OP_JOINT_COUNT; i++) {
+            if (_manual_joints[i].active) {
+                out_skel.joints_local[i].x += _manual_joints[i].roll_deg * 0.15f;
+                out_skel.joints_local[i].y += _manual_joints[i].pitch_deg * 0.15f;
+                out_skel.joints_local[i].z += _manual_joints[i].yaw_deg * 0.15f;
+            }
+        }
+
+        // 执行 3D 欧拉旋转与透视相机投影计算
+        for (int i = 0; i < OP_JOINT_COUNT; i++) {
+            Vec3f rot = rotateEuler3D(out_skel.joints_local[i], _smooth_yaw_deg, _smooth_body_tilt, 0.0f);
+            rot.x += (out_skel.body_x - 67.5f);
+            rot.y += (out_skel.body_y - 118.0f);
+            out_skel.joints_world[i] = rot;
+            out_skel.joints_screen[i] = projectCamera(rot, 67.5f, 118.0f, 210.0f, 180.0f);
+        }
     }
 
 private:
@@ -914,7 +1191,14 @@ private:
           _smooth_left_leg_fx(0.0f), _smooth_left_leg_fy(0.0f),
           _smooth_right_leg_fx(0.0f), _smooth_right_leg_fy(0.0f),
           _smooth_body_tilt(0.0f), _smooth_head_tilt(0.0f),
-          _smooth_body_shift_x(0.0f), _smooth_body_shift_y(0.0f) {}
+          _smooth_body_shift_x(0.0f), _smooth_body_shift_y(0.0f),
+          _target_yaw_deg(0.0f), _smooth_yaw_deg(0.0f),
+          _turn_start_time(0), _turn_duration_ms(0),
+          _is_turning_around(false), _is_spinning(false) {
+        for (int i = 0; i < OP_JOINT_COUNT; i++) {
+            _manual_joints[i] = {0.0f, 0.0f, 0.0f, false};
+        }
+    }
 
     BearAction _current_action;
     uint32_t _action_start_time;
@@ -938,6 +1222,15 @@ private:
     float _smooth_head_tilt;
     float _smooth_body_shift_x;
     float _smooth_body_shift_y;
+
+    // 3D 偏航与关节点覆盖状态变量
+    float _target_yaw_deg;
+    float _smooth_yaw_deg;
+    uint32_t _turn_start_time;
+    uint32_t _turn_duration_ms;
+    bool _is_turning_around;
+    bool _is_spinning;
+    JointManualConfig _manual_joints[OP_JOINT_COUNT];
 };
 
 } // namespace sticks3

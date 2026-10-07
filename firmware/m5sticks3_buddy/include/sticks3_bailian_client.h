@@ -838,6 +838,28 @@ static const char* DASHSCOPE_ROOT_CA =
             auto& gm = BearGrowthManager::getInstance();
             auto& kc = BearKinematicsController::getInstance();
 
+            if (!d["yaw"].isNull()) {
+                float yaw_val = d["yaw"].as<float>();
+                kc.setTargetYaw(yaw_val);
+                return "{\"status\":\"success\",\"yaw\":" + String(yaw_val, 1) + "}";
+            }
+            if (!d["turn"].isNull()) {
+                float turn_val = d["turn"].as<float>();
+                if (turn_val >= 300.0f) {
+                    kc.triggerSpinPirouette(1800);
+                    return "{\"status\":\"success\",\"turn\":360,\"mode\":\"spin\"}";
+                } else {
+                    kc.triggerTurnAround(1400);
+                    return "{\"status\":\"success\",\"turn\":180,\"mode\":\"turn_around\"}";
+                }
+            }
+            if (!d["joint_id"].isNull() && !d["joint_angle"].isNull()) {
+                uint8_t j_id = d["joint_id"].as<uint8_t>();
+                float j_ang = d["joint_angle"].as<float>();
+                kc.setJointAngle(j_id, j_ang, 0.0f, 0.0f);
+                return "{\"status\":\"success\",\"joint_id\":" + String(j_id) + ",\"angle\":" + String(j_ang, 1) + "}";
+            }
+
             if (strlen(combo_str) > 0) {
                 bool ok = kc.triggerComboByName(combo_str);
                 if (ok) {
@@ -930,10 +952,11 @@ private:
                            "当对话或被要求做动作时，请调用工具 sticks3_control_bear 或在回复附带动作标签："
                            "[ACT:wave]挥手、[ACT:bow]鞠躬、[ACT:sit]坐下、[ACT:stretch]伸懒腰、[ACT:clap]鼓掌、[ACT:cheer]欢呼、[ACT:jump]跳跃、"
                            "[ACT:dance]跳舞、[ACT:balance]金鸡独立、[ACT:lie]趴下、[ACT:pushup]俯卧撑、[ACT:kungfu]功夫、[ACT:taichi]太极、"
-                           "[ACT:wingchun]咏春、[ACT:dragon_punch]升龙拳、[ACT:moonwalk]太空漫步、[ACT:cyber_defense]机甲护盾。"
-                           "还可触发组合技(greeting, fitness, martial, cyber_supreme)。"
-                           "若工具返回 locked，请用可爱拟人语气告知当前等级并鼓励多对话积攒经验升级！"
-                           "每次回复开头可用方括号标注情绪标签：[E:happy]、[E:curious]、[E:proud]、[E:sleepy]、[E:dizzy]、[E:wink]或[E:idle]。";
+                            "[ACT:wingchun]咏春、[ACT:dragon_punch]升龙拳、[ACT:moonwalk]太空漫步、[ACT:cyber_defense]机甲护盾、"
+                            "[ACT:turn_around]转身看背影与小尾巴、[ACT:spin]360度旋转跳跃。"
+                            "还可触发组合技(greeting, fitness, martial, cyber_supreme)。"
+                            "若工具返回 locked，请用可爱拟人语气告知当前等级并鼓励多对话积攒经验升级！"
+                            "每次回复开头可用方括号标注情绪标签：[E:happy]、[E:curious]、[E:proud]、[E:sleepy]、[E:dizzy]、[E:wink]或[E:idle]。";
         }
         String dynamic_prompt = StickS3MemoryStore::getInstance().buildMemoryContextPrompt(prompt_base);
 
@@ -978,11 +1001,11 @@ private:
         // 设备端直连阿里云百炼：直接向 DashScope 注册原生具身控制与拟态表情 Function Calling 工具
         JsonArray tools = session["tools"].to<JsonArray>();
 
-        // 1. 小熊四肢运动控制 (含5级技能树动作与宏组合技)
+        // 1. 小熊四肢运动控制 (含5级技能树动作、3D偏航转身与OpenPose人形关节点)
         JsonObject tool_bear = tools.add<JsonObject>();
         tool_bear["type"] = "function";
         tool_bear["name"] = "sticks3_control_bear";
-        tool_bear["description"] = "控制 M5StickS3 小熊 (Meta Jollybot) 的四肢运动与身体姿态。动作按RPG技能树解锁，包含单体动作与多节组合技。";
+        tool_bear["description"] = "控制 M5StickS3 小熊 (Meta Jollybot) 的四肢运动、3D偏航转身与OpenPose人形关节点。支持单体动作、宏组合技、3D转身与关节精准度数控制。";
         JsonObject bear_params = tool_bear["parameters"].to<JsonObject>();
         bear_params["type"] = "object";
         JsonObject bear_props = bear_params["properties"].to<JsonObject>();
@@ -1008,6 +1031,8 @@ private:
         act_enum.add("dragon_punch");
         act_enum.add("moonwalk");
         act_enum.add("cyber_defense");
+        act_enum.add("turn_around");
+        act_enum.add("spin");
 
         JsonObject combo_prop = bear_props["combo"].to<JsonObject>();
         combo_prop["type"] = "string";
@@ -1017,6 +1042,22 @@ private:
         combo_enum.add("fitness");
         combo_enum.add("martial");
         combo_enum.add("cyber_supreme");
+
+        JsonObject yaw_prop = bear_props["yaw"].to<JsonObject>();
+        yaw_prop["type"] = "number";
+        yaw_prop["description"] = "水平偏航偏转角 (0°正对用户, 180°背向露尾巴, 360°自旋)";
+
+        JsonObject turn_prop = bear_props["turn"].to<JsonObject>();
+        turn_prop["type"] = "number";
+        turn_prop["description"] = "转身度数 (180触发转身萌态背影, 360触发华丽旋转舞蹈)";
+
+        JsonObject joint_id_prop = bear_props["joint_id"].to<JsonObject>();
+        joint_id_prop["type"] = "integer";
+        joint_id_prop["description"] = "OpenPose 关节点编号 (0~22)";
+
+        JsonObject joint_ang_prop = bear_props["joint_angle"].to<JsonObject>();
+        joint_ang_prop["type"] = "number";
+        joint_ang_prop["description"] = "关节点偏转度数";
 
         // 2. 灵宠技能树与等级查询
         JsonObject tool_skills = tools.add<JsonObject>();
