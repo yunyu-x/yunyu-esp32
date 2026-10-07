@@ -194,30 +194,64 @@ void onNewTextMessage(const String& msg, const String& source) {
 
     // 小熊四肢自然语言动作语义解析
     auto& bear_ctrl = sticks3::BearKinematicsController::getInstance();
-    if (clean_msg.indexOf("挥手") >= 0 || clean_msg.indexOf("打招呼") >= 0) {
+    bool action_triggered = false;
+
+    if (clean_msg.indexOf("挥手") >= 0 || clean_msg.indexOf("招手") >= 0 || clean_msg.indexOf("打招呼") >= 0 ||
+        clean_msg.indexOf("你好") >= 0 || clean_msg.indexOf("嗨") >= 0 || clean_msg.indexOf("哈喽") >= 0 ||
+        clean_msg.indexOf("早安") >= 0 || clean_msg.indexOf("晚安") >= 0 || clean_msg.indexOf("再见") >= 0 || clean_msg.indexOf("拜拜") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_WAVE);
-    } else if (clean_msg.indexOf("鼓掌") >= 0 || clean_msg.indexOf("拍手") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("鼓掌") >= 0 || clean_msg.indexOf("拍手") >= 0 || clean_msg.indexOf("真棒") >= 0 ||
+               clean_msg.indexOf("厉害") >= 0 || clean_msg.indexOf("太棒") >= 0 || clean_msg.indexOf("赞") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_CLAP);
-    } else if (clean_msg.indexOf("跳舞") >= 0 || clean_msg.indexOf("扭一扭") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("跳舞") >= 0 || clean_msg.indexOf("扭一扭") >= 0 || clean_msg.indexOf("舞动") >= 0 ||
+               clean_msg.indexOf("摇摆") >= 0 || clean_msg.indexOf("动起来") >= 0 || clean_msg.indexOf("唱歌") >= 0 || clean_msg.indexOf("跳支舞") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_DANCE);
-    } else if (clean_msg.indexOf("功夫") >= 0 || clean_msg.indexOf("武术") >= 0 || clean_msg.indexOf("打拳") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("功夫") >= 0 || clean_msg.indexOf("武术") >= 0 || clean_msg.indexOf("打拳") >= 0 ||
+               clean_msg.indexOf("咏春") >= 0 || clean_msg.indexOf("练武") >= 0 || clean_msg.indexOf("站桩") >= 0 || clean_msg.indexOf("看招") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_KUNGFU);
-    } else if (clean_msg.indexOf("太极") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("太极") >= 0 || clean_msg.indexOf("云手") >= 0 || clean_msg.indexOf("慢动作") >= 0 || clean_msg.indexOf("养生") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_TAICHI);
-    } else if (clean_msg.indexOf("伸懒腰") >= 0 || clean_msg.indexOf("打哈欠") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("伸懒腰") >= 0 || clean_msg.indexOf("打哈欠") >= 0 || clean_msg.indexOf("拉伸") >= 0 ||
+               clean_msg.indexOf("好累") >= 0 || clean_msg.indexOf("放松") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_STRETCH);
-    } else if (clean_msg.indexOf("鞠躬") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("鞠躬") >= 0 || clean_msg.indexOf("敬礼") >= 0 || clean_msg.indexOf("谢谢") >= 0 ||
+               clean_msg.indexOf("感谢") >= 0 || clean_msg.indexOf("拜托") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_BOW);
-    } else if (clean_msg.indexOf("跳一个") >= 0 || clean_msg.indexOf("跳起来") >= 0 || clean_msg.indexOf("蹦") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("跳一个") >= 0 || clean_msg.indexOf("跳起来") >= 0 || clean_msg.indexOf("蹦") >= 0 || clean_msg.indexOf("起跳") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_JUMP);
-    } else if (clean_msg.indexOf("坐下") >= 0 || clean_msg.indexOf("坐好") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("坐下") >= 0 || clean_msg.indexOf("坐好") >= 0 || clean_msg.indexOf("乖乖坐") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_SIT);
-    } else if (clean_msg.indexOf("趴下") >= 0 || clean_msg.indexOf("躺下") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("趴下") >= 0 || clean_msg.indexOf("躺下") >= 0 || clean_msg.indexOf("睡觉") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_LIE);
-    } else if (clean_msg.indexOf("欢呼") >= 0 || clean_msg.indexOf("庆祝") >= 0 || clean_msg.indexOf("举手") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("欢呼") >= 0 || clean_msg.indexOf("庆祝") >= 0 || clean_msg.indexOf("举手") >= 0 ||
+               clean_msg.indexOf("耶") >= 0 || clean_msg.indexOf("胜利") >= 0 || clean_msg.indexOf("赢了") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_CHEER);
-    } else if (clean_msg.indexOf("单脚") >= 0 || clean_msg.indexOf("金鸡独立") >= 0 || clean_msg.indexOf("平衡") >= 0) {
+        action_triggered = true;
+    } else if (clean_msg.indexOf("单脚") >= 0 || clean_msg.indexOf("金鸡独立") >= 0 || clean_msg.indexOf("平衡") >= 0 || clean_msg.indexOf("站稳") >= 0) {
         bear_ctrl.triggerAction(sticks3::BEAR_ACT_BALANCE);
+        action_triggered = true;
+    }
+
+    // 若未命中任何特定动作词，但为自然人声对话交互，呈现生动自然的迪士尼拟人响应动作！
+    if (!action_triggered && source.startsWith("Voice")) {
+        static uint8_t s_voice_act_counter = 0;
+        sticks3::BearAction responsive_acts[] = {
+            sticks3::BEAR_ACT_WAVE,      // 友好挥手
+            sticks3::BEAR_ACT_BOW,       // 礼貌微倾
+            sticks3::BEAR_ACT_CHEER,     // 开心招展
+            sticks3::BEAR_ACT_STRETCH    // 活泼拉伸
+        };
+        bear_ctrl.triggerAction(responsive_acts[(s_voice_act_counter++) % 4], 2800);
     }
 
     // 检查是否为控制指令
@@ -228,8 +262,8 @@ void onNewTextMessage(const String& msg, const String& source) {
         sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
     } else if (clean_msg.equalsIgnoreCase("beep") || clean_msg.equalsIgnoreCase("play")) {
         sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_NOTIFY);
-    } else {
-        // 普通文本（含汉字）：播放即时提示和弦音
+    } else if (!source.startsWith("Voice")) {
+        // 普通文本（来自串口/BLE）：播放即时提示和弦音 (人声交互时不打断对话声音流)
         sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_NOTIFY);
     }
 
@@ -1109,6 +1143,20 @@ void setup() {
     // 初始化小熊骨骼动力学与养成系统
     sticks3::BearKinematicsController::getInstance().init();
 
+    // 8.7 注册百炼大模型人机自然语言交互事件与小熊拟人动作联动 (解耦网络微栈，安全在主循环驱动)
+    sticks3::StickS3BailianClient::getInstance().setUserSpeechCallback([](const String& user_text) {
+        onNewTextMessage(user_text, "Voice-User");
+    });
+    sticks3::StickS3BailianClient::getInstance().setTextCallback([](const String& user_query, const String& ai_reply, bool is_final) {
+        onNewTextMessage(ai_reply, "Voice-AI");
+    });
+    sticks3::StickS3BailianClient::getInstance().setSpeechStartedCallback([]() {
+        sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_LISTEN);
+    });
+
+    // 预分配 BLE 二进制缓冲，杜绝临界区内存二次分配
+    ble_accum_bytes.reserve(4096);
+
     // 播放开机上扬和弦音
     if (audio_ok) {
         sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_STARTUP);
@@ -1530,7 +1578,7 @@ void loop() {
         }
 
         // 5. 更新灵宠具身物理动力学与音视联动
-        uint8_t mic_vu = (uint8_t)sticks3::StickS3Audio::getInstance().getRawRMS();
+        uint8_t mic_vu = sticks3::StickS3Audio::getInstance().readMicRMS();
         uint8_t spk_vu = (uint8_t)(sticks3::StickS3Audio::getInstance().isPlayingStream() ? 50 : 0);
         sticks3::StickS3Avatar::getInstance().updatePhysics(imu_ax, imu_ay, imu_az, imu_roll, imu_pitch, mic_vu, spk_vu);
 

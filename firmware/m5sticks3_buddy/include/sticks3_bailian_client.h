@@ -41,6 +41,28 @@ enum BailianAgentState {
 
 using BailianTextCallback = std::function<void(const String& user_text, const String& ai_text, bool is_final)>;
 using BailianStateCallback = std::function<void(BailianAgentState old_state, BailianAgentState new_state)>;
+using BailianUserSpeechCallback = std::function<void(const String& user_text)>;
+using BailianSpeechStartedCallback = std::function<void()>;
+
+// 线程安全互斥锁 RAII 守卫 (替代底层硬件自旋锁 portMUX_TYPE，彻底消除 INT_WDT 中断看门狗复位与死锁)
+class BailianTextLockGuard {
+public:
+    explicit BailianTextLockGuard(SemaphoreHandle_t mutex, TickType_t timeout = pdMS_TO_TICKS(40))
+        : _mutex(mutex), _acquired(false) {
+        if (_mutex != nullptr) {
+            _acquired = (xSemaphoreTake(_mutex, timeout) == pdTRUE);
+        }
+    }
+    ~BailianTextLockGuard() {
+        if (_acquired && _mutex != nullptr) {
+            xSemaphoreGive(_mutex);
+        }
+    }
+    bool isAcquired() const { return _acquired; }
+private:
+    SemaphoreHandle_t _mutex;
+    bool _acquired;
+};
 
 class StickS3BailianClient {
 public:
@@ -58,16 +80,23 @@ public:
           _pending_preview_voice(false), _pending_preview_time(0),
           _server_in_speech(false), _last_voice_tick(0), _last_activity_time(0), _server_output_sample_rate(16000),
           _last_state_change(0), _total_interrupts(0), _last_error(""),
-          _rx_text_dirty(false), _wake_window_until(0) {
+          _rx_text_dirty(false), _wake_window_until(0),
+          _pending_user_speech_ready(false), _pending_final_ai_reply_ready(false),
+          _pending_speech_started(false), _on_user_speech(nullptr), _on_speech_started(nullptr) {
         _user_query = "";
         _ai_reply = "";
         _pending_turn_user = "";
         _pending_turn_ai = "";
+        _pending_user_speech = "";
+        _pending_final_ai_reply = "";
         _ws_send_mutex = xSemaphoreCreateMutex();
+        _text_mutex = xSemaphoreCreateMutex();
     }
 
     void setTextCallback(BailianTextCallback cb) { _on_text = cb; }
     void setStateCallback(BailianStateCallback cb) { _on_state = cb; }
+    void setUserSpeechCallback(BailianUserSpeechCallback cb) { _on_user_speech = cb; }
+    void setSpeechStartedCallback(BailianSpeechStartedCallback cb) { _on_speech_started = cb; }
 
     bool begin() {
         Serial.println("[BAILIAN] Initializing Bailian Realtime Voice Subsystem...");
@@ -288,11 +317,12 @@ static const char* DASHSCOPE_ROOT_CA =
             StickS3Audio::getInstance().interruptPlayback();
 
             // 2. 标记界面显示已打断
-            portENTER_CRITICAL(&_text_mux);
-            if (_ai_reply.indexOf("[已打断]") == -1) {
-                _ai_reply += " [已打断]";
+            {
+                BailianTextLockGuard lock(_text_mutex);
+                if (_ai_reply.indexOf("[已打断]") == -1) {
+                    _ai_reply += " [已打断]";
+                }
             }
-            portEXIT_CRITICAL(&_text_mux);
             _rx_text_dirty = true;
             _total_interrupts++;
 
@@ -445,6 +475,42 @@ static const char* DASHSCOPE_ROOT_CA =
             sendTextMessage("请用一句话做自我介绍，告知我你的新音色。");
         }
 
+        // 2.9 异步分发用户语音与大模型回复事件 (在 loopTask 中安全执行，解耦底层 WebSocket 协议微栈，严格遵照公理二)
+        if (_pending_speech_started) {
+            _pending_speech_started = false;
+            if (_on_speech_started) {
+                _on_speech_started();
+            }
+        }
+
+        if (_pending_user_speech_ready) {
+            String speech_copy;
+            {
+                BailianTextLockGuard lock(_text_mutex);
+                speech_copy = _pending_user_speech;
+                _pending_user_speech = "";
+                _pending_user_speech_ready = false;
+            }
+            if (_on_user_speech && speech_copy.length() > 0) {
+                _on_user_speech(speech_copy);
+            }
+        }
+
+        if (_pending_final_ai_reply_ready) {
+            String ai_copy;
+            String user_copy;
+            {
+                BailianTextLockGuard lock(_text_mutex);
+                ai_copy = _pending_final_ai_reply;
+                user_copy = _user_query;
+                _pending_final_ai_reply = "";
+                _pending_final_ai_reply_ready = false;
+            }
+            if (_on_text && ai_copy.length() > 0) {
+                _on_text(user_copy, ai_copy, true);
+            }
+        }
+
         // 3. 在线且处于 LISTENING 模式时，流式读取麦克风并推流到百炼
         if (isConnected() && _session_initialized) {
             if (_state == BL_STATE_LISTENING) {
@@ -508,16 +574,14 @@ static const char* DASHSCOPE_ROOT_CA =
         }
     }
     String getUserQuery() const {
-        portENTER_CRITICAL(&_text_mux);
-        String copy = _user_query;
-        portEXIT_CRITICAL(&_text_mux);
-        return copy;
+        BailianTextLockGuard lock(_text_mutex, pdMS_TO_TICKS(15));
+        if (!lock.isAcquired()) return "";
+        return _user_query;
     }
     String getAiReply() const {
-        portENTER_CRITICAL(&_text_mux);
-        String copy = _ai_reply;
-        portEXIT_CRITICAL(&_text_mux);
-        return copy;
+        BailianTextLockGuard lock(_text_mutex, pdMS_TO_TICKS(15));
+        if (!lock.isAcquired()) return "";
+        return _ai_reply;
     }
     uint32_t getTotalInterrupts() const { return _total_interrupts; }
     String getLastError() const {
@@ -546,10 +610,11 @@ static const char* DASHSCOPE_ROOT_CA =
         StickS3Audio::getInstance().playTone(1760, 40, 0.45f);
 
         // 4. 刷新屏幕为倾听提示
-        portENTER_CRITICAL(&_text_mux);
-        _user_query = "";
-        _ai_reply = "在呢，请吩咐！";
-        portEXIT_CRITICAL(&_text_mux);
+        {
+            BailianTextLockGuard lock(_text_mutex);
+            _user_query = "";
+            _ai_reply = "在呢，请吩咐！";
+        }
         _rx_text_dirty = true;
 
         if (_state != BL_STATE_SPEAKING) {
@@ -567,10 +632,11 @@ static const char* DASHSCOPE_ROOT_CA =
     }
 
     void startNewConversation() {
-        portENTER_CRITICAL(&_text_mux);
-        _user_query = "";
-        _ai_reply = "";
-        portEXIT_CRITICAL(&_text_mux);
+        {
+            BailianTextLockGuard lock(_text_mutex);
+            _user_query = "";
+            _ai_reply = "";
+        }
         _rx_text_dirty = true;
         _response_done_received = false;
         interrupt("NewConversation");
@@ -608,11 +674,12 @@ static const char* DASHSCOPE_ROOT_CA =
 
         _last_activity_time = millis();
         _last_error = "";
-        portENTER_CRITICAL(&_text_mux);
-        _user_query = text;
-        _ai_reply = "";
-        _ai_reply.reserve(1024);
-        portEXIT_CRITICAL(&_text_mux);
+        {
+            BailianTextLockGuard lock(_text_mutex);
+            _user_query = text;
+            _ai_reply = "";
+            _ai_reply.reserve(1024);
+        }
         _rx_text_dirty = true;
         _response_done_received = false;
         _is_response_cancelled = false;
@@ -662,10 +729,11 @@ static const char* DASHSCOPE_ROOT_CA =
         cfg_mgr.saveBailianVoice(new_voice);
 
         // 关键：清空上一轮问答陈旧文本，避免用户产生“输出相同”的误解
-        portENTER_CRITICAL(&_text_mux);
-        _user_query = "";
-        _ai_reply = "已切换为 " + new_voice + " 音色";
-        portEXIT_CRITICAL(&_text_mux);
+        {
+            BailianTextLockGuard lock(_text_mutex);
+            _user_query = "";
+            _ai_reply = "已切换为 " + new_voice + " 音色";
+        }
         _rx_text_dirty = true;
 
         if (speak_preview) {
@@ -688,10 +756,11 @@ static const char* DASHSCOPE_ROOT_CA =
     // 清空人机对话记忆 (RAM + Flash NVS)
     void clearMemory() {
         StickS3MemoryStore::getInstance().clearMemory();
-        portENTER_CRITICAL(&_text_mux);
-        _user_query = "";
-        _ai_reply = "对话记忆已清空";
-        portEXIT_CRITICAL(&_text_mux);
+        {
+            BailianTextLockGuard lock(_text_mutex);
+            _user_query = "";
+            _ai_reply = "对话记忆已清空";
+        }
         _rx_text_dirty = true;
         if (isConnected()) {
             sendSessionUpdate();
@@ -1054,10 +1123,11 @@ private:
             // 收到新一轮回答创建事件，重置打断取消标记与挂起请求，确保新一轮语音和文本正常输出
             _is_response_cancelled = false;
             _pending_cancel = false;
-            portENTER_CRITICAL(&_text_mux);
-            _ai_reply = ""; // 关键：每轮新回答生成时清空上一轮回答并预分配内存，防止碎片化
-            _ai_reply.reserve(1024);
-            portEXIT_CRITICAL(&_text_mux);
+            {
+                BailianTextLockGuard lock(_text_mutex);
+                _ai_reply = ""; // 关键：每轮新回答生成时清空上一轮回答并预分配内存，防止碎片化
+                _ai_reply.reserve(1024);
+            }
             _rx_text_dirty = true;
             Serial.println("[BAILIAN] response.created received. Ready for streaming response.");
         }
@@ -1072,6 +1142,7 @@ private:
             }
             _server_in_speech = true;
             setState(BL_STATE_LISTENING);
+            _pending_speech_started = true; // 异步通知主循环进行拟人倾听动作
         }
         // 3. 服务端 VAD 检测到用户讲话结束 -> 转入思考推理
         else if (strcmp(type, "input_audio_buffer.speech_stopped") == 0) {
@@ -1090,11 +1161,12 @@ private:
                 if (_state != BL_STATE_SPEAKING) {
                     setState(BL_STATE_SPEAKING);
                 }
-                portENTER_CRITICAL(&_text_mux);
-                if (_ai_reply.length() + strlen(delta) < 1024) {
-                    _ai_reply += delta;
+                {
+                    BailianTextLockGuard lock(_text_mutex);
+                    if (_ai_reply.length() + strlen(delta) < 1024) {
+                        _ai_reply += delta;
+                    }
                 }
-                portEXIT_CRITICAL(&_text_mux);
                 _rx_text_dirty = true;
             }
         }
@@ -1128,11 +1200,14 @@ private:
         else if (strcmp(type, "conversation.item.input_audio_transcription.completed") == 0) {
             const char* user_text = doc["transcript"] | "";
             if (user_text && strlen(user_text) > 0) {
-                portENTER_CRITICAL(&_text_mux);
-                _user_query = user_text;
-                _ai_reply = ""; // 清空上一轮回答准备流式刷新
-                _ai_reply.reserve(1024);
-                portEXIT_CRITICAL(&_text_mux);
+                {
+                    BailianTextLockGuard lock(_text_mutex);
+                    _user_query = user_text;
+                    _ai_reply = ""; // 清空上一轮回答准备流式刷新
+                    _ai_reply.reserve(1024);
+                    _pending_user_speech = user_text;
+                    _pending_user_speech_ready = true;
+                }
                 _rx_text_dirty = true;
                 _is_response_cancelled = false; // 用户新提问确认，清除任何旧取消状态
                 _pending_cancel = false;
@@ -1152,10 +1227,17 @@ private:
             _last_activity_time = millis();
             Serial.println("[BAILIAN] LLM response streaming complete.");
 
-            portENTER_CRITICAL(&_text_mux);
-            String u_copy = _user_query;
-            String a_copy = _ai_reply;
-            portEXIT_CRITICAL(&_text_mux);
+            String u_copy;
+            String a_copy;
+            {
+                BailianTextLockGuard lock(_text_mutex);
+                u_copy = _user_query;
+                a_copy = _ai_reply;
+                if (a_copy.length() > 0 && !was_cancelled) {
+                    _pending_final_ai_reply = a_copy;
+                    _pending_final_ai_reply_ready = true;
+                }
+            }
 
             // 关键：不在 websocket_task 中直接执行 Flash NVS 写入与 session.update (遵循工程公理二)
             // 标记记忆持久化待处理，在 loopTask 中安全执行，彻底杜绝 Flash 禁用导致 Cache Panic 异常重启
@@ -1163,10 +1245,6 @@ private:
                 _pending_turn_user = u_copy;
                 _pending_turn_ai = a_copy;
                 _pending_memory_save = true;
-            }
-
-            if (_on_text) {
-                _on_text(u_copy, a_copy, true);
             }
         }
         // 8. 错误报文
@@ -1233,13 +1311,21 @@ private:
     String _last_error;
     String _auth_header;
 
-    mutable portMUX_TYPE _text_mux = portMUX_INITIALIZER_UNLOCKED;
+    mutable SemaphoreHandle_t _text_mutex;
     String _user_query;
     String _ai_reply;
     volatile bool _rx_text_dirty;
 
+    String _pending_user_speech;
+    volatile bool _pending_user_speech_ready;
+    String _pending_final_ai_reply;
+    volatile bool _pending_final_ai_reply_ready;
+    volatile bool _pending_speech_started;
+
     BailianTextCallback _on_text;
     BailianStateCallback _on_state;
+    BailianUserSpeechCallback _on_user_speech;
+    BailianSpeechStartedCallback _on_speech_started;
 };
 
 } // namespace sticks3
