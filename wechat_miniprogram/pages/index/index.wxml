@@ -175,6 +175,53 @@
     </view>
   </view>
 
+  <!-- 迪士尼影院级动作姿态点播与阅兵大厅 (17-Action Cinematic Director) -->
+  <view class="cinematic-card">
+    <view class="cinematic-header">
+      <view class="cinematic-title-group">
+        <text class="cinematic-title">🎬 迪士尼影院级动作姿态</text>
+        <text class="cinematic-sub">17 套生物力学招式 · 严格体积守恒 · S曲线平滑过渡</text>
+      </view>
+      <view class="cinematic-badge {{isDemoShowcaseActive ? 'demo-active-badge' : ''}}">
+        {{isDemoShowcaseActive ? '🎪 阅兵进行中' : '✨ 自由点播'}}
+      </view>
+    </view>
+
+    <!-- 阅兵与单步快捷控制栏 -->
+    <view class="cinematic-ctl-bar">
+      <button class="btn-cine-ctl btn-demo {{isDemoShowcaseActive ? 'btn-demo-on' : ''}}" bindtap="handleToggleDemoShowcase">
+        <text class="cine-btn-icon">{{isDemoShowcaseActive ? '⏹' : '🎬'}}</text>
+        <text>{{isDemoShowcaseActive ? '停止全套阅兵' : '全套动作自动阅兵'}}</text>
+      </button>
+      <button class="btn-cine-ctl btn-step" bindtap="handleNextPose">
+        <text class="cine-btn-icon">⏭</text>
+        <text>切换下一个姿态</text>
+      </button>
+    </view>
+
+    <!-- 动作卡片横向滚动矩阵展示 -->
+    <scroll-view class="actions-scroll-view" scroll-x="true" enable-flex="true">
+      <view class="action-chips-wrapper">
+        <block wx:for="{{cinematicActions}}" wx:key="act">
+          <view 
+            class="action-chip {{currentActionAct === item.act ? 'chip-active' : ''}} {{petState.level < item.minLvl ? 'chip-locked' : ''}}"
+            bindtap="handleSelectBearAction"
+            data-act="{{item.act}}"
+            data-minlvl="{{item.minLvl}}"
+          >
+            <view class="chip-top">
+              <text class="chip-icon">{{item.icon}}</text>
+              <text class="chip-lvl" wx:if="{{petState.level < item.minLvl}}">🔒 Lv.{{item.minLvl}}</text>
+              <text class="chip-lvl lvl-unlocked" wx:else>Lv.{{item.minLvl}}</text>
+            </view>
+            <text class="chip-name">{{item.name}}</text>
+            <text class="chip-desc">{{item.desc}}</text>
+          </view>
+        </block>
+      </view>
+    </scroll-view>
+  </view>
+
   <!-- 3D 姿态与人形关节动力学控制舱 (Apple HIG 拟物卡片) -->
   <view class="posture-card">
     <view class="section-title">

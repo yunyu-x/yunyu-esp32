@@ -1250,6 +1250,48 @@ class BuddyService {
     }
     return { success: true, mode: "sim", enabled: en };
   }
+
+  // 17 套迪士尼影院级动作姿态直接点播
+  async triggerBearAction(actName, durationMs = 2800) {
+    haptics.vibrate("medium");
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("bear_act", { action: "bear_act", act: actName, duration: durationMs });
+      return { success: true, mode: "ble", act: actName };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("action", { act: actName, duration: durationMs });
+      return { success: true, mode: "wifi", act: actName };
+    }
+    return { success: true, mode: "sim", act: actName };
+  }
+
+  // 姿态自动阅兵巡礼轮播模式控制
+  async triggerDemoShowcase(enable = true) {
+    haptics.notification();
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("demo_showcase", { action: "demo_showcase", enable: Boolean(enable) });
+      return { success: true, mode: "ble", enable };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("demo", { enable: enable ? "1" : "0" });
+      return { success: true, mode: "wifi", enable };
+    }
+    return { success: true, mode: "sim", enable };
+  }
+
+  // 单步切换下一个动作姿态
+  async triggerNextPose() {
+    haptics.vibrate("light");
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("next_pose", { action: "next_pose" });
+      return { success: true, mode: "ble" };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("next");
+      return { success: true, mode: "wifi" };
+    }
+    return { success: true, mode: "sim" };
+  }
 }
 
 const buddyService = new BuddyService();

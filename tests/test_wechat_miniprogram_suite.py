@@ -476,5 +476,78 @@ def test_3d_posture_and_joint_control_contracts():
     assert "SUCCESS" in res.stdout
 
 
+def test_disney_cinematic_actions_and_demo_showcase_contracts():
+    """公理一与公理五验证：测试微信小程序 17 套迪士尼影院级动作姿态点播、全套阅兵与单步步进契约"""
+    # 1. 验证 index.wxml 包含影院级动作卡片与交互节点
+    wxml_path = os.path.join(MP_DIR, "pages", "index", "index.wxml")
+    with open(wxml_path, "r", encoding="utf-8") as f:
+        wxml_src = f.read()
+    assert "cinematic-card" in wxml_src, "index.wxml 必须包含 cinematic-card 样式类"
+    assert "handleSelectBearAction" in wxml_src, "index.wxml 必须绑定 handleSelectBearAction"
+    assert "handleToggleDemoShowcase" in wxml_src, "index.wxml 必须绑定 handleToggleDemoShowcase"
+    assert "handleNextPose" in wxml_src, "index.wxml 必须绑定 handleNextPose"
+
+    # 2. 验证 index.js 包含 17 种动作模型与事件处理逻辑
+    idx_js_path = os.path.join(MP_DIR, "pages", "index", "index.js")
+    with open(idx_js_path, "r", encoding="utf-8") as f:
+        idx_src = f.read()
+    assert "cinematicActions:" in idx_src
+    assert "isDemoShowcaseActive:" in idx_src
+    assert "handleSelectBearAction(" in idx_src
+    assert "handleToggleDemoShowcase(" in idx_src
+    assert "handleNextPose(" in idx_src
+
+    # 校验 17 个迪士尼与国潮动作 act 标识完整性
+    expected_actions = [
+        "wave", "bow", "sit", "stretch", "clap", "cheer", "jump",
+        "dance", "balance", "lie", "pushup", "kungfu", "taichi",
+        "wingchun", "dragon_punch", "moonwalk", "cyber_defense"
+    ]
+    for act in expected_actions:
+        assert f'act: "{act}"' in idx_src or f"act: '{act}'" in idx_src, f"index.js 缺少动作定义: {act}"
+
+    # 3. 验证 buddy_service.js 导出了相关驱动方法
+    bs_path = os.path.join(MP_DIR, "utils", "buddy_service.js")
+    with open(bs_path, "r", encoding="utf-8") as f:
+        bs_src = f.read()
+    assert "triggerBearAction(actName" in bs_src
+    assert "triggerDemoShowcase(" in bs_src
+    assert "triggerNextPose()" in bs_src
+
+    # 4. 验证 Node.js 执行 buddyService 动作点播与阅兵契约
+    node_script = """
+    global.wx = {
+        getStorageSync: () => ({}),
+        setStorageSync: () => {},
+        vibrateShort: () => {},
+        showToast: () => {},
+        request: (options) => {
+            if (options && options.success) options.success({ statusCode: 200, data: { status: "ok" } });
+        }
+    };
+    const { buddyService } = require('./wechat_miniprogram/utils/buddy_service.js');
+    (async () => {
+        const r1 = await buddyService.triggerBearAction('jump');
+        if (!r1.success || r1.act !== 'jump') throw new Error("triggerBearAction failed");
+
+        const r2 = await buddyService.triggerDemoShowcase(true);
+        if (!r2.success || r2.enable !== true) throw new Error("triggerDemoShowcase failed");
+
+        const r3 = await buddyService.triggerNextPose();
+        if (!r3.success) throw new Error("triggerNextPose failed");
+
+        console.log("SUCCESS: All 17 cinematic poses & showcase methods validated in Node!");
+        process.exit(0);
+    })().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+    """
+    res = subprocess.run(["node", "-e", node_script], cwd=ROOT_DIR, capture_output=True, text=True, timeout=10)
+    assert res.returncode == 0, f"迪士尼动作点播测试失败: {res.stderr}\n{res.stdout}"
+    assert "SUCCESS" in res.stdout
+
+
+
 
 

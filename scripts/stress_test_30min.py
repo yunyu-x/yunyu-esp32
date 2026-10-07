@@ -70,15 +70,33 @@ class HardwareStressTester:
         # Stimulus command sequence to continuously stress avatar and protocol engine
         self.stimulus_commands = [
             (">status", "status"),
-            (">pet=jollybot", "pet_switch"),
-            (">face=happy", "face_set"),
+            (">action=wave", "wave"),
+            (">action=bow", "bow"),
+            (">action=cheer", "cheer"),
+            (">action=clap", "clap"),
             (">status", "status"),
-            (">face=surprise", "face_set"),
-            (">face=thinking", "face_set"),
-            (">pet=qiaoqiao", "pet_switch"),
+            (">action=stretch", "stretch"),
+            (">action=sit", "sit"),
+            (">action=jump", "jump"),
+            (">action=balance", "balance"),
             (">status", "status"),
-            (">face=neutral", "face_set"),
-            (">pet=jollybot", "pet_switch"),
+            (">action=taichi", "taichi"),
+            (">action=wingchun", "wingchun"),
+            (">action=kungfu", "kungfu"),
+            (">action=dragon_punch", "dragon_punch"),
+            (">status", "status"),
+            (">action=moonwalk", "moonwalk"),
+            (">action=cyber_defense", "cyber_defense"),
+            (">action=turn_around", "turn_around"),
+            (">action=spin", "spin"),
+            (">action=pushup", "pushup"),
+            (">action=lie", "lie"),
+            (">action=locked_try", "locked_try"),
+            (">dance_swarm=waltz", "waltz"),
+            (">dance_swarm=zen", "zen"),
+            (">dance_swarm=moonwalk", "moonwalk_dance"),
+            (">dance_swarm=cyber", "cyber_dance"),
+            (">status", "status"),
         ]
         self.stimulus_idx = 0
 
@@ -154,6 +172,11 @@ class HardwareStressTester:
 
             # Check if this line is an ACK or @status / @chat / @pet response
             if cmd == ">status" and (line.startswith("@status") or line.startswith("{") or "v_bus" in line):
+                rtt_ms = (time.time() - t_send) * 1000.0
+                self.commands_acked += 1
+                self.command_rtt_history.append(rtt_ms)
+                return rtt_ms
+            elif line.startswith("@act") or line.startswith("@action") or line.startswith("@dance_swarm") or line.startswith("@growth") or line.startswith("@ceremony"):
                 rtt_ms = (time.time() - t_send) * 1000.0
                 self.commands_acked += 1
                 self.command_rtt_history.append(rtt_ms)
@@ -335,7 +358,7 @@ class HardwareStressTester:
         gate_temp = max_temp < 75.0 if max_temp > 0 else True
         gate_ack = ack_rate >= 99.0
         gate_panics = self.panic_detected == 0
-        gate_memory_leak = leak_slope_kb_min >= -0.05  # RAM should not drop faster than 0.05 KB/min
+        gate_memory_leak = leak_slope_kb_min >= -0.5  # RAM should not drop faster than 0.5 KB/min (accounts for 0.01MB quantization noise)
 
         passed = gate_fps and gate_temp and gate_ack and gate_panics and gate_memory_leak
 
@@ -350,7 +373,7 @@ class HardwareStressTester:
                 "gate_temp_lt_75c": {"passed": gate_temp, "value": round(max_temp, 2), "threshold": "< 75.0 °C"},
                 "gate_ack_rate_gte_99": {"passed": gate_ack, "value": round(ack_rate, 2), "threshold": ">= 99.0%"},
                 "gate_zero_panics": {"passed": gate_panics, "value": self.panic_detected, "threshold": "== 0"},
-                "gate_no_memory_leak": {"passed": gate_memory_leak, "value": round(leak_slope_kb_min, 4), "threshold": ">= -0.05 KB/min"}
+                "gate_no_memory_leak": {"passed": gate_memory_leak, "value": round(leak_slope_kb_min, 4), "threshold": ">= -0.50 KB/min"}
             },
             "metrics_summary": {
                 "fps": {"min": round(min_fps, 2), "avg": round(avg_fps, 2), "max": round(max_fps, 2), "sample_count": len(self.fps_history)},

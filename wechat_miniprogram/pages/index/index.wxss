@@ -852,3 +852,169 @@
   justify-content: center;
   width: 100% !important;
 }
+
+/* ================= 迪士尼影院级动作姿态控制台 ================= */
+.cinematic-card {
+  background: var(--ios-card-bg, rgba(28, 28, 30, 0.85));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--ios-radius-card, 32rpx);
+  padding: 24rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.35);
+}
+
+.cinematic-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.cinematic-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.cinematic-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.cinematic-sub {
+  font-size: 20rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+  margin-top: 4rpx;
+}
+
+.cinematic-badge {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #FFD700;
+  background: rgba(255, 215, 0, 0.12);
+  border: 0.5px solid rgba(255, 215, 0, 0.3);
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+}
+
+.demo-active-badge {
+  color: #FF3B30;
+  background: rgba(255, 59, 48, 0.15);
+  border-color: rgba(255, 59, 48, 0.4);
+  animation: pulse-glow 1.5s infinite;
+}
+
+.cinematic-ctl-bar {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 20rpx;
+}
+
+.btn-cine-ctl {
+  flex: 1;
+  height: 68rpx;
+  min-height: 68rpx;
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  background: #2C2C2E;
+  color: #FFFFFF;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  margin: 0;
+  width: auto !important;
+}
+
+.btn-demo-on {
+  background: linear-gradient(135deg, rgba(255, 59, 48, 0.25), rgba(255, 69, 58, 0.15));
+  border-color: #FF3B30;
+  color: #FF453A;
+}
+
+.btn-step {
+  background: linear-gradient(135deg, rgba(10, 132, 255, 0.2), rgba(94, 92, 230, 0.2));
+  border-color: rgba(10, 132, 255, 0.4);
+}
+
+.actions-scroll-view {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.action-chips-wrapper {
+  display: inline-flex;
+  gap: 14rpx;
+  padding: 4rpx 0;
+}
+
+.action-chip {
+  display: flex;
+  flex-direction: column;
+  width: 170rpx;
+  flex-shrink: 0;
+  background: #242426;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20rpx;
+  padding: 16rpx 14rpx;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.action-chip:active {
+  transform: scale(0.96);
+}
+
+.chip-active {
+  background: linear-gradient(145deg, rgba(255, 122, 138, 0.25), rgba(255, 107, 129, 0.1));
+  border-color: #FF7A8A;
+  box-shadow: 0 0 16rpx rgba(255, 122, 138, 0.3);
+}
+
+.chip-locked {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
+
+.chip-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.chip-icon {
+  font-size: 32rpx;
+}
+
+.chip-lvl {
+  font-size: 16rpx;
+  font-weight: 700;
+  color: #8E8E93;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2rpx 8rpx;
+  border-radius: 8rpx;
+}
+
+.lvl-unlocked {
+  color: #34C759;
+  background: rgba(52, 199, 89, 0.15);
+}
+
+.chip-name {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin-bottom: 4rpx;
+}
+
+.chip-desc {
+  font-size: 16rpx;
+  color: #8E8E93;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

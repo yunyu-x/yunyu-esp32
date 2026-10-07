@@ -17,6 +17,8 @@
    *涵盖 Apple HIG 规范、双通道配网与发布配置。*
 4. **Meta Muse 接入详案**：[`docs/31_Meta_Muse_Gadgets微型自重构机器人与物理伴侣全栈接入方案与工程实施详案.md`](./docs/31_Meta_Muse_Gadgets微型自重构机器人与物理伴侣全栈接入方案与工程实施详案.md)  
    *Meta Muse Gadgets 生态与三层协同架构。*
+5. **迪士尼影院级动作与小程序导播**：[`docs/32_JOLLYBOT_17_CINEMATIC_POSES_AND_MINIPROGRAM_GUIDE.md`](./docs/32_JOLLYBOT_17_CINEMATIC_POSES_AND_MINIPROGRAM_GUIDE.md)  
+   *17 套影院级动作姿态、自动阅兵巡礼、双重 30 分钟压测与导播台指南。*
 
 ---
 

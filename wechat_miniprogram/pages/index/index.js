@@ -87,7 +87,33 @@ Page({
 
     // 多体编队舞团状态
     isSwarmDancing: false,
-    currentDanceTheme: ""
+    currentDanceTheme: "",
+
+    // 17 套迪士尼影院级动作姿态点播与阅兵系统
+    cinematicActions: [
+      { id: 1,  act: "wave",          name: "元气挥手",     category: "萌初幼熊", minLvl: 1, icon: "👋", desc: "圆弧挥舞·侧首微偏" },
+      { id: 2,  act: "bow",           name: "作揖鞠躬",     category: "萌初幼熊", minLvl: 1, icon: "🙇", desc: "前倾抱拳·行云流水" },
+      { id: 3,  act: "sit",           name: "呆萌坐下",     category: "萌初幼熊", minLvl: 1, icon: "🧘", desc: "双腿外八·露出肉垫" },
+      { id: 4,  act: "stretch",       name: "伸大懒腰",     category: "萌初幼熊", minLvl: 1, icon: "🙆", desc: "仰天高举·纵向拉伸" },
+      { id: 5,  act: "clap",          name: "鼓掌拍手",     category: "灵趣欢腾", minLvl: 2, icon: "👏", desc: "对掌拍击·金星飞溅" },
+      { id: 6,  act: "cheer",         name: "欢呼雀跃",     category: "灵趣欢腾", minLvl: 2, icon: "🎉", desc: "双手V举·欢欣鼓舞" },
+      { id: 7,  act: "jump",          name: "弹性跳跃",     category: "灵趣欢腾", minLvl: 2, icon: "🦘", desc: "下蹲蓄力·果冻回弹" },
+      { id: 8,  act: "dance",         name: "律动跳舞",     category: "律动体能", minLvl: 3, icon: "🕺", desc: "摇摆节拍·左右摆臀" },
+      { id: 9,  act: "balance",       name: "金鸡独立",     category: "律动体能", minLvl: 3, icon: "🦩", desc: "单脚伫立·大鹏展翅" },
+      { id: 10, act: "lie",           name: "趴地休息",     category: "律动体能", minLvl: 3, icon: "🛌", desc: "平趴地面·四肢舒展" },
+      { id: 11, act: "pushup",        name: "俯卧撑",       category: "律动体能", minLvl: 3, icon: "💪", desc: "伏地推起·大屈双臂" },
+      { id: 12, act: "kungfu",        name: "中国功夫",     category: "东方功夫", minLvl: 4, icon: "🥋", desc: "深蹲马步·右前推掌" },
+      { id: 13, act: "taichi",        name: "太极云手",     category: "东方功夫", minLvl: 4, icon: "☯️", desc: "圆周运化·行云流水" },
+      { id: 14, act: "wingchun",      name: "咏春快拳",     category: "东方功夫", minLvl: 4, icon: "🥊", desc: "日字连打·身躯反扭" },
+      { id: 15, act: "dragon_punch",  name: "升龙霸天",     category: "机甲元尊", minLvl: 5, icon: "🐉", desc: "蓄力前摇·冲霄暴扣" },
+      { id: 16, act: "moonwalk",      name: "太空漫步",     category: "机甲元尊", minLvl: 5, icon: "👟", desc: "滑步后撤·身躯前倾" },
+      { id: 17, act: "cyber_defense", name: "机甲护盾",     category: "机甲元尊", minLvl: 5, icon: "🛡️", desc: "交叉双臂·能量力场" },
+      { id: 18, act: "turn_around",   name: "转身秀尾",     category: "空间特技", minLvl: 2, icon: "🔄", desc: "180°转身·露小尾巴" },
+      { id: 19, act: "spin",          name: "华丽自旋",     category: "空间特技", minLvl: 3, icon: "🩰", desc: "360°自旋·平衡平举" },
+      { id: 20, act: "locked_try",    name: "困惑挠头",     category: "空间特技", minLvl: 1, icon: "🤔", desc: "右爪抓耳·萌态歪头" }
+    ],
+    currentActionAct: "idle",
+    isDemoShowcaseActive: false
   },
 
   onLoad() {
@@ -405,6 +431,39 @@ Page({
   handleTriggerCeremony() {
     this.buddyService.triggerCeremony(0);
     wx.showToast({ title: "★ 触发技能解锁盛典!", icon: "none" });
+  },
+
+  // 9. 17 套迪士尼影院级动作姿态直接点播与阅兵
+  handleSelectBearAction(e) {
+    const act = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.act) || "wave";
+    const minLvl = Number(e.currentTarget.dataset.minlvl) || 1;
+    const curLvl = Number(this.data.petState.level) || 1;
+    if (curLvl < minLvl) {
+      haptics.vibrate("medium");
+      wx.showModal({
+        title: "动作尚未解锁",
+        content: `该动作需要小熊达到 Lv.${minLvl} 解锁，当前为 Lv.${curLvl}。多与小熊互动对话可获得成长经验！`,
+        showCancel: false
+      });
+      this.buddyService.triggerBearAction("locked_try");
+      return;
+    }
+    this.setData({ currentActionAct: act });
+    this.buddyService.triggerBearAction(act);
+    const item = this.data.cinematicActions.find(a => a.act === act);
+    wx.showToast({ title: `🎬 施展: ${item ? item.name : act}`, icon: "none" });
+  },
+
+  handleToggleDemoShowcase() {
+    const nextState = !this.data.isDemoShowcaseActive;
+    this.setData({ isDemoShowcaseActive: nextState });
+    this.buddyService.triggerDemoShowcase(nextState);
+    wx.showToast({ title: nextState ? "🎬 开启全套姿态自动巡礼" : "⏹ 已停止自动阅兵", icon: "none" });
+  },
+
+  handleNextPose() {
+    this.buddyService.triggerNextPose();
+    wx.showToast({ title: "⏭ 切换至下一个动作姿态", icon: "none" });
   },
 
   // Tab 页面跳转导航
