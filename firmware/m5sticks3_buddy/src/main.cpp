@@ -214,57 +214,90 @@ void onNewTextMessage(const String& msg, const String& source) {
     Serial.printf("\n[CHAT-RX] >>> [%s] (#%u): \"%s\"\n",
                   source.c_str(), (unsigned)total_ble_msgs_received, clean_msg.c_str());
 
-    // 增加小熊交互成长经验值
-    sticks3::BearGrowthManager::getInstance().addExp(10, "User Dialogue");
+    // 增加小熊交互成长经验值并检测升级盛典
+    bool leveled_up = sticks3::BearGrowthManager::getInstance().addExp(10, "User Dialogue");
+    if (leveled_up) {
+        sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
+        sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_HAPPY);
+        sticks3::BearKinematicsController::getInstance().triggerAction(sticks3::BEAR_ACT_CHEER, 3500);
+    }
 
     // 小熊四肢自然语言动作语义解析
     auto& bear_ctrl = sticks3::BearKinematicsController::getInstance();
     bool action_triggered = false;
 
-    if (clean_msg.indexOf("挥手") >= 0 || clean_msg.indexOf("招手") >= 0 || clean_msg.indexOf("打招呼") >= 0 ||
-        clean_msg.indexOf("你好") >= 0 || clean_msg.indexOf("嗨") >= 0 || clean_msg.indexOf("哈喽") >= 0 ||
-        clean_msg.indexOf("早安") >= 0 || clean_msg.indexOf("晚安") >= 0 || clean_msg.indexOf("再见") >= 0 || clean_msg.indexOf("拜拜") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_WAVE);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("鼓掌") >= 0 || clean_msg.indexOf("拍手") >= 0 || clean_msg.indexOf("真棒") >= 0 ||
-               clean_msg.indexOf("厉害") >= 0 || clean_msg.indexOf("太棒") >= 0 || clean_msg.indexOf("赞") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_CLAP);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("跳舞") >= 0 || clean_msg.indexOf("扭一扭") >= 0 || clean_msg.indexOf("舞动") >= 0 ||
-               clean_msg.indexOf("摇摆") >= 0 || clean_msg.indexOf("动起来") >= 0 || clean_msg.indexOf("唱歌") >= 0 || clean_msg.indexOf("跳支舞") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_DANCE);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("功夫") >= 0 || clean_msg.indexOf("武术") >= 0 || clean_msg.indexOf("打拳") >= 0 ||
-               clean_msg.indexOf("咏春") >= 0 || clean_msg.indexOf("练武") >= 0 || clean_msg.indexOf("站桩") >= 0 || clean_msg.indexOf("看招") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_KUNGFU);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("太极") >= 0 || clean_msg.indexOf("云手") >= 0 || clean_msg.indexOf("慢动作") >= 0 || clean_msg.indexOf("养生") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_TAICHI);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("伸懒腰") >= 0 || clean_msg.indexOf("打哈欠") >= 0 || clean_msg.indexOf("拉伸") >= 0 ||
-               clean_msg.indexOf("好累") >= 0 || clean_msg.indexOf("放松") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_STRETCH);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("鞠躬") >= 0 || clean_msg.indexOf("敬礼") >= 0 || clean_msg.indexOf("谢谢") >= 0 ||
-               clean_msg.indexOf("感谢") >= 0 || clean_msg.indexOf("拜托") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_BOW);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("跳一个") >= 0 || clean_msg.indexOf("跳起来") >= 0 || clean_msg.indexOf("蹦") >= 0 || clean_msg.indexOf("起跳") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_JUMP);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("坐下") >= 0 || clean_msg.indexOf("坐好") >= 0 || clean_msg.indexOf("乖乖坐") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_SIT);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("趴下") >= 0 || clean_msg.indexOf("躺下") >= 0 || clean_msg.indexOf("睡觉") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_LIE);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("欢呼") >= 0 || clean_msg.indexOf("庆祝") >= 0 || clean_msg.indexOf("举手") >= 0 ||
-               clean_msg.indexOf("耶") >= 0 || clean_msg.indexOf("胜利") >= 0 || clean_msg.indexOf("赢了") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_CHEER);
-        action_triggered = true;
-    } else if (clean_msg.indexOf("单脚") >= 0 || clean_msg.indexOf("金鸡独立") >= 0 || clean_msg.indexOf("平衡") >= 0 || clean_msg.indexOf("站稳") >= 0) {
-        bear_ctrl.triggerAction(sticks3::BEAR_ACT_BALANCE);
-        action_triggered = true;
+    // 宏组合技语义识别
+    if (clean_msg.indexOf("元气问候") >= 0 || clean_msg.indexOf("问候组合") >= 0) {
+        action_triggered = bear_ctrl.triggerComboByName("greeting");
+    } else if (clean_msg.indexOf("活力健身") >= 0 || clean_msg.indexOf("体能拉练") >= 0 || clean_msg.indexOf("健身组合") >= 0) {
+        action_triggered = bear_ctrl.triggerComboByName("fitness");
+    } else if (clean_msg.indexOf("武学宗师") >= 0 || clean_msg.indexOf("功夫套路") >= 0 || clean_msg.indexOf("武术组合") >= 0) {
+        action_triggered = bear_ctrl.triggerComboByName("martial");
+    } else if (clean_msg.indexOf("赛博连携") >= 0 || clean_msg.indexOf("机甲终极") >= 0 || clean_msg.indexOf("大招") >= 0) {
+        action_triggered = bear_ctrl.triggerComboByName("cyber_supreme");
+    }
+
+    if (!action_triggered) {
+        if (clean_msg.indexOf("挥手") >= 0 || clean_msg.indexOf("招手") >= 0 || clean_msg.indexOf("打招呼") >= 0 ||
+            clean_msg.indexOf("你好") >= 0 || clean_msg.indexOf("嗨") >= 0 || clean_msg.indexOf("哈喽") >= 0 ||
+            clean_msg.indexOf("早安") >= 0 || clean_msg.indexOf("晚安") >= 0 || clean_msg.indexOf("再见") >= 0 || clean_msg.indexOf("拜拜") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_WAVE);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("鼓掌") >= 0 || clean_msg.indexOf("拍手") >= 0 || clean_msg.indexOf("真棒") >= 0 ||
+                   clean_msg.indexOf("厉害") >= 0 || clean_msg.indexOf("太棒") >= 0 || clean_msg.indexOf("赞") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_CLAP);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("跳舞") >= 0 || clean_msg.indexOf("扭一扭") >= 0 || clean_msg.indexOf("舞动") >= 0 ||
+                   clean_msg.indexOf("摇摆") >= 0 || clean_msg.indexOf("动起来") >= 0 || clean_msg.indexOf("唱歌") >= 0 || clean_msg.indexOf("跳支舞") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_DANCE);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("功夫") >= 0 || clean_msg.indexOf("武术") >= 0 || clean_msg.indexOf("打拳") >= 0 ||
+                   clean_msg.indexOf("练武") >= 0 || clean_msg.indexOf("站桩") >= 0 || clean_msg.indexOf("看招") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_KUNGFU);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("咏春") >= 0 || clean_msg.indexOf("日字冲拳") >= 0 || clean_msg.indexOf("冲拳") >= 0 || clean_msg.indexOf("拳击") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_WINGCHUN);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("升龙拳") >= 0 || clean_msg.indexOf("飞天") >= 0 || clean_msg.indexOf("暴扣") >= 0 || clean_msg.indexOf("升龙") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_DRAGON_PUNCH);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("太空漫步") >= 0 || clean_msg.indexOf("滑步") >= 0 || clean_msg.indexOf("后撤步") >= 0 || clean_msg.indexOf("漫步") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_MOONWALK);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("机甲护盾") >= 0 || clean_msg.indexOf("护盾") >= 0 || clean_msg.indexOf("防守") >= 0 || clean_msg.indexOf("能量盾") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_CYBER_DEFENSE);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("俯卧撑") >= 0 || clean_msg.indexOf("健身") >= 0 || clean_msg.indexOf("锻炼") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_PUSHUP);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("太极") >= 0 || clean_msg.indexOf("云手") >= 0 || clean_msg.indexOf("慢动作") >= 0 || clean_msg.indexOf("养生") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_TAICHI);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("伸懒腰") >= 0 || clean_msg.indexOf("打哈欠") >= 0 || clean_msg.indexOf("拉伸") >= 0 ||
+                   clean_msg.indexOf("好累") >= 0 || clean_msg.indexOf("放松") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_STRETCH);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("鞠躬") >= 0 || clean_msg.indexOf("敬礼") >= 0 || clean_msg.indexOf("谢谢") >= 0 ||
+                   clean_msg.indexOf("感谢") >= 0 || clean_msg.indexOf("拜托") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_BOW);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("跳一个") >= 0 || clean_msg.indexOf("跳起来") >= 0 || clean_msg.indexOf("蹦") >= 0 || clean_msg.indexOf("起跳") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_JUMP);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("坐下") >= 0 || clean_msg.indexOf("坐好") >= 0 || clean_msg.indexOf("乖乖坐") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_SIT);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("趴下") >= 0 || clean_msg.indexOf("躺下") >= 0 || clean_msg.indexOf("睡觉") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_LIE);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("欢呼") >= 0 || clean_msg.indexOf("庆祝") >= 0 || clean_msg.indexOf("举手") >= 0 ||
+                   clean_msg.indexOf("耶") >= 0 || clean_msg.indexOf("胜利") >= 0 || clean_msg.indexOf("赢了") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_CHEER);
+            action_triggered = true;
+        } else if (clean_msg.indexOf("单脚") >= 0 || clean_msg.indexOf("金鸡独立") >= 0 || clean_msg.indexOf("平衡") >= 0 || clean_msg.indexOf("站稳") >= 0) {
+            bear_ctrl.triggerAction(sticks3::BEAR_ACT_BALANCE);
+            action_triggered = true;
+        }
     }
 
     // 若未命中任何特定动作词，但为自然人声对话交互，呈现生动自然的迪士尼拟人响应动作！
@@ -663,6 +696,14 @@ static void drawBearLimbCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, in
     d.drawCircle(x2, y2, r, border_col);
 }
 
+// 绘制双段多关节自然屈伸肢体 (含肘/膝关节弧度屈曲，消除火柴棍僵硬)
+static void drawBearArticulatedLimb(LovyanGFX& d, int x1, int y1, int xm, int ym, int x2, int y2, int r1, int r2, uint16_t col, uint16_t border_col) {
+    drawBearLimbCapsule(d, x1, y1, xm, ym, r1, col, border_col);
+    drawBearLimbCapsule(d, xm, ym, x2, y2, r2, col, border_col);
+    d.fillCircle(xm, ym, r2, col);
+    d.drawCircle(xm, ym, r2, border_col);
+}
+
 // 萌熊前爪 (掌心肉垫 + 3 颗萌小豆)
 static void drawBearPaw(LovyanGFX& d, int x, int y, int r, uint16_t main_col, uint16_t pad_col) {
     d.fillCircle(x, y, r, main_col);
@@ -777,14 +818,14 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         drawBearFoot(out_d, foot_lx, foot_ly, 9, 8, 0xD444, 0xFCB2);
         drawBearFoot(out_d, foot_rx, foot_ry, 9, 8, 0xD444, 0xFCB2);
     } else {
-        // 站立/运动姿态：随 IMU 倾角重心动态下蹲/提脚
+        // 站立/运动姿态：双段腿部大腿+小腿+膝关节中点，自然屈伸协同
         int foot_lx = (int)(skel.body_x - 14 + skel.left_leg.flex_x);
         int foot_ly = (int)(skel.body_y + 36 + skel.left_leg.flex_y);
         int foot_rx = (int)(skel.body_x + 14 + skel.right_leg.flex_x);
         int foot_ry = (int)(skel.body_y + 36 + skel.right_leg.flex_y);
 
-        drawBearLimbCapsule(out_d, hip_lx, hip_ly, foot_lx, foot_ly, 6, 0xD444, 0x8220);
-        drawBearLimbCapsule(out_d, hip_rx, hip_ry, foot_rx, foot_ry, 6, 0xD444, 0x8220);
+        drawBearArticulatedLimb(out_d, hip_lx, hip_ly, (int)skel.knee_lx, (int)skel.knee_ly, foot_lx, foot_ly, 6, 5, 0xD444, 0x8220);
+        drawBearArticulatedLimb(out_d, hip_rx, hip_ry, (int)skel.knee_rx, (int)skel.knee_ry, foot_rx, foot_ry, 6, 5, 0xD444, 0x8220);
         drawBearFoot(out_d, foot_lx, foot_ly, 8, 7, 0xD444, 0xFCB2);
         drawBearFoot(out_d, foot_rx, foot_ry, 8, 7, 0xD444, 0xFCB2);
     }
@@ -809,7 +850,7 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     out_d.fillCircle(bx, by - 9, 3, badge_col);
     out_d.drawCircle(bx, by - 9, 4, 0xFFFF);
 
-    // 7. 上肢与前爪绘制 (Forearms & Paws)
+    // 7. 上肢与前爪绘制 (Forearms & Paws - 双段大臂+前臂+肘关节弧度)
     int sh_lx = bx - 18;
     int sh_ly = by - 8;
     int sh_rx = bx + 18;
@@ -823,16 +864,26 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     int paw_rx = sh_rx + (int)(22.0f * std::sin(rad_r)) + (int)skel.right_arm.flex_x;
     int paw_ry = sh_ry + (int)(22.0f * std::cos(rad_r)) + (int)skel.right_arm.flex_y;
 
-    drawBearLimbCapsule(out_d, sh_lx, sh_ly, paw_lx, paw_ly, 5, 0xD444, 0x8220);
-    drawBearLimbCapsule(out_d, sh_rx, sh_ry, paw_rx, paw_ry, 5, 0xD444, 0x8220);
+    drawBearArticulatedLimb(out_d, sh_lx, sh_ly, (int)skel.elbow_lx, (int)skel.elbow_ly, paw_lx, paw_ly, 5, 5, 0xD444, 0x8220);
+    drawBearArticulatedLimb(out_d, sh_rx, sh_ry, (int)skel.elbow_rx, (int)skel.elbow_ry, paw_rx, paw_ry, 5, 5, 0xD444, 0x8220);
     drawBearPaw(out_d, paw_lx, paw_ly, 6, 0xD444, 0xFCB2);
     drawBearPaw(out_d, paw_rx, paw_ry, 6, 0xD444, 0xFCB2);
 
-    // 鼓掌拍手冲击粒子
+    // 动作微动态特效：鼓掌粒子、升龙拳气浪、机甲护盾
     if (sticks3::BearKinematicsController::getInstance().getCurrentAction() == sticks3::BEAR_ACT_CLAP) {
         out_d.drawPixel(bx, by - 4, 0xFFE0);
         out_d.drawPixel(bx - 1, by - 5, 0xFFFF);
         out_d.drawPixel(bx + 1, by - 5, 0xFFFF);
+    } else if (skel.is_cyber_defense) {
+        // 机甲能量护盾光晕
+        out_d.drawArc(bx, by, 30, 32, 20, 160, 0x07FF);
+        out_d.drawArc(bx, by, 33, 34, 40, 140, 0x03E0);
+    } else if (skel.is_dragon_punch) {
+        // 升龙拳上冲火焰尾迹
+        for (int i = 0; i < 4; i++) {
+            out_d.drawPixel(paw_rx - 4 + (i * 3), paw_ry + 8 + (i * 3), 0xF800);
+            out_d.drawPixel(paw_rx - 4 + (i * 3), paw_ry + 7 + (i * 3), 0xFFE0);
+        }
     }
 
     // 8. 头部与面容表情 (Head & Facial Micro-Expressions)
@@ -975,17 +1026,38 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         out_d.setTextDatum(MC_DATUM);
         out_d.drawString("z", cx + 20 + (z_off % 4), cy - 22 - z_off);
         out_d.drawString("Z", cx + 28 + (z_off % 6), cy - 30 - z_off);
+    } else if (skel.is_locked_try) {
+        // 未解锁动作萌态困惑汗滴与问号
+        out_d.fillCircle(cx + 22, cy - 24, 3, 0x07FF);
+        out_d.fillTriangle(cx + 22, cy - 28, cx + 19, cy - 24, cx + 25, cy - 24, 0x07FF);
+        out_d.setTextColor(0xFFE0, 0x0000);
+        out_d.setTextDatum(MC_DATUM);
+        out_d.drawString("?", cx - 22, cy - 26);
     }
 
-    // 9. 底部灵宠养成与系统硬件全维度看板 (Y: 220 ~ 240) - 沉浸式展示等级与EXP
+    // 9. 底部灵宠养成与系统硬件全维度看板 (Y: 220 ~ 240) - 沉浸式展示等级与胶囊EXP进度条
     out_d.fillRect(0, 220, W, 20, 0x0000);
     out_d.setTextDatum(ML_DATUM);
     char footer_buf[64];
-    snprintf(footer_buf, sizeof(footer_buf), "★ Lv.%u %s | %uP | %.0fF | %.0fC", 
+    snprintf(footer_buf, sizeof(footer_buf), "★ Lv.%u %s | %uP | %.0fF", 
              growth_mgr.getLevel(), growth_mgr.getLevelTitle(), growth_mgr.getExp(),
-             sticks3::getSystemLoopFPS(), sticks3::getChipTemperature());
+             sticks3::getSystemLoopFPS());
     out_d.setTextColor(0xFDE0, 0x0000); // 华丽香槟金
-    out_d.drawString(footer_buf, 3, 230);
+    out_d.drawString(footer_buf, 3, 225);
+
+    // 绘制双色胶囊经验进度条 (Capsule EXP Progress Bar)
+    uint32_t base_e = growth_mgr.getCurrentLevelBaseExp();
+    uint32_t next_e = growth_mgr.getNextLevelExp();
+    float exp_ratio = 1.0f;
+    if (next_e > base_e) {
+        exp_ratio = constrain((float)(growth_mgr.getExp() - base_e) / (float)(next_e - base_e), 0.0f, 1.0f);
+    }
+    int bar_w = W - 6; // 129px
+    int fill_w = (int)(bar_w * exp_ratio);
+    out_d.fillRoundRect(3, 233, bar_w, 4, 2, 0x18C3); // 槽底
+    if (fill_w > 0) {
+        out_d.fillRoundRect(3, 233, fill_w, 4, 2, growth_mgr.getBadgeColor());
+    }
 }
 
 void setup() {
@@ -1185,11 +1257,48 @@ void setup() {
         deserializeJson(doc, args);
         if (name == "sticks3_control_bear") {
             const char* act_str = doc["action"] | "";
+            const char* combo_str = doc["combo"] | "";
             uint32_t dur = doc["duration_ms"] | 2800;
+            auto& gm = sticks3::BearGrowthManager::getInstance();
+            auto& kc = sticks3::BearKinematicsController::getInstance();
+
+            if (strlen(combo_str) > 0) {
+                bool ok = kc.triggerComboByName(combo_str);
+                if (ok) {
+                    Serial.printf("[MAIN-TOOL] Executed Bear Combo: %s\n", combo_str);
+                    return "{\"status\":\"success\",\"combo\":\"" + String(combo_str) + "\"}";
+                } else {
+                    uint8_t req = gm.getComboRequiredLevel(combo_str);
+                    uint32_t needed = (gm.getNextLevelExp() > gm.getExp()) ? (gm.getNextLevelExp() - gm.getExp()) : 0;
+                    Serial.printf("[MAIN-TOOL] Bear Combo '%s' LOCKED (Req: Lv.%u, Cur: Lv.%u)\n", combo_str, req, gm.getLevel());
+                    return "{\"status\":\"locked\",\"combo\":\"" + String(combo_str) + "\",\"required_level\":" + String(req) +
+                           ",\"current_level\":" + String(gm.getLevel()) + ",\"current_exp\":" + String(gm.getExp()) +
+                           ",\"needed_exp\":" + String(needed) + ",\"message\":\"组合技尚未解锁！请多陪我语音聊天升级。\"}";
+                }
+            }
+
             sticks3::BearAction act = sticks3::stringToBearAction(act_str);
-            sticks3::BearKinematicsController::getInstance().triggerAction(act, dur);
+            if (!gm.isActionUnlocked(act)) {
+                kc.triggerAction(sticks3::BEAR_ACT_LOCKED_TRY, 2400);
+                uint8_t req = gm.getRequiredLevel(act);
+                uint32_t needed = (gm.getNextLevelExp() > gm.getExp()) ? (gm.getNextLevelExp() - gm.getExp()) : 0;
+                Serial.printf("[MAIN-TOOL] Bear Action '%s' LOCKED (Req: Lv.%u, Cur: Lv.%u)\n", act_str, req, gm.getLevel());
+                return "{\"status\":\"locked\",\"action\":\"" + String(act_str) + "\",\"required_level\":" + String(req) +
+                       ",\"current_level\":" + String(gm.getLevel()) + ",\"current_exp\":" + String(gm.getExp()) +
+                       ",\"needed_exp\":" + String(needed) + ",\"message\":\"动作尚未解锁！需要更高等级，多陪我聊聊天就能学会啦～\"}";
+            }
+            kc.triggerAction(act, dur);
             Serial.printf("[MAIN-TOOL] Executed Bear Action: %s (%ums)\n", act_str, (unsigned)dur);
             return "{\"status\":\"success\",\"action\":\"" + String(act_str) + "\"}";
+        } else if (name == "sticks3_get_bear_skills") {
+            auto& gm = sticks3::BearGrowthManager::getInstance();
+            char buf[300];
+            uint32_t needed = (gm.getNextLevelExp() > gm.getExp()) ? (gm.getNextLevelExp() - gm.getExp()) : 0;
+            snprintf(buf, sizeof(buf),
+                     "{\"status\":\"success\",\"level\":%u,\"title\":\"%s\",\"exp\":%u,\"next_exp\":%u,\"needed_exp\":%u,\"rom\":%.2f}",
+                     (unsigned)gm.getLevel(), gm.getLevelTitle(), (unsigned)gm.getExp(), (unsigned)gm.getNextLevelExp(),
+                     (unsigned)needed, gm.getRomMultiplier());
+            return String(buf);
         } else if (name == "sticks3_set_avatar") {
             const char* exp_str = doc["expression"] | "";
             sticks3::AvatarMood mood = sticks3::MOOD_IDLE;
@@ -1456,6 +1565,35 @@ void loop() {
                         Serial.printf("@pet {\"active\":\"%s\",\"name\":\"%s\",\"options\":[\"jollybot\",\"qiaoqiao\"]}\n",
                                       (g_active_pet == PET_JOLLYBOT) ? "jollybot" : "qiaoqiao",
                                       (g_active_pet == PET_JOLLYBOT) ? "Meta Jollybot" : "灵伴悄悄");
+                    } else if (cmd_or_msg.startsWith(">exp+")) {
+                        uint16_t exp_add = cmd_or_msg.substring(5).toInt();
+                        if (exp_add == 0) exp_add = 50;
+                        bool up = sticks3::BearGrowthManager::getInstance().addExp(exp_add, "Serial-Hatch");
+                        if (up) {
+                            sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
+                            sticks3::StickS3Avatar::getInstance().setMood(sticks3::MOOD_HAPPY);
+                            sticks3::BearKinematicsController::getInstance().triggerAction(sticks3::BEAR_ACT_CHEER, 3500);
+                        }
+                        Serial.printf("@rpg {\"exp_added\":%u,\"level\":%u,\"total_exp\":%u,\"level_up\":%s}\n",
+                                      (unsigned)exp_add, (unsigned)sticks3::BearGrowthManager::getInstance().getLevel(),
+                                      (unsigned)sticks3::BearGrowthManager::getInstance().getExp(), up ? "true" : "false");
+                    } else if (cmd_or_msg.startsWith(">lvl=")) {
+                        uint8_t lvl_set = cmd_or_msg.substring(5).toInt();
+                        sticks3::BearGrowthManager::getInstance().setLevel(lvl_set);
+                        Serial.printf("@rpg {\"level\":%u,\"title\":\"%s\",\"total_exp\":%u}\n",
+                                      (unsigned)sticks3::BearGrowthManager::getInstance().getLevel(),
+                                      sticks3::BearGrowthManager::getInstance().getLevelTitle(),
+                                      (unsigned)sticks3::BearGrowthManager::getInstance().getExp());
+                    } else if (cmd_or_msg == ">skills" || cmd_or_msg == ">skill?") {
+                        auto& gm = sticks3::BearGrowthManager::getInstance();
+                        Serial.printf("@skills {\"level\":%u,\"title\":\"%s\",\"exp\":%u,\"next_exp\":%u,\"rom\":%.2f}\n",
+                                      (unsigned)gm.getLevel(), gm.getLevelTitle(), (unsigned)gm.getExp(),
+                                      (unsigned)gm.getNextLevelExp(), gm.getRomMultiplier());
+                    } else if (cmd_or_msg.startsWith(">combo=")) {
+                        String c_name = cmd_or_msg.substring(7);
+                        c_name.trim();
+                        bool ok = sticks3::BearKinematicsController::getInstance().triggerComboByName(c_name.c_str());
+                        Serial.printf("@combo {\"combo\":\"%s\",\"success\":%s}\n", c_name.c_str(), ok ? "true" : "false");
                     } else if (cmd_or_msg == "factory_reset" || cmd_or_msg == "reset_all") {
                         Serial.println("{\"type\":\"factory_reset\",\"status\":\"executing\"}");
                         sticks3::StickS3ConfigManager::getInstance().clearAllConfig();

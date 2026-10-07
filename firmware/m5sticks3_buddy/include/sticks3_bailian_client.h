@@ -833,11 +833,45 @@ static const char* DASHSCOPE_ROOT_CA =
         deserializeJson(d, args);
         if (name == "sticks3_control_bear") {
             const char* act_str = d["action"] | "";
+            const char* combo_str = d["combo"] | "";
             uint32_t dur = d["duration_ms"] | 2800;
+            auto& gm = BearGrowthManager::getInstance();
+            auto& kc = BearKinematicsController::getInstance();
+
+            if (strlen(combo_str) > 0) {
+                bool ok = kc.triggerComboByName(combo_str);
+                if (ok) {
+                    return "{\"status\":\"success\",\"combo\":\"" + String(combo_str) + "\"}";
+                } else {
+                    uint8_t req = gm.getComboRequiredLevel(combo_str);
+                    uint32_t needed = (gm.getNextLevelExp() > gm.getExp()) ? (gm.getNextLevelExp() - gm.getExp()) : 0;
+                    return "{\"status\":\"locked\",\"combo\":\"" + String(combo_str) + "\",\"required_level\":" + String(req) +
+                           ",\"current_level\":" + String(gm.getLevel()) + ",\"current_exp\":" + String(gm.getExp()) +
+                           ",\"needed_exp\":" + String(needed) + ",\"message\":\"组合技尚未解锁！请多陪我语音聊天升级。\"}";
+                }
+            }
+
             BearAction act = stringToBearAction(act_str);
-            BearKinematicsController::getInstance().triggerAction(act, dur);
-            Serial.printf("[BAILIAN-TOOL-DEFAULT] Bear action '%s' triggered\n", act_str);
-            return "{\"status\":\"success\",\"action\":\"" + String(act_str) + "\"}";
+            bool ok = kc.triggerAction(act, dur);
+            if (ok) {
+                Serial.printf("[BAILIAN-TOOL-DEFAULT] Bear action '%s' triggered\n", act_str);
+                return "{\"status\":\"success\",\"action\":\"" + String(act_str) + "\"}";
+            } else {
+                uint8_t req = gm.getRequiredLevel(act);
+                uint32_t needed = (gm.getNextLevelExp() > gm.getExp()) ? (gm.getNextLevelExp() - gm.getExp()) : 0;
+                return "{\"status\":\"locked\",\"action\":\"" + String(act_str) + "\",\"required_level\":" + String(req) +
+                       ",\"current_level\":" + String(gm.getLevel()) + ",\"current_exp\":" + String(gm.getExp()) +
+                       ",\"needed_exp\":" + String(needed) + ",\"message\":\"动作尚未解锁！需要更高等级，多陪我聊聊天就能学会啦～\"}";
+            }
+        } else if (name == "sticks3_get_bear_skills") {
+            auto& gm = BearGrowthManager::getInstance();
+            char buf[300];
+            uint32_t needed = (gm.getNextLevelExp() > gm.getExp()) ? (gm.getNextLevelExp() - gm.getExp()) : 0;
+            snprintf(buf, sizeof(buf),
+                     "{\"status\":\"success\",\"level\":%u,\"title\":\"%s\",\"exp\":%u,\"next_exp\":%u,\"needed_exp\":%u,\"rom\":%.2f}",
+                     (unsigned)gm.getLevel(), gm.getLevelTitle(), (unsigned)gm.getExp(), (unsigned)gm.getNextLevelExp(),
+                     (unsigned)needed, gm.getRomMultiplier());
+            return String(buf);
         } else if (name == "sticks3_set_avatar") {
             const char* exp_str = d["expression"] | "";
             AvatarMood m = MOOD_IDLE;
@@ -892,8 +926,13 @@ private:
         // 智能构建并注入多轮上下文记忆与肢体动作提示词
         String prompt_base = cfg.bailian_prompt;
         if (prompt_base.indexOf("sticks3_control_bear") == -1 && prompt_base.indexOf("[ACT:") == -1) {
-            prompt_base += " 你拥有生动的全身四肢与迪士尼拟人身体。当对话或被要求做动作时，请直接调用工具 sticks3_control_bear 或在回复文字中附带动作标签："
-                           "[ACT:wave]挥手、[ACT:clap]鼓掌、[ACT:dance]跳舞、[ACT:kungfu]功夫、[ACT:taichi]太极、[ACT:stretch]伸懒腰、[ACT:bow]鞠躬、[ACT:jump]跳跃、[ACT:sit]坐下、[ACT:lie]趴下、[ACT:cheer]欢呼、[ACT:balance]金鸡独立。"
+            prompt_base += " 你拥有生动的全身四肢与迪士尼拟人身体，并拥有5级RPG成长技能树(Lv.1萌新~Lv.5机甲元尊)。"
+                           "当对话或被要求做动作时，请调用工具 sticks3_control_bear 或在回复附带动作标签："
+                           "[ACT:wave]挥手、[ACT:bow]鞠躬、[ACT:sit]坐下、[ACT:stretch]伸懒腰、[ACT:clap]鼓掌、[ACT:cheer]欢呼、[ACT:jump]跳跃、"
+                           "[ACT:dance]跳舞、[ACT:balance]金鸡独立、[ACT:lie]趴下、[ACT:pushup]俯卧撑、[ACT:kungfu]功夫、[ACT:taichi]太极、"
+                           "[ACT:wingchun]咏春、[ACT:dragon_punch]升龙拳、[ACT:moonwalk]太空漫步、[ACT:cyber_defense]机甲护盾。"
+                           "还可触发组合技(greeting, fitness, martial, cyber_supreme)。"
+                           "若工具返回 locked，请用可爱拟人语气告知当前等级并鼓励多对话积攒经验升级！"
                            "每次回复开头可用方括号标注情绪标签：[E:happy]、[E:curious]、[E:proud]、[E:sleepy]、[E:dizzy]、[E:wink]或[E:idle]。";
         }
         String dynamic_prompt = StickS3MemoryStore::getInstance().buildMemoryContextPrompt(prompt_base);
@@ -939,34 +978,55 @@ private:
         // 设备端直连阿里云百炼：直接向 DashScope 注册原生具身控制与拟态表情 Function Calling 工具
         JsonArray tools = session["tools"].to<JsonArray>();
 
-        // 1. 小熊四肢运动控制
+        // 1. 小熊四肢运动控制 (含5级技能树动作与宏组合技)
         JsonObject tool_bear = tools.add<JsonObject>();
         tool_bear["type"] = "function";
         tool_bear["name"] = "sticks3_control_bear";
-        tool_bear["description"] = "控制 M5StickS3 小熊 (Meta Jollybot) 的四肢运动与身体姿态。动作包括：wave(挥手), clap(鼓掌), dance(跳舞), kungfu(中国功夫), taichi(太极), stretch(伸懒腰), bow(鞠躬), jump(跳跃), sit(坐下), lie(趴下), cheer(欢呼), balance(金鸡独立)。";
+        tool_bear["description"] = "控制 M5StickS3 小熊 (Meta Jollybot) 的四肢运动与身体姿态。动作按RPG技能树解锁，包含单体动作与多节组合技。";
         JsonObject bear_params = tool_bear["parameters"].to<JsonObject>();
         bear_params["type"] = "object";
         JsonObject bear_props = bear_params["properties"].to<JsonObject>();
         JsonObject act_prop = bear_props["action"].to<JsonObject>();
         act_prop["type"] = "string";
-        act_prop["description"] = "目标动作名称";
+        act_prop["description"] = "目标单体动作名称";
         JsonArray act_enum = act_prop["enum"].to<JsonArray>();
         act_enum.add("wave");
+        act_enum.add("bow");
+        act_enum.add("sit");
+        act_enum.add("stretch");
         act_enum.add("clap");
+        act_enum.add("cheer");
+        act_enum.add("jump");
+        act_enum.add("hands_up");
         act_enum.add("dance");
+        act_enum.add("balance");
+        act_enum.add("lie");
+        act_enum.add("pushup");
         act_enum.add("kungfu");
         act_enum.add("taichi");
-        act_enum.add("stretch");
-        act_enum.add("bow");
-        act_enum.add("jump");
-        act_enum.add("sit");
-        act_enum.add("lie");
-        act_enum.add("cheer");
-        act_enum.add("balance");
-        JsonArray bear_req = bear_params["required"].to<JsonArray>();
-        bear_req.add("action");
+        act_enum.add("wingchun");
+        act_enum.add("dragon_punch");
+        act_enum.add("moonwalk");
+        act_enum.add("cyber_defense");
 
-        // 2. 拟态表情设置
+        JsonObject combo_prop = bear_props["combo"].to<JsonObject>();
+        combo_prop["type"] = "string";
+        combo_prop["description"] = "宏组合技名称 (greeting, fitness, martial, cyber_supreme)";
+        JsonArray combo_enum = combo_prop["enum"].to<JsonArray>();
+        combo_enum.add("greeting");
+        combo_enum.add("fitness");
+        combo_enum.add("martial");
+        combo_enum.add("cyber_supreme");
+
+        // 2. 灵宠技能树与等级查询
+        JsonObject tool_skills = tools.add<JsonObject>();
+        tool_skills["type"] = "function";
+        tool_skills["name"] = "sticks3_get_bear_skills";
+        tool_skills["description"] = "查询小熊的当前成长等级(Lv.1~Lv.5)、头衔称号、经验值(EXP)以及距离下一级所需经验。";
+        JsonObject skills_params = tool_skills["parameters"].to<JsonObject>();
+        skills_params["type"] = "object";
+
+        // 3. 拟态表情设置
         JsonObject tool_avatar = tools.add<JsonObject>();
         tool_avatar["type"] = "function";
         tool_avatar["name"] = "sticks3_set_avatar";
@@ -989,7 +1049,7 @@ private:
         JsonArray av_req = av_params["required"].to<JsonArray>();
         av_req.add("expression");
 
-        // 3. 伴侣形象切换
+        // 4. 伴侣形象切换
         JsonObject tool_pet = tools.add<JsonObject>();
         tool_pet["type"] = "function";
         tool_pet["name"] = "sticks3_switch_pet";
@@ -1006,7 +1066,7 @@ private:
         JsonArray pet_req = pet_params["required"].to<JsonArray>();
         pet_req.add("pet");
 
-        // 4. 硬件遥测状态查询
+        // 5. 硬件遥测状态查询
         JsonObject tool_telem = tools.add<JsonObject>();
         tool_telem["type"] = "function";
         tool_telem["name"] = "get_device_telemetry";
