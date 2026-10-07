@@ -16,6 +16,7 @@
 - 严禁破坏现有基线（离线唤醒、百炼双工语音、物理打断、12种微表情、记忆压缩）
 
 ## 3. 提交与测试标准
-- 提交前必须全绿通过自动化回归测试：`pytest tests/ -v`
+- 提交前必须全绿通过具备实时进度展示与超时熔断控制的自动化回归测试：`python -u scripts/run_tests.py --timeout 120`
+- 严禁执行无进度、无超时的黑盒测试，全量测试必须设置全局与单测防卡死超时
 - 固件修改必须编译通过：`python -m platformio run -e m5sticks3_buddy`
 - 遵循 Conventional Commits 提交信息规范（如 `feat(...)`, `fix(...)`, `docs(...)`）

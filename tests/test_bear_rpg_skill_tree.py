@@ -393,3 +393,107 @@ def test_firmware_header_has_openpose_and_3d_engine():
     assert "triggerSpinPirouette" in src
     assert "setJointAngle" in src
     assert "clearJointOverrides" in src
+
+
+def test_bio_vestibular_dynamic_equilibrium_model():
+    """验证仿生前庭重力自平衡反射动力学模型及固件接口契约"""
+    def mock_solve_balance(roll, pitch, a_mag, diff_a, enabled=True):
+        if not enabled:
+            return {
+                "body_tilt": 0.0, "head_tilt": 0.0,
+                "l_arm_deg": 15.0, "r_arm_deg": 15.0,
+                "squat_y": 0.0, "is_balancing": False
+            }
+        
+        bal_body_tilt = max(-22.0, min(22.0, -roll * 0.40))
+        bal_head_tilt = max(-14.0, min(14.0, -roll * 0.25))
+        bal_l_arm_deg = 0.0
+        bal_r_arm_deg = 0.0
+        bal_squat_y = 0.0
+        is_balancing = False
+
+        if roll > 3.0:
+            bal_r_arm_deg = max(0.0, min(92.0, roll * 1.05))
+            bal_l_arm_deg = max(-20.0, min(0.0, -roll * 0.40))
+            is_balancing = True
+        elif roll < -3.0:
+            bal_l_arm_deg = max(0.0, min(92.0, -roll * 1.05))
+            bal_r_arm_deg = max(-20.0, min(0.0, roll * 0.40))
+            is_balancing = True
+
+        if pitch > 4.0:
+            bal_squat_y += max(0.0, min(8.0, pitch * 0.18))
+            bal_l_arm_deg += max(0.0, min(18.0, pitch * 0.30))
+            bal_r_arm_deg += max(0.0, min(18.0, pitch * 0.30))
+            is_balancing = True
+        elif pitch < -4.0:
+            bal_squat_y += max(0.0, min(6.0, -pitch * 0.12))
+            bal_l_arm_deg += max(-14.0, min(0.0, pitch * 0.20))
+            bal_r_arm_deg += max(-14.0, min(0.0, pitch * 0.20))
+            is_balancing = True
+
+        abs_roll = abs(roll)
+        if abs_roll > 14.0:
+            bal_squat_y += max(0.0, min(10.0, (abs_roll - 14.0) * 0.20))
+
+        if a_mag < 0.35:
+            bal_l_arm_deg = 125.0
+            bal_r_arm_deg = 125.0
+            bal_squat_y = -7.0
+            is_balancing = True
+        elif abs(diff_a) > 0.45:
+            bal_squat_y += max(0.0, min(12.0, abs(diff_a) * 7.5))
+
+        return {
+            "body_tilt": bal_body_tilt,
+            "head_tilt": bal_head_tilt,
+            "l_arm_deg": 15.0 + bal_l_arm_deg,
+            "r_arm_deg": 15.0 + bal_r_arm_deg,
+            "squat_y": bal_squat_y,
+            "is_balancing": is_balancing
+        }
+
+    # 1. 设备向右倾斜 20°: 躯干向左反向倾斜对抗重力，右臂外展上扬，左臂贴紧
+    right_tilt = mock_solve_balance(20.0, 0.0, 1.0, 0.0, enabled=True)
+    assert right_tilt["body_tilt"] < 0, "Body must counter-tilt to the left"
+    assert right_tilt["head_tilt"] < 0, "Head VOR must level gaze"
+    assert right_tilt["r_arm_deg"] > 30.0, "Right arm must extend outward"
+    assert right_tilt["l_arm_deg"] < 15.0, "Left arm must tuck in"
+    assert right_tilt["squat_y"] > 0, "Must squat to lower center of mass"
+    assert right_tilt["is_balancing"] is True
+
+    # 2. 设备向左倾斜 20°: 躯干向右反向倾斜，左臂外展上扬，右臂贴紧
+    left_tilt = mock_solve_balance(-20.0, 0.0, 1.0, 0.0, enabled=True)
+    assert left_tilt["body_tilt"] > 0, "Body must counter-tilt to the right"
+    assert left_tilt["l_arm_deg"] > 30.0, "Left arm must extend outward"
+    assert left_tilt["r_arm_deg"] < 15.0, "Right arm must tuck in"
+
+    # 3. 自由落体失重 (a_mag = 0.1g): 双臂高举惊吓，身体悬空
+    free_fall = mock_solve_balance(0.0, 0.0, 0.1, 0.9, enabled=True)
+    assert free_fall["l_arm_deg"] >= 135.0
+    assert free_fall["r_arm_deg"] >= 135.0
+    assert free_fall["squat_y"] == -7.0
+
+    # 4. 关闭自平衡开关: 偏移量全归零
+    disabled = mock_solve_balance(25.0, 15.0, 1.0, 0.0, enabled=False)
+    assert disabled["body_tilt"] == 0.0
+    assert disabled["l_arm_deg"] == 15.0
+    assert disabled["r_arm_deg"] == 15.0
+    assert disabled["is_balancing"] is False
+
+    # 5. 校验固件代码落地完整性
+    with open(FIRMWARE_HEADER, "r", encoding="utf-8") as f:
+        kh_src = f.read()
+    assert "_imu_balance_enabled" in kh_src
+    assert "setImuBalanceEnabled" in kh_src
+    assert "isImuBalanceEnabled" in kh_src
+    assert "bal_body_tilt" in kh_src
+    assert "bal_r_arm_deg" in kh_src
+    assert "is_imu_balanced" in kh_src
+
+    with open(MAIN_CPP, "r", encoding="utf-8") as f:
+        main_src = f.read()
+    assert ">balance=" in main_src
+    assert ">imu_balance=" in main_src
+    assert "@balance" in main_src
+

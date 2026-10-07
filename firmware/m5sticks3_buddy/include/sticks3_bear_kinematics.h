@@ -450,6 +450,7 @@ struct BearFullBodySkeleton {
     bool is_dragon_punch;
     bool is_cyber_defense;
     bool is_locked_try;
+    bool is_imu_balanced;
     float effect_phase; // 特效脉冲相位
 };
 
@@ -499,6 +500,7 @@ public:
         _turn_duration_ms = 0;
         _is_turning_around = false;
         _is_spinning = false;
+        _imu_balance_enabled = true;
         for (int i = 0; i < OP_JOINT_COUNT; i++) {
             _manual_joints[i] = {0.0f, 0.0f, 0.0f, false};
         }
@@ -581,6 +583,10 @@ public:
             _manual_joints[i].active = false;
         }
     }
+
+    // 前庭重力自平衡开关 (IMU Balance Reflex Toggle)
+    void setImuBalanceEnabled(bool en) { _imu_balance_enabled = en; }
+    bool isImuBalanceEnabled() const { return _imu_balance_enabled; }
 
     float getYaw() const { return _smooth_yaw_deg; }
     bool isTurnAround() const { return _is_turning_around; }
@@ -691,31 +697,97 @@ public:
             out_skel.squash_y -= bump_osc;
         }
 
-        // 3. 基础重心与躯干解算 (Center of Mass & Balance)
+        // 3. 仿生前庭重力自平衡反射动力学模型 (Bio-Vestibular Dynamic Equilibrium)
+        float bal_body_tilt = 0.0f;
+        float bal_head_tilt = 0.0f;
+        float bal_l_arm_deg = 0.0f;
+        float bal_r_arm_deg = 0.0f;
+        float bal_l_arm_ef = 0.0f;
+        float bal_r_arm_ef = 0.0f;
+        float bal_squat_y = 0.0f;
+        float bal_knee_l = 0.0f;
+        float bal_knee_r = 0.0f;
+        bool is_balancing = false;
+
+        if (_imu_balance_enabled) {
+            // (1) 横滚抗倾平衡力矩 (Roll Counter-Torque & VOR Gaze Leveling)
+            bal_body_tilt = constrain(-roll * 0.40f, -22.0f, 22.0f);
+            bal_head_tilt = constrain(-roll * 0.25f, -14.0f, 14.0f);
+
+            // (2) 走钢丝式展臂自平衡 (Tightrope Arm Parachute Reflex)
+            if (roll > 3.0f) {
+                bal_r_arm_deg = constrain(roll * 1.05f, 0.0f, 92.0f);
+                bal_r_arm_ef = constrain(roll * 0.16f, 0.0f, 10.0f);
+                bal_l_arm_deg = constrain(-roll * 0.40f, -20.0f, 0.0f);
+                is_balancing = true;
+            } else if (roll < -3.0f) {
+                bal_l_arm_deg = constrain(-roll * 1.05f, 0.0f, 92.0f);
+                bal_l_arm_ef = constrain(-roll * 0.16f, 0.0f, 10.0f);
+                bal_r_arm_deg = constrain(roll * 0.40f, -20.0f, 0.0f);
+                is_balancing = true;
+            }
+
+            // (3) 俯仰向抗倾自平衡 (Sagittal Balance Reflex)
+            if (pitch > 4.0f) {
+                bal_squat_y += constrain(pitch * 0.18f, 0.0f, 8.0f);
+                bal_l_arm_deg += constrain(pitch * 0.30f, 0.0f, 18.0f);
+                bal_r_arm_deg += constrain(pitch * 0.30f, 0.0f, 18.0f);
+                is_balancing = true;
+            } else if (pitch < -4.0f) {
+                bal_squat_y += constrain(-pitch * 0.12f, 0.0f, 6.0f);
+                bal_l_arm_deg += constrain(pitch * 0.20f, -14.0f, 0.0f);
+                bal_r_arm_deg += constrain(pitch * 0.20f, -14.0f, 0.0f);
+                is_balancing = true;
+            }
+
+            // (4) 下盘深蹲扎马步与单侧屈膝 (CoP Squat & Knee Flex)
+            float abs_roll = std::abs(roll);
+            if (abs_roll > 14.0f) {
+                bal_squat_y += constrain((abs_roll - 14.0f) * 0.20f, 0.0f, 10.0f);
+                if (roll > 0) {
+                    bal_knee_r += constrain((abs_roll - 14.0f) * 0.16f, 0.0f, 6.0f);
+                } else {
+                    bal_knee_l += constrain((abs_roll - 14.0f) * 0.16f, 0.0f, 6.0f);
+                }
+            }
+
+            // (5) 失重与跌落颠簸抗冲反射 (Tremor & Free-Fall Reflex)
+            if (a_mag < 0.35f) {
+                bal_l_arm_deg = 125.0f;
+                bal_r_arm_deg = 125.0f;
+                bal_squat_y = -7.0f; // 浮空抓取
+                is_balancing = true;
+            } else if (std::abs(diff_a) > 0.45f) {
+                bal_squat_y += constrain(std::abs(diff_a) * 7.5f, 0.0f, 12.0f);
+            }
+        }
+
+        // 3.5 基础重心与躯干解算 (Center of Mass & Balance)
         float tilt_dx = constrain(roll * 0.28f, -16.0f, 16.0f);
         float tilt_dy = constrain(pitch * 0.20f, -12.0f, 12.0f);
 
         float target_body_x = 67.0f + tilt_dx * 0.7f;
-        float target_body_y = 120.0f + tilt_dy * 0.5f + breath * 0.6f;
-        float target_body_tilt = constrain(roll * 0.16f, -14.0f, 14.0f);
-        float target_head_tilt = constrain(roll * 0.12f, -12.0f, 12.0f);
+        float target_body_y = 120.0f + tilt_dy * 0.5f + breath * 0.6f + bal_squat_y;
+        float target_body_tilt = bal_body_tilt;
+        float target_head_tilt = bal_head_tilt;
         float target_body_shift_x = 0.0f;
         float target_body_shift_y = 0.0f;
 
         out_skel.is_sitting = (_current_action == BEAR_ACT_SIT || mood == sticks3::MOOD_SLEEP);
         out_skel.is_lying = (_current_action == BEAR_ACT_LIE);
         out_skel.is_jumping = (_current_action == BEAR_ACT_JUMP);
-        out_skel.is_balance_one_leg = (_current_action == BEAR_ACT_BALANCE);
+        out_skel.is_balance_one_leg = (_current_action == BEAR_ACT_BALANCE || (is_balancing && std::abs(roll) > 28.0f));
         out_skel.is_pushup = (_current_action == BEAR_ACT_PUSHUP);
         out_skel.is_dragon_punch = (_current_action == BEAR_ACT_DRAGON_PUNCH);
         out_skel.is_cyber_defense = (_current_action == BEAR_ACT_CYBER_DEFENSE);
         out_skel.is_locked_try = (_current_action == BEAR_ACT_LOCKED_TRY);
+        out_skel.is_imu_balanced = is_balancing;
 
         // 4. 生物力学四肢目标姿态目标值 (Target Pose Definition)
-        float target_l_arm_deg = 15.0f + roll * 0.32f;
-        float target_r_arm_deg = 15.0f - roll * 0.32f;
-        float target_l_arm_fx = 0.0f, target_l_arm_fy = 0.0f, target_l_arm_ef = 0.0f;
-        float target_r_arm_fx = 0.0f, target_r_arm_fy = 0.0f, target_r_arm_ef = 0.0f;
+        float target_l_arm_deg = 15.0f + bal_l_arm_deg;
+        float target_r_arm_deg = 15.0f + bal_r_arm_deg;
+        float target_l_arm_fx = 0.0f, target_l_arm_fy = 0.0f, target_l_arm_ef = bal_l_arm_ef;
+        float target_r_arm_fx = 0.0f, target_r_arm_fy = 0.0f, target_r_arm_ef = bal_r_arm_ef;
 
         float target_l_leg_deg = 8.0f;
         float target_r_leg_deg = 8.0f;
@@ -1124,9 +1196,9 @@ public:
         float foot_ry = out_skel.body_y + 36.0f + out_skel.right_leg.flex_y;
 
         out_skel.knee_lx = (hip_lx + foot_lx) * 0.5f - 2.0f;
-        out_skel.knee_ly = (hip_ly + foot_ly) * 0.5f;
+        out_skel.knee_ly = (hip_ly + foot_ly) * 0.5f + bal_knee_l;
         out_skel.knee_rx = (hip_rx + foot_rx) * 0.5f + 2.0f;
-        out_skel.knee_ry = (hip_ry + foot_ry) * 0.5f;
+        out_skel.knee_ry = (hip_ry + foot_ry) * 0.5f + bal_knee_r;
 
         // 8. OpenPose 人形 23 关节点 3D 空间装配与透视相机投影 (3D Pose Assembly & Projection)
         out_skel.current_yaw_deg = _smooth_yaw_deg;
@@ -1194,7 +1266,8 @@ private:
           _smooth_body_shift_x(0.0f), _smooth_body_shift_y(0.0f),
           _target_yaw_deg(0.0f), _smooth_yaw_deg(0.0f),
           _turn_start_time(0), _turn_duration_ms(0),
-          _is_turning_around(false), _is_spinning(false) {
+          _is_turning_around(false), _is_spinning(false),
+          _imu_balance_enabled(true) {
         for (int i = 0; i < OP_JOINT_COUNT; i++) {
             _manual_joints[i] = {0.0f, 0.0f, 0.0f, false};
         }
@@ -1230,6 +1303,7 @@ private:
     uint32_t _turn_duration_ms;
     bool _is_turning_around;
     bool _is_spinning;
+    bool _imu_balance_enabled;
     JointManualConfig _manual_joints[OP_JOINT_COUNT];
 };
 

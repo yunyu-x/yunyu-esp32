@@ -36,3 +36,4 @@ minversion = "7.0"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 asyncio_mode = "auto"
+addopts = "-v --durations=10"

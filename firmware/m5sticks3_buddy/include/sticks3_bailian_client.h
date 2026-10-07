@@ -859,6 +859,11 @@ static const char* DASHSCOPE_ROOT_CA =
                 kc.setJointAngle(j_id, j_ang, 0.0f, 0.0f);
                 return "{\"status\":\"success\",\"joint_id\":" + String(j_id) + ",\"angle\":" + String(j_ang, 1) + "}";
             }
+            if (!d["balance"].isNull()) {
+                bool bal_en = d["balance"].as<bool>();
+                kc.setImuBalanceEnabled(bal_en);
+                return "{\"status\":\"success\",\"balance\":" + String(bal_en ? "true" : "false") + "}";
+            }
 
             if (strlen(combo_str) > 0) {
                 bool ok = kc.triggerComboByName(combo_str);

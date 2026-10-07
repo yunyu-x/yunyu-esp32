@@ -607,3 +607,135 @@
   border-color: transparent;
   box-shadow: 0 4rpx 16rpx rgba(191, 90, 242, 0.35);
 }
+
+/* ================= 3D 姿态与人形关节动力学控制舱 ================= */
+.posture-card {
+  background: var(--ios-secondary-bg, #1C1C1E);
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx;
+  padding: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.posture-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20rpx;
+  padding: 18rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.posture-row-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.posture-label {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #FF7A8A;
+}
+
+.sub-label {
+  font-size: 22rpx;
+  color: #8E8E93;
+}
+
+.posture-stunt-btns {
+  display: flex;
+  gap: 14rpx;
+  margin-top: 6rpx;
+}
+
+.btn-stunt {
+  flex: 1;
+  height: 64rpx;
+  min-height: 64rpx;
+  background: rgba(255, 122, 138, 0.12);
+  border: 0.5px solid rgba(255, 122, 138, 0.35);
+  color: #FF7A8A;
+  border-radius: 16rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  width: auto !important;
+}
+
+.balance-section {
+  padding: 16rpx 20rpx;
+}
+
+.balance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.balance-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.balance-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #10B981;
+}
+
+.balance-desc {
+  font-size: 19rpx;
+  color: #8E8E93;
+}
+
+.joint-section .posture-label {
+  color: #00E5FF;
+}
+
+.btn-joint-reset {
+  font-size: 20rpx;
+  color: #8E8E93;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999rpx;
+  padding: 4rpx 16rpx;
+  margin: 0;
+  width: auto !important;
+  line-height: 1.4;
+}
+
+.joint-picker-box {
+  background: rgba(0, 229, 255, 0.08);
+  border: 0.5px solid rgba(0, 229, 255, 0.25);
+  border-radius: 14rpx;
+  padding: 12rpx 16rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6rpx;
+}
+
+.picker-label {
+  font-size: 22rpx;
+  color: #8E8E93;
+}
+
+.picker-value {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #00E5FF;
+}
+
+.joint-slider-wrap {
+  margin-top: 6rpx;
+}

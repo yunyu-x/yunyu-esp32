@@ -1335,6 +1335,12 @@ void setup() {
                 Serial.printf("[MAIN-TOOL] Executed Bear Joint #%u: %.1f deg\n", (unsigned)j_id, j_ang);
                 return "{\"status\":\"success\",\"joint_id\":" + String(j_id) + ",\"angle\":" + String(j_ang, 1) + "}";
             }
+            if (!doc["balance"].isNull()) {
+                bool bal_en = doc["balance"].as<bool>();
+                kc.setImuBalanceEnabled(bal_en);
+                Serial.printf("[MAIN-TOOL] Executed Bear IMU Balance: %s\n", bal_en ? "ENABLED" : "DISABLED");
+                return "{\"status\":\"success\",\"balance\":" + String(bal_en ? "true" : "false") + "}";
+            }
 
             if (strlen(combo_str) > 0) {
                 bool ok = kc.triggerComboByName(combo_str);
@@ -1698,6 +1704,12 @@ void loop() {
                     } else if (cmd_or_msg == ">joint_clear" || cmd_or_msg == ">joints_reset") {
                         sticks3::BearKinematicsController::getInstance().clearJointOverrides();
                         Serial.printf("@joint {\"status\":\"cleared\",\"success\":true}\n");
+                    } else if (cmd_or_msg.startsWith(">balance=") || cmd_or_msg.startsWith(">imu_balance=")) {
+                        int eq_idx = cmd_or_msg.indexOf('=');
+                        String val_str = cmd_or_msg.substring(eq_idx + 1);
+                        bool en = (val_str == "1" || val_str == "true" || val_str == "on");
+                        sticks3::BearKinematicsController::getInstance().setImuBalanceEnabled(en);
+                        Serial.printf("@balance {\"enabled\":%s,\"success\":true}\n", en ? "true" : "false");
                     } else if (cmd_or_msg == "factory_reset" || cmd_or_msg == "reset_all") {
                         Serial.println("{\"type\":\"factory_reset\",\"status\":\"executing\"}");
                         sticks3::StickS3ConfigManager::getInstance().clearAllConfig();

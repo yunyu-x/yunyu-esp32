@@ -34,6 +34,7 @@
 #include "sticks3_system_metrics.h"
 #include "sticks3_wakeword.h"
 #include "sticks3_avatar.h"
+#include "sticks3_bear_kinematics.h"
 
 namespace sticks3 {
 
@@ -1867,6 +1868,29 @@ private:
                 String clean;
                 AvatarMood m = avatar.parseEmotionTag("[E:" + m_str + "]", clean);
                 avatar.setMood(m);
+            } else if (act == "yaw" || act == "bear_yaw") {
+                float y = _web_server.hasArg("yaw") ? _web_server.arg("yaw").toFloat() : (_web_server.hasArg("value") ? _web_server.arg("value").toFloat() : 0.0f);
+                BearKinematicsController::getInstance().setTargetYaw(y);
+            } else if (act == "turn" || act == "bear_turn") {
+                float deg = _web_server.hasArg("deg") ? _web_server.arg("deg").toFloat() : 180.0f;
+                if (deg >= 300.0f) {
+                    BearKinematicsController::getInstance().triggerSpinPirouette(1800);
+                } else {
+                    BearKinematicsController::getInstance().triggerTurnAround(1400);
+                }
+            } else if (act == "spin" || act == "bear_spin") {
+                BearKinematicsController::getInstance().triggerSpinPirouette(1800);
+            } else if (act == "joint" || act == "bear_joint") {
+                uint8_t j_id = _web_server.hasArg("id") ? _web_server.arg("id").toInt() : 0;
+                float j_ang = _web_server.hasArg("angle") ? _web_server.arg("angle").toFloat() : (_web_server.hasArg("value") ? _web_server.arg("value").toFloat() : 0.0f);
+                BearKinematicsController::getInstance().setJointAngle(j_id, j_ang, 0.0f, 0.0f);
+            } else if (act == "joint_clear" || act == "bear_joint_clear") {
+                BearKinematicsController::getInstance().clearJointOverrides();
+            } else if (act == "balance" || act == "bear_balance") {
+                bool en = true;
+                if (_web_server.hasArg("enabled")) en = (_web_server.arg("enabled") == "true" || _web_server.arg("enabled") == "1");
+                else if (_web_server.hasArg("value")) en = (_web_server.arg("value") == "true" || _web_server.arg("value") == "1");
+                BearKinematicsController::getInstance().setImuBalanceEnabled(en);
             }
 
             const auto& st = avatar.getStats();

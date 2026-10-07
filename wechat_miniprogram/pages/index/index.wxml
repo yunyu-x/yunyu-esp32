@@ -175,6 +175,88 @@
     </view>
   </view>
 
+  <!-- 3D 姿态与人形关节动力学控制舱 (Apple HIG 拟物卡片) -->
+  <view class="posture-card">
+    <view class="section-title">
+      <text>🧸 3D 姿态与人形关节动力学</text>
+      <text class="section-sub">支持 3D 空间偏航、180°转身露尾巴、360°自旋与 23 点关节微调</text>
+    </view>
+
+    <!-- 1. 3D 偏航旋转与特技 -->
+    <view class="posture-section">
+      <view class="posture-row-title">
+        <text class="posture-label">🔄 3D 偏航旋转 (Yaw: {{bearYaw}}°)</text>
+      </view>
+      <slider 
+        min="0" 
+        max="360" 
+        value="{{bearYaw}}" 
+        step="5" 
+        activeColor="#FF7A8A" 
+        backgroundColor="#2A2A38" 
+        block-size="20" 
+        block-color="#FFFFFF" 
+        show-value 
+        bindchange="handleYawChange"
+        bindchanging="handleYawChange"
+      />
+      <view class="posture-stunt-btns">
+        <button class="btn-stunt" bindtap="handleTurn180">
+          <text>🔄 180° 转身看背影</text>
+        </button>
+        <button class="btn-stunt" bindtap="handleSpin360">
+          <text>🩰 360° 芭蕾自旋</text>
+        </button>
+      </view>
+    </view>
+
+    <!-- 2. BMI270 物理重力姿态自平衡 -->
+    <view class="posture-section balance-section">
+      <view class="balance-header">
+        <view class="balance-title-group">
+          <text class="balance-title">⚖️ BMI270 物理重力自平衡</text>
+          <text class="balance-desc">倾斜或摇晃物理设备，小熊实时展臂屈膝对抗重力</text>
+        </view>
+        <switch 
+          checked="{{imuBalanceEnabled}}" 
+          color="#10B981" 
+          bindchange="handleToggleImuBalance"
+        />
+      </view>
+    </view>
+
+    <!-- 3. OpenPose 人形关节精细调谐器 -->
+    <view class="posture-section joint-section">
+      <view class="posture-row-title">
+        <text class="posture-label">🦾 OpenPose 独立关节微调</text>
+        <button class="btn-joint-reset" bindtap="handleClearJoints">复位姿态</button>
+      </view>
+      <picker range="{{jointNames}}" value="{{selectedJointIndex}}" bindchange="handleJointSelect">
+        <view class="joint-picker-box">
+          <text class="picker-label">目标关节:</text>
+          <text class="picker-value">{{jointNames[selectedJointIndex]}} ▾</text>
+        </view>
+      </picker>
+      <view class="joint-slider-wrap">
+        <view class="posture-row-title">
+          <text class="sub-label">偏转角度 ({{selectedJointAngle > 0 ? '+' : ''}}{{selectedJointAngle}}°):</text>
+        </view>
+        <slider 
+          min="-90" 
+          max="90" 
+          value="{{selectedJointAngle}}" 
+          step="5" 
+          activeColor="#00E5FF" 
+          backgroundColor="#2A2A38" 
+          block-size="18" 
+          block-color="#FFFFFF" 
+          show-value 
+          bindchange="handleJointAngleChange"
+        />
+      </view>
+    </view>
+  </view>
+
   <!-- 连接与信道快捷栏 -->
   <view class="connect-grid">
     <button class="btn-connect {{isBleMode ? 'btn-active' : ''}}" bindtap="handleToggleBle">

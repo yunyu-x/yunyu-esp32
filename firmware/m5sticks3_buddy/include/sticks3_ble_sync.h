@@ -22,6 +22,7 @@
 #include "sticks3_audio.h"
 #include "sticks3_bailian_client.h"
 #include "sticks3_wakeword.h"
+#include "sticks3_bear_kinematics.h"
 
 namespace sticks3 {
 
@@ -548,6 +549,39 @@ public:
             StickS3WakeWordEngine::getInstance().forceTrigger(conf);
             StickS3BailianClient::getInstance().onWakeWordDetected(conf, 650);
             Serial.println("[BLE-INJECT] Wake simulated via BLE.");
+        } else if (action == "bear_balance" || action == "balance" || action == "imu_balance") {
+            bool en = true;
+            if (!doc["enabled"].isNull()) en = parseJsonBool(doc["enabled"], true);
+            else if (!doc["value"].isNull()) en = parseJsonBool(doc["value"], true);
+            BearKinematicsController::getInstance().setImuBalanceEnabled(en);
+            Serial.printf("[BLE-INJECT] Bear IMU Balance set to %s\n", en ? "ON" : "OFF");
+        } else if (action == "bear_yaw" || action == "yaw") {
+            float y_val = 0.0f;
+            if (!doc["yaw"].isNull()) y_val = doc["yaw"].as<float>();
+            else if (!doc["value"].isNull()) y_val = doc["value"].as<float>();
+            BearKinematicsController::getInstance().setTargetYaw(y_val);
+            Serial.printf("[BLE-INJECT] Bear Yaw set to %.1f deg\n", y_val);
+        } else if (action == "bear_turn" || action == "turn") {
+            float deg = 180.0f;
+            if (!doc["deg"].isNull()) deg = doc["deg"].as<float>();
+            else if (!doc["value"].isNull()) deg = doc["value"].as<float>();
+            if (deg >= 300.0f) {
+                BearKinematicsController::getInstance().triggerSpinPirouette(1800);
+            } else {
+                BearKinematicsController::getInstance().triggerTurnAround(1400);
+            }
+            Serial.printf("[BLE-INJECT] Bear Turn triggered (%.0f deg)\n", deg);
+        } else if (action == "bear_spin" || action == "spin") {
+            BearKinematicsController::getInstance().triggerSpinPirouette(1800);
+            Serial.println("[BLE-INJECT] Bear Spin triggered");
+        } else if (action == "bear_joint" || action == "joint") {
+            uint8_t j_id = doc["id"] | (doc["joint_id"] | 0);
+            float j_ang = doc["angle"] | (doc["val"] | (doc["value"] | 0.0f));
+            BearKinematicsController::getInstance().setJointAngle(j_id, j_ang, 0.0f, 0.0f);
+            Serial.printf("[BLE-INJECT] Bear Joint #%u angle set to %.1f deg\n", (unsigned)j_id, j_ang);
+        } else if (action == "bear_joint_clear" || action == "joint_clear" || action == "joints_reset") {
+            BearKinematicsController::getInstance().clearJointOverrides();
+            Serial.println("[BLE-INJECT] Bear Joint overrides cleared");
         } else if (action == "query_wifi_status" || action == "get_status") {
             // 立即刷新并推送特征值
             updateSnapshots();

@@ -1137,6 +1137,91 @@ class BuddyService {
 
     return { success: true, bleOk, wifiOk };
   }
+
+  // 3D 偏航旋转控制
+  async setBearYaw(yawDeg) {
+    const yaw = parseFloat(yawDeg) || 0.0;
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("bear_yaw", { action: "bear_yaw", yaw });
+      return { success: true, mode: "ble", yaw };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("yaw", { yaw });
+      return { success: true, mode: "wifi", yaw };
+    }
+    return { success: true, mode: "sim", yaw };
+  }
+
+  // 180° 萌趣转身特技
+  async triggerBearTurn(deg = 180) {
+    haptics.vibrate("medium");
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("bear_turn", { action: "bear_turn", deg });
+      return { success: true, mode: "ble", deg };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("turn", { deg });
+      return { success: true, mode: "wifi", deg };
+    }
+    return { success: true, mode: "sim", deg };
+  }
+
+  // 360° 芭蕾旋转自旋特技
+  async triggerBearSpin() {
+    haptics.vibrate("heavy");
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("bear_spin", { action: "bear_spin" });
+      return { success: true, mode: "ble" };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("spin");
+      return { success: true, mode: "wifi" };
+    }
+    return { success: true, mode: "sim" };
+  }
+
+  // OpenPose 独立关节控制
+  async setBearJoint(jointId, angle) {
+    const id = parseInt(jointId, 10) || 0;
+    const ang = parseFloat(angle) || 0.0;
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("bear_joint", { action: "bear_joint", id, angle: ang });
+      return { success: true, mode: "ble", id, angle: ang };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("joint", { id, angle: ang });
+      return { success: true, mode: "wifi", id, angle: ang };
+    }
+    return { success: true, mode: "sim", id, angle: ang };
+  }
+
+  // 清空关节覆盖复位
+  async clearBearJoints() {
+    haptics.vibrate("light");
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("bear_joint_clear", { action: "bear_joint_clear" });
+      return { success: true, mode: "ble" };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("joint_clear");
+      return { success: true, mode: "wifi" };
+    }
+    return { success: true, mode: "sim" };
+  }
+
+  // BMI270 重力自平衡开关
+  async setImuBalance(enabled) {
+    const en = Boolean(enabled);
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("bear_balance", { action: "bear_balance", enabled: en });
+      return { success: true, mode: "ble", enabled: en };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("balance", { enabled: en ? "1" : "0" });
+      return { success: true, mode: "wifi", enabled: en };
+    }
+    return { success: true, mode: "sim", enabled: en };
+  }
 }
 
 const buddyService = new BuddyService();

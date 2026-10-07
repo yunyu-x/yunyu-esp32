@@ -28,7 +28,7 @@
 | **公理二** | **中断与协议异步解耦公理**<br/>(Async Decoupling Law) | 严禁在 Bluedroid `BTC_TASK`（仅 ~3KB 栈）中执行 Flash 读写、WiFi 重连或动态 JSON 反序列化。 | 仅在自旋锁内向微栈队列入队字节（< 32B），在 `loopTask` 中异步消费。 |
 | **公理三** | **显存零撕裂双缓冲物理公理**<br/>(Zero-Tear Double Buffer Law) | 严禁在 ST7789 物理屏幕上分步清屏或直接绘制控件（会导致 15Hz 剧烈频闪）。 | 在 8MB PSRAM 中开辟 135×240 精灵画布（`LGFX_Sprite`），离线合成后 DMA 单次原子推送。 |
 | **公理四** | **网络显式区分与一致性公理**<br/>(Explicit Network Coherence Law) | 严禁混淆手机热点与宽带 Wi-Fi；严禁小程序主页与设置页数据源出现逻辑分歧。 | 手机热点显式亮橙底 "HOT" 并开启流量熔断保护；宽带显式亮绿底 "WiFi"；断网亮红底 "!NET"。 |
-| **公理五** | **零功能回退与渐进加固公理**<br/>(Non-Regression Law) | 严禁因新增特性导致已有核心基线（唤醒词/百炼语音/打断/表情/记忆/I2C互斥锁）劣化。 | 每次提交前必须全绿通过 80 项自动化回归测试 (`pytest tests/ -v`)。 |
+| **公理五** | **零功能回退与渐进加固公理**<br/>(Non-Regression Law) | 严禁无进度无超时运行黑盒测试，严禁因新增特性导致已有核心基线劣化。 | 每次提交前必须全绿通过具备**实时逐项进度展示**与**超时熔断守护**（默认 120s，单测防卡死 25s）的自动化回归测试 (`python -u scripts/run_tests.py --timeout 120`)。 |
 | **公理六** | **自适应协议与防截断编码公理**<br/>(Adaptive Encoding Law) | 严禁跨字节撕裂截断多字节 UTF-8 中文字符（会导致 WebSocket 1007 协议崩溃）。 | 长文本支持自适应分包拼帧；截断必须调用 `safeTruncateUtf8` 字符级边界保护器。 |
 
 ---
@@ -36,8 +36,8 @@
 ## 3. 标准开发流水线与验证命令 (Standard Verification Flow)
 
 ```powershell
-# 1. 运行全套 80 项自动化测试 (必须 100% 通过)
-pytest tests/ -v
+# 1. 运行全套自动化测试 (必须具备实时进度展示与超时熔断控制，100% 通过)
+python -u scripts/run_tests.py --timeout 120
 
 # 2. 编译 StickS3 嵌入式固件
 python -m platformio run -e m5sticks3_buddy

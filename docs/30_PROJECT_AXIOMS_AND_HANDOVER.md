@@ -144,9 +144,9 @@ graph TD
   ```powershell
   python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"
   ```
-- **回归测试全家桶**：
+- **回归测试全家桶（实时进度条 + 120s 超时熔断保护）**：
   ```powershell
-  python -m pytest tests/test_avatar_and_empathy.py tests/test_wifi_hotspot_and_quota.py tests/test_wakeword_engine.py tests/test_wifi_and_bailian_pipeline.py tests/test_audio_stream_pipeline.py tests/test_firmware_driver_suite.py tests/test_vector_knowledge_base.py -v
+  python -u scripts/run_tests.py --timeout 120
   ```
 
 ### 4. 建议后续继续推进的方向 (Next Potential Tasks)

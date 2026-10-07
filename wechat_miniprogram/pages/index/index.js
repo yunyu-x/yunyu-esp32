@@ -57,7 +57,33 @@ Page({
     selectedSnackIndex: 0,
 
     memoryCount: 0,
-    latestMemory: null
+    latestMemory: null,
+
+    // 3D 姿态与关节动力学
+    bearYaw: 0,
+    imuBalanceEnabled: true,
+    jointList: [
+      { id: 8, name: "右臂肩关节 (R_Shoulder)" },
+      { id: 11, name: "左臂肩关节 (L_Shoulder)" },
+      { id: 9, name: "右肘关节 (R_Elbow)" },
+      { id: 12, name: "左肘关节 (L_Elbow)" },
+      { id: 1, name: "颈部头部 (Neck/Head)" },
+      { id: 6, name: "脊柱胸腔 (Spine)" },
+      { id: 15, name: "右膝关节 (R_Knee)" },
+      { id: 18, name: "左膝关节 (L_Knee)" }
+    ],
+    jointNames: [
+      "右臂肩关节 (R_Shoulder)",
+      "左臂肩关节 (L_Shoulder)",
+      "右肘关节 (R_Elbow)",
+      "左肘关节 (L_Elbow)",
+      "颈部头部 (Neck/Head)",
+      "脊柱胸腔 (Spine)",
+      "右膝关节 (R_Knee)",
+      "左膝关节 (L_Knee)"
+    ],
+    selectedJointIndex: 0,
+    selectedJointAngle: 0
   },
 
   onLoad() {
@@ -308,6 +334,49 @@ Page({
     const isSim = this.buddyService.toggleSim();
     haptics.vibrate("light");
     wx.showToast({ title: isSim ? "进入演示仿真模式" : "退出演示模式", icon: "none" });
+  },
+
+  // 6. 3D 姿态与关节动力学处理
+  handleYawChange(e) {
+    const yaw = Number(e.detail.value) || 0;
+    this.setData({ bearYaw: yaw });
+    this.buddyService.setBearYaw(yaw);
+  },
+
+  handleTurn180() {
+    this.buddyService.triggerBearTurn(180);
+    this.setData({ bearYaw: 180 });
+    wx.showToast({ title: "小熊转身秀尾巴~", icon: "none" });
+  },
+
+  handleSpin360() {
+    this.buddyService.triggerBearSpin();
+    wx.showToast({ title: "360° 芭蕾自旋！", icon: "none" });
+  },
+
+  handleToggleImuBalance(e) {
+    const en = Boolean(e.detail.value);
+    this.setData({ imuBalanceEnabled: en });
+    this.buddyService.setImuBalance(en);
+    wx.showToast({ title: en ? "重力平衡已开启" : "重力平衡已关闭", icon: "none" });
+  },
+
+  handleJointSelect(e) {
+    const idx = Number(e.detail.value) || 0;
+    this.setData({ selectedJointIndex: idx, selectedJointAngle: 0 });
+  },
+
+  handleJointAngleChange(e) {
+    const ang = Number(e.detail.value) || 0;
+    this.setData({ selectedJointAngle: ang });
+    const jId = this.data.jointList[this.data.selectedJointIndex].id;
+    this.buddyService.setBearJoint(jId, ang);
+  },
+
+  handleClearJoints() {
+    this.setData({ selectedJointAngle: 0 });
+    this.buddyService.clearBearJoints();
+    wx.showToast({ title: "全身姿态已复位", icon: "none" });
   },
 
   // Tab 页面跳转导航

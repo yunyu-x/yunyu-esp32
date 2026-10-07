@@ -51,10 +51,16 @@ class StickS3HttpClient {
     return this._req("/pet/status");
   }
 
-  // 2. 下发拓麻歌子互动指令 (隔空投喂 / 梳毛 / 击掌 / 抚摸 / 模式切换)
+  // 2. 下发拓麻歌子互动指令 (隔空投喂 / 梳毛 / 击掌 / 抚摸 / 模式切换 / 3D 姿态与关节动力学)
   sendPetAction(action, item = "") {
     let data = `action=${encodeURIComponent(action)}`;
-    if (item) data += `&item=${encodeURIComponent(item)}`;
+    if (typeof item === "object" && item !== null) {
+      Object.keys(item).forEach(k => {
+        data += `&${encodeURIComponent(k)}=${encodeURIComponent(item[k])}`;
+      });
+    } else if (item) {
+      data += `&item=${encodeURIComponent(item)}`;
+    }
     return this._req("/pet/action", { method: "POST", data, contentType: "application/x-www-form-urlencoded" });
   }
 

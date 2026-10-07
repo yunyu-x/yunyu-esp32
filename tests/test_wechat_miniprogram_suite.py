@@ -390,4 +390,91 @@ def test_voice_preview_engine_and_dual_channel_contract():
     assert "SUCCESS" in res.stdout
 
 
+def test_3d_posture_and_joint_control_contracts():
+    """验证微信小程序端 3D 姿态控制舱、偏航旋转、BMI270重力自平衡与 OpenPose 独立关节控制契约"""
+    # 1. 验证 index.wxml 包含 3D 姿态卡片与各交互组件
+    wxml_path = os.path.join(MP_DIR, "pages", "index", "index.wxml")
+    with open(wxml_path, "r", encoding="utf-8") as f:
+        wxml_src = f.read()
+    assert "posture-card" in wxml_src
+    assert "handleYawChange" in wxml_src
+    assert "handleTurn180" in wxml_src
+    assert "handleSpin360" in wxml_src
+    assert "handleToggleImuBalance" in wxml_src
+    assert "handleJointSelect" in wxml_src
+    assert "handleJointAngleChange" in wxml_src
+    assert "handleClearJoints" in wxml_src
+
+    # 2. 验证 index.js 包含对应数据与事件处理函数
+    idx_js_path = os.path.join(MP_DIR, "pages", "index", "index.js")
+    with open(idx_js_path, "r", encoding="utf-8") as f:
+        idx_src = f.read()
+    assert "bearYaw:" in idx_src
+    assert "imuBalanceEnabled:" in idx_src
+    assert "jointList:" in idx_src
+    assert "jointNames:" in idx_src
+    assert "handleYawChange(e)" in idx_src
+    assert "handleTurn180()" in idx_src
+    assert "handleSpin360()" in idx_src
+    assert "handleToggleImuBalance(e)" in idx_src
+    assert "handleJointSelect(e)" in idx_src
+    assert "handleJointAngleChange(e)" in idx_src
+    assert "handleClearJoints()" in idx_src
+
+    # 3. 验证 buddy_service.js 导出对应的 3D 与关节控制接口
+    bs_path = os.path.join(MP_DIR, "utils", "buddy_service.js")
+    with open(bs_path, "r", encoding="utf-8") as f:
+        bs_src = f.read()
+    assert "setBearYaw(yawDeg)" in bs_src
+    assert "triggerBearTurn(deg = 180)" in bs_src
+    assert "triggerBearSpin()" in bs_src
+    assert "setBearJoint(jointId, angle)" in bs_src
+    assert "clearBearJoints()" in bs_src
+    assert "setImuBalance(enabled)" in bs_src
+
+    # 4. 验证 Node.js 执行 buddy_service 方法调用契约
+    node_script = """
+    // Mock wx storage and environment
+    global.wx = {
+        getStorageSync: () => ({}),
+        setStorageSync: () => {},
+        vibrateShort: () => {},
+        showToast: () => {},
+        request: (options) => {
+            if (options && options.success) options.success({ statusCode: 200, data: { status: "ok" } });
+        }
+    };
+    const { buddyService } = require('./wechat_miniprogram/utils/buddy_service.js');
+    (async () => {
+        const r1 = await buddyService.setBearYaw(90);
+        if (!r1.success || r1.yaw !== 90) throw new Error("setBearYaw failed");
+
+        const r2 = await buddyService.triggerBearTurn(180);
+        if (!r2.success || r2.deg !== 180) throw new Error("triggerBearTurn failed");
+
+        const r3 = await buddyService.triggerBearSpin();
+        if (!r3.success) throw new Error("triggerBearSpin failed");
+
+        const r4 = await buddyService.setBearJoint(8, 45);
+        if (!r4.success || r4.id !== 8 || r4.angle !== 45) throw new Error("setBearJoint failed");
+
+        const r5 = await buddyService.clearBearJoints();
+        if (!r5.success) throw new Error("clearBearJoints failed");
+
+        const r6 = await buddyService.setImuBalance(true);
+        if (!r6.success || r6.enabled !== true) throw new Error("setImuBalance failed");
+
+        console.log("SUCCESS: All 3D posture and joint methods validated in Node!");
+        process.exit(0);
+    })().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+    """
+    res = subprocess.run(["node", "-e", node_script], cwd=ROOT_DIR, capture_output=True, text=True, timeout=10)
+    assert res.returncode == 0, f"3D姿态服务调用测试失败: {res.stderr}\n{res.stdout}"
+    assert "SUCCESS" in res.stdout
+
+
+
 
