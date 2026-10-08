@@ -278,6 +278,23 @@
 
 ---
 
+### 方向 17：精致动漫原型服饰挂件与高保真动态光影定制 (Exquisite Costumes & Dynamic Cel-Shading)
+
+```markdown
+【本次开发目标】：精致动漫原型服饰挂件与高保真动态光影定制
+在 JollyBot 融合《疯狂动物城》探险战术马甲与《功夫熊猫》武僧双弧编织护腕/护踝（85+ FPS 零撕裂稳定运行）的基础上：
+1. 探险巡警多套动态可换服饰系统 (Dynamic Costume Switcher)：
+   - 支持通过小程序与百炼自然语言下发服饰换装（如：[COSTUME:police_vest] 经典战术马甲、[COSTUME:kungfu_robe] 东方云纹道袍、[COSTUME:cyber_armor] 赛博高光合金机甲）；
+2. 动态光照投影与边缘逆光着色器 (Dynamic Cel-Shading & Rim-Light Shifter)：
+   - 根据 BMI270 重力与当前偏航角度动态计算光源矢量，实时将边缘金光高光 (`ANIME_COL_RIMLIGHT`) 与接触阴影平滑移动；
+3. 四肢布料微物理飘带解算 (Ribbon & Tassel Micro-Physics)：
+   - 为功夫腰封和马甲领口增加两根具备重力与角加速度阻尼的飘逸流苏，伴随招式挥舞产生二次跟随动作；
+4. 约束：
+   - 必须严格遵守六大不可违背工程公理，PSRAM 135x240 双缓冲原子推送，严禁产生内存泄漏与掉帧。
+```
+
+---
+
 ## 三、 代码提交与交接执行准则 (Commit SOP for Agents)
 
 所有后续 Agent 在完成任何阶段性功能开发并准备提交代码时，必须执行以下标准化闭环：

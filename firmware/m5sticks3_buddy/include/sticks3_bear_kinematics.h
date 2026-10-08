@@ -33,6 +33,14 @@ constexpr uint16_t ANIME_COL_BELLY     = 0xFFFE; // 奶油肚肚圆贴 (Vanilla 
 constexpr uint16_t ANIME_COL_BELLY_SHD = 0xCE58; // 肚肚阴影轮廓
 constexpr uint16_t ANIME_COL_PAD       = 0xFCB2; // 樱花粉肉垫与腮红 (Paws & Blush)
 constexpr uint16_t ANIME_COL_EYE_IRIS  = 0x35BF; // 灵动深海蓝紫虹膜 (Anime Eye Iris)
+// 疯狂动物城探险马甲与功夫护腕编织扩展调色板 (Zootopia Tactical & Kung Fu Wraps Palette - RGB565)
+constexpr uint16_t ANIME_COL_VEST_MAIN  = 0x1949; // 探险战术马甲午夜海军蓝 (Midnight Navy Blue)
+constexpr uint16_t ANIME_COL_VEST_DARK  = 0x08A4; // 战术马甲背光阴影 (Vest Shadow)
+constexpr uint16_t ANIME_COL_VEST_GOLD  = 0xFE60; // 战术马甲金光滚边与拉链徽章 (Brass Gold Trim)
+constexpr uint16_t ANIME_COL_WRAP_BASE  = 0xEF59; // 功夫护腕/绑腿质感帆布米白底 (Woven Canvas Base)
+constexpr uint16_t ANIME_COL_WRAP_LINE  = 0xAD55; // 绑带交叉阴影编织缝线 (Woven Stitch Line)
+constexpr uint16_t ANIME_COL_EAR_INNER  = 0xFD56; // 狐兔多层内耳丝绒暖粉 (Inner Ear Velvet Pink)
+constexpr uint16_t ANIME_COL_SNOUT      = 0xFFFD; // 吻部立体软糯白 (Soft Snout Cream)
 
 // 肢体宏动作枚举 (按 5 级技能树递进组织)
 enum BearAction {

@@ -153,6 +153,65 @@ class AvatarRenderer {
       ctx.fill();
     };
 
+    // 绘制疯狂动物城立体狐兔大耳 (朱迪/尼克多层修长耳廓)
+    const drawZootopiaEars = () => {
+      // 左耳 (外耳焦糖 + 内耳樱粉)
+      ctx.fillStyle = "#d98236";
+      this.drawRoundRect(ctx, 24, 22, 18, 38, 9);
+      ctx.fill();
+      ctx.fillStyle = "#f472b6";
+      this.drawRoundRect(ctx, 28, 28, 10, 26, 5);
+      ctx.fill();
+      // 右耳
+      ctx.fillStyle = "#d98236";
+      this.drawRoundRect(ctx, 93, 22, 18, 38, 9);
+      ctx.fill();
+      ctx.fillStyle = "#f472b6";
+      this.drawRoundRect(ctx, 97, 28, 10, 26, 5);
+      ctx.fill();
+      // 耳根白绒毛簇
+      ctx.fillStyle = "#fff7ed";
+      ctx.beginPath();
+      ctx.arc(33, 56, 4.5, 0, Math.PI * 2);
+      ctx.arc(102, 56, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    // 绘制颊侧灵动毛簇 (Cheek Fur Tufts)
+    const drawCheekTufts = () => {
+      ctx.fillStyle = "#d98236";
+      ctx.beginPath();
+      ctx.moveTo(12, 85); ctx.lineTo(4, 91); ctx.lineTo(13, 95); ctx.lineTo(5, 99); ctx.lineTo(14, 103);
+      ctx.moveTo(123, 85); ctx.lineTo(131, 91); ctx.lineTo(122, 95); ctx.lineTo(130, 99); ctx.lineTo(121, 103);
+      ctx.fill();
+    };
+
+    // 绘制立体微凸软糯吻部与黑松露高光纽扣鼻
+    const drawSnoutAndNose = () => {
+      ctx.fillStyle = "#fff7ed";
+      this.drawRoundRect(ctx, mouth_x - 18, mouth_y - 12, 36, 22, 11);
+      ctx.fill();
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.arc(mouth_x, mouth_y - 8, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(mouth_x - 1.2, mouth_y - 9.2, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#475569";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(mouth_x, mouth_y - 4);
+      ctx.lineTo(mouth_x, mouth_y);
+      ctx.stroke();
+    };
+
+    // 预渲染高保真耳部与面容基底
+    drawZootopiaEars();
+    drawCheekTufts();
+    drawSnoutAndNose();
+
     // 表情分支解算
     if (petState.mood === 5) {
       // 🌀 晕眩：阿基米德旋涡 + 轨道金星
