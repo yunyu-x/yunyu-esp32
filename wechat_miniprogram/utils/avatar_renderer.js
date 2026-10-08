@@ -155,20 +155,28 @@ class AvatarRenderer {
 
     // 绘制疯狂动物城立体狐兔大耳 (朱迪/尼克多层修长耳廓)
     const drawZootopiaEars = () => {
-      // 左耳 (外耳焦糖 + 内耳樱粉)
+      // 左耳 (外耳焦糖 + 内耳樱粉 + 耳尖黑巧)
       ctx.fillStyle = "#d98236";
       this.drawRoundRect(ctx, 24, 22, 18, 38, 9);
+      ctx.fill();
+      ctx.fillStyle = "#1e1410";
+      this.drawRoundRect(ctx, 25, 20, 16, 9, 4);
       ctx.fill();
       ctx.fillStyle = "#f472b6";
       this.drawRoundRect(ctx, 28, 28, 10, 26, 5);
       ctx.fill();
-      // 右耳
+
+      // 右耳 (外耳焦糖 + 内耳樱粉 + 耳尖黑巧)
       ctx.fillStyle = "#d98236";
       this.drawRoundRect(ctx, 93, 22, 18, 38, 9);
+      ctx.fill();
+      ctx.fillStyle = "#1e1410";
+      this.drawRoundRect(ctx, 94, 20, 16, 9, 4);
       ctx.fill();
       ctx.fillStyle = "#f472b6";
       this.drawRoundRect(ctx, 97, 28, 10, 26, 5);
       ctx.fill();
+
       // 耳根白绒毛簇
       ctx.fillStyle = "#fff7ed";
       ctx.beginPath();
@@ -205,6 +213,15 @@ class AvatarRenderer {
       ctx.moveTo(mouth_x, mouth_y - 4);
       ctx.lineTo(mouth_x, mouth_y);
       ctx.stroke();
+
+      // 灵动俏皮白嫩犬齿牙尖 (Canine Tooth)
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.moveTo(mouth_x + 1, mouth_y);
+      ctx.lineTo(mouth_x + 5, mouth_y);
+      ctx.lineTo(mouth_x + 3, mouth_y + 4.5);
+      ctx.closePath();
+      ctx.fill();
     };
 
     // 预渲染高保真耳部与面容基底

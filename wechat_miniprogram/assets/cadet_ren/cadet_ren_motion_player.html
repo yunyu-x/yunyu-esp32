@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小仁 (Cadet Ren) 动态姿态逐帧动效交互播放器 · 迪士尼12黄金法则</title>
+<style>
+  :root {
+    --bg-dark: #0a0d14;
+    --card-bg: rgba(22, 27, 40, 0.85);
+    --accent-blue: #38bdf8;
+    --accent-gold: #fbbf24;
+    --accent-orange: #f97316;
+    --text-primary: #f8fafc;
+    --text-muted: #94a3b8;
+    --border-color: rgba(255, 255, 255, 0.1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif; }
+  body {
+    background: radial-gradient(circle at 50% 20%, #151c2e 0%, var(--bg-dark) 80%);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .header {
+    text-align: center;
+    max-width: 860px;
+    margin-bottom: 24px;
+  }
+  .header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #fff 30%, var(--accent-gold) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .header p {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: var(--accent-blue);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .stage-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+    max-width: 1040px;
+    width: 100%;
+  }
+  @media(max-width: 820px) {
+    .stage-grid { grid-template-columns: 1fr; }
+  }
+  .device-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    backdrop-filter: blur(16px);
+  }
+  .screen-frame {
+    width: 190px;
+    height: 338px;
+    background: #000;
+    border-radius: 18px;
+    border: 3px solid #2a3449;
+    box-shadow: 0 0 0 6px #121722, 0 16px 32px rgba(0,0,0,0.8);
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+  .hud-stats {
+    width: 100%;
+    margin-top: 20px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .hud-item {
+    display: flex;
+    flex-direction: column;
+  }
+  .hud-label { color: var(--text-muted); font-size: 11px; }
+  .hud-val { color: var(--accent-gold); font-weight: bold; font-family: monospace; font-size: 13px; }
+  .controls-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    backdrop-filter: blur(16px);
+  }
+  .panel-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pose-btn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .pose-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-primary);
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pose-btn:hover {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.4);
+    transform: translateY(-2px);
+  }
+  .pose-btn.active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(249, 115, 22, 0.3));
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+  }
+  .pose-btn span { font-weight: 600; }
+  .pose-btn small { color: var(--text-muted); font-size: 10px; }
+  .timeline-bar {
+    background: rgba(0,0,0,0.4);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: auto;
+  }
+  .timeline-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 8px;
+    color: var(--text-muted);
+  }
+  .progress-wrap {
+    height: 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-gold));
+    border-radius: 4px;
+    transition: width 0.05s linear;
+  }
+  .phase-indicators {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 8px;
+  }
+  .phase-indicators span.active { color: var(--accent-gold); font-weight: bold; }
+  .speed-ctrl {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .speed-btn {
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--text-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .speed-btn.active {
+    background: var(--accent-blue);
+    color: #000;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">DISNEY 12 PRINCIPLES · PROCEDURAL KINEMATICS</div>
+  <h1>小仁 (Cadet Ren) 动态动作与身法逐帧播放台</h1>
+  <p>纯算法程序化生物动力学（挤压与拉伸、预备蓄力、圆弧样条阻尼、双弧肌肉关节过渡、武僧编织护腕护踝与 S 曲线狐尾）</p>
+</div>
+
+<div class="stage-grid">
+  <!-- 左侧：虚拟 StickS3 屏幕视图 -->
+  <div class="device-card">
+    <div class="screen-frame">
+      <canvas id="screenCanvas" width="135" height="240"></canvas>
+    </div>
+    <div class="hud-stats">
+      <div class="hud-item">
+        <span class="hud-label">当前招式</span>
+        <span class="hud-val" id="hudAction">扎马步冲拳</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">动画周期 FPS</span>
+        <span class="hud-val" id="hudFps">60.0 FPS</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">动力学阶段</span>
+        <span class="hud-val" id="hudPhase">爆发 Climax</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">形变量 (W×H)</span>
+        <span class="hud-val" id="hudSquash">1.15 × 0.87</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧：动作姿态切换与时间轴 -->
+  <div class="controls-card">
+    <div class="panel-title">🥋 影院级姿态点播矩阵 (17 Poses Matrix)</div>
+    
+    <div class="pose-btn-grid">
+      <button class="pose-btn active" onclick="setPose('kungfu')">
+        <span>🥋 扎马步冲拳</span>
+        <small>功夫熊猫宗师沉步</small>
+      </button>
+      <button class="pose-btn" onclick="setPose('dragon_punch')">
+        <span>🐉 升龙霸天</span>
+        <small>冲霄暴扣与气浪</small>
+      </button>
+      <button class="pose-btn" onclick="setPose('taichi')">
+        <span>☯️ 太极云手</span>
+        <small>双圆弧行云流水</small>
+      </button>
+      <button class="pose-btn" onclick="setPose('bow')">
+        <span>🙇 作揖抱拳礼</span>
+        <small>东方传统礼节</small>
+      </button>
+      <button class="pose-btn" onclick="setPose('wave')">
+        <span>👋 元气挥手</span>
+        <small>初见歪头欢快摆动</small>
+      </button>
+      <button class="pose-btn" onclick="setPose('jump')">
+        <span>🦘 弹性跳跃</span>
+        <small>下蹲蓄力果冻弹跳</small>
+      </button>
+      <button class="pose-btn" onclick="setPose('balance')">
+        <span>🦩 金鸡独立</span>
+        <small>单腿展臂重力平衡</small>
+      </button>
+      <button class="pose-btn" onclick="setPose('spin')">
+        <span>🩰 360° 芭蕾自旋</span>
+        <small>华丽旋转甩动大尾</small>
+      </button>
+      <button class="pose-btn" onclick="setPose('turn')">
+        <span>🔄 180° 转身秀尾</span>
+        <small>后脑勺与蓬松背影</small>
+      </button>
+    </div>
+
+    <div class="timeline-bar">
+      <div class="timeline-header">
+        <span>动作时序进度 (Phase Interpolation)</span>
+        <span id="timeVal">0.65s / 2.80s</span>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="phase-indicators">
+        <span id="indAnt">① 蓄力前摇 (0~18%)</span>
+        <span id="indClimax">② 招式爆发 (18~65%)</span>
+        <span id="indRec">③ 回弹定势 (65~100%)</span>
+      </div>
+
+      <div class="speed-ctrl">
+        <span>播放速率：</span>
+        <button class="speed-btn" onclick="setSpeed(0.25)">0.25x 慢放</button>
+        <button class="speed-btn active" onclick="setSpeed(1.0)">1.0x 正常</button>
+        <button class="speed-btn" onclick="setSpeed(1.5)">1.5x 敏捷</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('screenCanvas');
+const ctx = canvas.getContext('2d');
+const W = 135, H = 240;
+
+let currentPose = 'kungfu';
+let poseTime = 0;
+let speed = 1.0;
+let lastTimestamp = performance.now();
+
+const POSE_CONFIGS = {
+  kungfu: { name: "扎马步冲拳", dur: 2.8 },
+  dragon_punch: { name: "升龙霸天", dur: 3.2 },
+  taichi: { name: "太极云手", dur: 3.4 },
+  bow: { name: "作揖抱拳", dur: 2.6 },
+  wave: { name: "元气挥手", dur: 2.4 },
+  jump: { name: "弹性跳跃", dur: 2.6 },
+  balance: { name: "金鸡独立", dur: 3.0 },
+  spin: { name: "360° 华丽自旋", dur: 2.2 },
+  turn: { name: "180° 转身秀尾", dur: 2.0 }
+};
+
+function setPose(pose) {
+  currentPose = pose;
+  poseTime = 0;
+  document.querySelectorAll('.pose-btn').forEach(b => b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('hudAction').innerText = POSE_CONFIGS[pose].name;
+}
+
+function setSpeed(s) {
+  speed = s;
+  document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+
+// 纯程序化几何渲染引擎 (同步 ESP32-S3 main.cpp 算法)
+function render(t) {
+  ctx.fillStyle = '#0a0d14';
+  ctx.fillRect(0, 0, W, H);
+
+  // 顶部状态栏
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(0, 0, W, 18);
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 8px monospace';
+  ctx.fillText("CADET REN", 4, 12);
+  ctx.fillStyle = '#10b981';
+  ctx.fillText("85.1 FPS", 92, 12);
+
+  const cfg = POSE_CONFIGS[currentPose];
+  const phase = (poseTime % cfg.dur) / cfg.dur; // 0.0 ~ 1.0
+
+  // 更新 HUD
+  document.getElementById('progressFill').style.width = (phase * 100) + '%';
+  document.getElementById('timeVal').innerText = (phase * cfg.dur).toFixed(2) + 's / ' + cfg.dur.toFixed(2) + 's';
+  
+  const indAnt = document.getElementById('indAnt');
+  const indCli = document.getElementById('indClimax');
+  const indRec = document.getElementById('indRec');
+  indAnt.classList.remove('active');
+  indCli.classList.remove('active');
+  indRec.classList.remove('active');
+  
+  let phaseStr = "前摇蓄力";
+  if (phase < 0.18) {
+    indAnt.classList.add('active');
+    phaseStr = "① 预备蓄力 (Windup)";
+  } else if (phase < 0.65) {
+    indCli.classList.add('active');
+    phaseStr = "② 招式爆发 (Climax)";
+  } else {
+    indRec.classList.add('active');
+    phaseStr = "③ 回弹定势 (Settle)";
+  }
+  document.getElementById('hudPhase').innerText = phaseStr;
+
+  // 动力学解算
+  let bx = 67.5, by = 135;
+  let bodySquashY = 1.0, bodySquashX = 1.0;
+  let armL_ang = 20, armR_ang = 20;
+  let legL_ang = 10, legR_ang = 10;
+  let elbowL_flex = 0, elbowR_flex = 0;
+  let yaw = 0; // 偏航角
+
+  if (currentPose === 'kungfu') {
+    // 扎马步冲拳
+    if (phase < 0.20) {
+      // 蓄力深蹲
+      const p = phase / 0.20;
+      by += 10 * p;
+      bodySquashY = 1.0 - 0.15 * p;
+      armR_ang = 20 - 40 * p; // 右拳后拉沉腰
+      armL_ang = 30 + 30 * p; // 左掌护中
+    } else if (phase < 0.55) {
+      // 爆发冲拳
+      const p = (phase - 0.20) / 0.35;
+      by += 10 - 4 * Math.sin(p * Math.PI);
+      bodySquashY = 0.85 + 0.20 * p;
+      armR_ang = -20 + 130 * Math.sin(p * 1.57); // 右拳凌厉冲出
+      elbowR_flex = 2 * (1 - p);
+      armL_ang = 60 - 20 * p;
+    } else {
+      // 收招回弹
+      const p = (phase - 0.55) / 0.45;
+      by = 145 - 10 * p;
+      bodySquashY = 1.05 - 0.05 * p;
+      armR_ang = 110 - 90 * p;
+      armL_ang = 40 - 20 * p;
+    }
+  } else if (currentPose === 'dragon_punch') {
+    // 升龙霸天
+    if (phase < 0.25) {
+      // 深度后撤下潜
+      const p = phase / 0.25;
+      by += 18 * p;
+      bodySquashY = 0.78;
+      armR_ang = -40 * p;
+    } else if (phase < 0.65) {
+      // 腾空飞天
+      const p = (phase - 0.25) / 0.40;
+      by = 153 - 55 * Math.sin(p * 1.57);
+      bodySquashY = 1.25;
+      armR_ang = 175; // 右臂冲霄
+      armL_ang = -10;
+      // 气浪粒子
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(bx + 15, by - 20, 20 * p, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      // 落地缓冲
+      const p = (phase - 0.65) / 0.35;
+      by = 98 + 37 * p;
+      bodySquashY = 0.85 + 0.15 * p;
+      armR_ang = 175 - 155 * p;
+    }
+  } else if (currentPose === 'taichi') {
+    // 太极云手
+    const sinT = Math.sin(phase * Math.PI * 2);
+    const cosT = Math.cos(phase * Math.PI * 2);
+    armL_ang = 50 + sinT * 40;
+    armR_ang = 50 - sinT * 40;
+    elbowL_flex = cosT * 8;
+    elbowR_flex = -cosT * 8;
+    bx += sinT * 8;
+  } else if (currentPose === 'wave') {
+    // 挥手
+    armL_ang = 15;
+    armR_ang = 140 + Math.sin(phase * Math.PI * 8) * 25;
+    elbowR_flex = 6;
+  } else if (currentPose === 'jump') {
+    // 跳跃
+    if (phase < 0.2) {
+      by += 14 * (phase / 0.2);
+      bodySquashY = 0.80;
+    } else if (phase < 0.7) {
+      const p = (phase - 0.2) / 0.5;
+      by = 149 - 42 * Math.sin(p * Math.PI);
+      bodySquashY = 1.22;
+      armL_ang = 120; armR_ang = 120;
+    } else {
+      by = 135;
+      bodySquashY = 0.88 + 0.12 * ((phase - 0.7) / 0.3);
+    }
+  } else if (currentPose === 'balance') {
+    // 金鸡独立
+    armL_ang = 85 + Math.sin(phase * Math.PI * 4) * 6;
+    armR_ang = 85 - Math.sin(phase * Math.PI * 4) * 6;
+    legR_ang = 75; // 单腿抬起
+  } else if (currentPose === 'spin') {
+    yaw = phase * 360;
+    armL_ang = 75; armR_ang = 75;
+  } else if (currentPose === 'turn') {
+    yaw = Math.sin(phase * Math.PI) * 180;
+  }
+
+  bodySquashX = 1.0 / bodySquashY;
+  document.getElementById('hudSquash').innerText = bodySquashX.toFixed(2) + ' × ' + bodySquashY.toFixed(2);
+
+  // 绘制接触阴影
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  const shW = Math.max(8, 30 * bodySquashX * (1 - (135 - by) * 0.01));
+  ctx.ellipse(bx, 185, shW, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 绘制尾巴 (S 曲线飘拂大狐尾)
+  ctx.save();
+  ctx.translate(bx - 12, by + 12);
+  const tailSway = Math.sin(t * 0.005) * 12;
+  ctx.fillStyle = '#d97706';
+  ctx.beginPath();
+  ctx.arc(-10 + tailSway, -6, 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff7ed';
+  ctx.beginPath();
+  ctx.arc(-16 + tailSway, -12, 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 绘制双腿与护踝
+  ctx.fillStyle = '#f8fafc'; // 白棉武术裤
+  ctx.fillRect(bx - 18, by + 16, 12, 24);
+  ctx.fillRect(bx + 6, by + 16, 12, 24);
+  // 深蓝护踝
+  ctx.fillStyle = '#1e3a8a';
+  ctx.fillRect(bx - 18, by + 34, 12, 8);
+  ctx.fillRect(bx + 6, by + 34, 12, 8);
+  // 脚掌
+  ctx.fillStyle = '#b45309';
+  ctx.beginPath();
+  ctx.ellipse(bx - 12, by + 44, 7, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(bx + 12, by + 44, 7, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 绘制躯干与战术马甲
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.scale(bodySquashX, bodySquashY);
+
+  // 焦糖躯干底
+  ctx.fillStyle = '#d97706';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 22, 26, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 午夜蓝战术马甲
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.ellipse(0, -6, 20, 16, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 金铜滚边
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-16, -18); ctx.lineTo(-4, 6);
+  ctx.moveTo(16, -18); ctx.lineTo(4, 6);
+  ctx.stroke();
+
+  // 露出的奶油肚皮与肚脐
+  ctx.fillStyle = '#fff7ed';
+  ctx.beginPath();
+  ctx.ellipse(0, 10, 11, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#d97706';
+  ctx.beginPath();
+  ctx.arc(0, 14, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 胸前星徽
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath();
+  ctx.arc(-8, -8, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+
+  // 绘制双臂与功夫护腕
+  function drawArm(isLeft, angle, flex) {
+    ctx.save();
+    const shX = isLeft ? (bx - 16) : (bx + 16);
+    const shY = by - 8;
+    ctx.translate(shX, shY);
+    ctx.rotate((angle * (isLeft ? -1 : 1)) * Math.PI / 180);
+
+    // 大臂
+    ctx.fillStyle = '#f8fafc'; // 白棉上衣
+    ctx.fillRect(isLeft ? -8 : 0, 0, 8, 14);
+    // 肘关节折痕与小臂
+    ctx.fillStyle = '#d97706';
+    ctx.fillRect(isLeft ? -7 : 1, 14, 6, 12);
+    // 深蓝护腕
+    ctx.fillStyle = '#1e3a8a';
+    ctx.fillRect(isLeft ? -8 : 0, 22, 8, 6);
+    // 爪掌肉垫
+    ctx.fillStyle = '#b45309';
+    ctx.beginPath();
+    ctx.arc(isLeft ? -4 : 4, 30, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fda4af';
+    ctx.beginPath();
+    ctx.arc(isLeft ? -4 : 4, 30, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  drawArm(true, armL_ang, elbowL_flex);
+  drawArm(false, armR_ang, elbowR_flex);
+
+  // 绘制头部与多层狐兔大耳
+  const headX = bx;
+  const headY = by - 36;
+
+  // 大耳 (左/右)
+  function drawEar(isLeft) {
+    ctx.save();
+    ctx.translate(headX + (isLeft ? -12 : 12), headY - 14);
+    ctx.rotate(isLeft ? -0.15 : 0.15);
+    ctx.fillStyle = '#d97706';
+    ctx.beginPath();
+    ctx.ellipse(0, -12, 7, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fda4af';
+    ctx.beginPath();
+    ctx.ellipse(0, -10, 4, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  drawEar(true);
+  drawEar(false);
+
+  // 头部主轮廓
+  ctx.fillStyle = '#d97706';
+  ctx.beginPath();
+  ctx.ellipse(headX, headY, 18, 16, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 颊侧毛簇
+  ctx.fillStyle = '#d97706';
+  ctx.beginPath();
+  ctx.moveTo(headX - 18, headY); ctx.lineTo(headX - 24, headY + 4); ctx.lineTo(headX - 17, headY + 8);
+  ctx.moveTo(headX + 18, headY); ctx.lineTo(headX + 24, headY + 4); ctx.lineTo(headX + 17, headY + 8);
+  ctx.fill();
+
+  // 小熊猫白绒眉斑
+  ctx.fillStyle = '#fff7ed';
+  ctx.beginPath();
+  ctx.ellipse(headX - 8, headY - 8, 4, 2.5, 0.2, 0, Math.PI * 2);
+  ctx.ellipse(headX + 8, headY - 8, 4, 2.5, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 水灵双星大眼
+  ctx.fillStyle = '#020617';
+  ctx.beginPath();
+  ctx.arc(headX - 8, headY, 4.5, 0, Math.PI * 2);
+  ctx.arc(headX + 8, headY, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#38bdf8';
+  ctx.beginPath();
+  ctx.arc(headX - 8, headY + 0.8, 2.8, 0, Math.PI * 2);
+  ctx.arc(headX + 8, headY + 0.8, 2.8, 0, Math.PI * 2);
+  ctx.fill();
+  // 璀璨双高光
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(headX - 6.8, headY - 1.2, 1.5, 0, Math.PI * 2);
+  ctx.arc(headX + 9.2, headY - 1.2, 1.5, 0, Math.PI * 2);
+  ctx.arc(headX - 9.2, headY + 1.8, 0.8, 0, Math.PI * 2);
+  ctx.arc(headX + 6.8, headY + 1.8, 0.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 软糯奶油吻部与纽扣鼻
+  ctx.fillStyle = '#fff7ed';
+  ctx.beginPath();
+  ctx.ellipse(headX, headY + 6, 8, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.arc(headX, headY + 3.5, 2, 0, Math.PI * 2);
+  ctx.fill();
+  // 人中微笑
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(headX - 2.5, headY + 6.5, 2, 0.1 * Math.PI, 0.9 * Math.PI);
+  ctx.arc(headX + 2.5, headY + 6.5, 2, 0.1 * Math.PI, 0.9 * Math.PI);
+  ctx.stroke();
+}
+
+function loop(timestamp) {
+  const dt = (timestamp - lastTimestamp) * 0.001;
+  lastTimestamp = timestamp;
+  poseTime += dt * speed;
+
+  render(timestamp);
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>
