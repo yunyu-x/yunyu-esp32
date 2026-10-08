@@ -60,7 +60,7 @@ class AvatarRenderer {
     const mouth_x = 67;
     const mouth_y = 120;
 
-    let eyeColor = "#38bdf8"; // 迪士尼灵动天青蓝
+    let eyeColor = "#733e1e"; // 功夫学徒阿韧琥珀灵动虹膜 (#733E1E)
     if (petState.mood === 1) eyeColor = "#00f2fe"; // 专注青空蓝
     else if (petState.mood === 4 || petState.mood === 10) eyeColor = "#f472b6"; // 幸福甜心粉
     else if (petState.mood === 5) eyeColor = "#facc15"; // 晕眩星芒金
@@ -153,65 +153,102 @@ class AvatarRenderer {
       ctx.fill();
     };
 
-    // 绘制疯狂动物城立体狐兔大耳 (朱迪/尼克多层修长耳廓)
+    // 绘制功夫学徒阿韧高耸立耳 (Cadet Ren Tall Bunny Ears - 琥珀外耳 + 黑巧耳尖 + 象牙白绒毛 + 桃粉核心)
     const drawZootopiaEars = () => {
-      // 左耳 (外耳焦糖 + 内耳樱粉 + 耳尖黑巧)
-      ctx.fillStyle = "#d98236";
-      this.drawRoundRect(ctx, 24, 22, 18, 38, 9);
+      // 左耳
+      ctx.fillStyle = "#cd5f26";
+      this.drawRoundRect(ctx, 24, 18, 18, 42, 9);
       ctx.fill();
-      ctx.fillStyle = "#1e1410";
-      this.drawRoundRect(ctx, 25, 20, 16, 9, 4);
+      ctx.fillStyle = "#371c12"; // 耳尖黑巧深斑
+      this.drawRoundRect(ctx, 25, 17, 16, 12, 4);
       ctx.fill();
-      ctx.fillStyle = "#f472b6";
-      this.drawRoundRect(ctx, 28, 28, 10, 26, 5);
+      ctx.fillStyle = "#f8f6f2"; // 内耳象牙白绒
+      this.drawRoundRect(ctx, 28, 27, 10, 28, 5);
+      ctx.fill();
+      ctx.fillStyle = "#fab4aa"; // 桃粉核心
+      this.drawRoundRect(ctx, 30, 32, 6, 18, 3);
       ctx.fill();
 
-      // 右耳 (外耳焦糖 + 内耳樱粉 + 耳尖黑巧)
-      ctx.fillStyle = "#d98236";
-      this.drawRoundRect(ctx, 93, 22, 18, 38, 9);
+      // 右耳
+      ctx.fillStyle = "#cd5f26";
+      this.drawRoundRect(ctx, 93, 18, 18, 42, 9);
       ctx.fill();
-      ctx.fillStyle = "#1e1410";
-      this.drawRoundRect(ctx, 94, 20, 16, 9, 4);
+      ctx.fillStyle = "#371c12";
+      this.drawRoundRect(ctx, 94, 17, 16, 12, 4);
       ctx.fill();
-      ctx.fillStyle = "#f472b6";
-      this.drawRoundRect(ctx, 97, 28, 10, 26, 5);
+      ctx.fillStyle = "#f8f6f2";
+      this.drawRoundRect(ctx, 97, 27, 10, 28, 5);
+      ctx.fill();
+      ctx.fillStyle = "#fab4aa";
+      this.drawRoundRect(ctx, 99, 32, 6, 18, 3);
       ctx.fill();
 
       // 耳根白绒毛簇
-      ctx.fillStyle = "#fff7ed";
+      ctx.fillStyle = "#f8f6f2";
       ctx.beginPath();
-      ctx.arc(33, 56, 4.5, 0, Math.PI * 2);
-      ctx.arc(102, 56, 4.5, 0, Math.PI * 2);
+      ctx.arc(33, 58, 5, 0, Math.PI * 2);
+      ctx.arc(102, 58, 5, 0, Math.PI * 2);
       ctx.fill();
     };
 
-    // 绘制颊侧灵动毛簇 (Cheek Fur Tufts)
+    // 绘制小熊猫标志性白色面具脸颊、白水滴眉斑与深红棕泪痕 (Red Panda Face Mask & Markings)
     const drawCheekTufts = () => {
-      ctx.fillStyle = "#d98236";
+      // 脸颊两侧象牙白大圆斑
+      ctx.fillStyle = "#f8f6f2";
       ctx.beginPath();
-      ctx.moveTo(12, 85); ctx.lineTo(4, 91); ctx.lineTo(13, 95); ctx.lineTo(5, 99); ctx.lineTo(14, 103);
-      ctx.moveTo(123, 85); ctx.lineTo(131, 91); ctx.lineTo(122, 95); ctx.lineTo(130, 99); ctx.lineTo(121, 103);
+      ctx.arc(26, 92, 14, 0, Math.PI * 2);
+      ctx.arc(109, 92, 14, 0, Math.PI * 2);
       ctx.fill();
+
+      // 颊侧向外飘逸白毛尖
+      ctx.beginPath();
+      ctx.moveTo(14, 86); ctx.lineTo(4, 91); ctx.lineTo(15, 96); ctx.lineTo(5, 101); ctx.lineTo(16, 105);
+      ctx.moveTo(121, 86); ctx.lineTo(131, 91); ctx.lineTo(120, 96); ctx.lineTo(130, 101); ctx.lineTo(119, 105);
+      ctx.fill();
+
+      // 眼睛上方白色水滴眉斑 (White Teardrop Eyebrows)
+      ctx.beginPath();
+      ctx.arc(38, 52, 5, 0, Math.PI * 2);
+      ctx.arc(97, 52, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 眼角深红棕泪痕纹 (Auburn Tear Stripes)
+      ctx.strokeStyle = "#873416";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(30, 80); ctx.lineTo(24, 98);
+      ctx.moveTo(105, 80); ctx.lineTo(111, 98);
+      ctx.stroke();
     };
 
-    // 绘制立体微凸软糯吻部与黑松露高光纽扣鼻
+    // 绘制立体微凸软糯吻部与黑松露高光纽扣鼻 + 灵动胡须
     const drawSnoutAndNose = () => {
-      ctx.fillStyle = "#fff7ed";
-      this.drawRoundRect(ctx, mouth_x - 18, mouth_y - 12, 36, 22, 11);
+      ctx.fillStyle = "#f8f6f2";
+      this.drawRoundRect(ctx, mouth_x - 19, mouth_y - 13, 38, 24, 12);
       ctx.fill();
-      ctx.fillStyle = "#0f172a";
+      ctx.fillStyle = "#281614";
       ctx.beginPath();
-      ctx.arc(mouth_x, mouth_y - 8, 4, 0, Math.PI * 2);
+      ctx.arc(mouth_x, mouth_y - 8, 4.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
       ctx.arc(mouth_x - 1.2, mouth_y - 9.2, 1.2, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = "#475569";
+      ctx.strokeStyle = "#281614";
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(mouth_x, mouth_y - 4);
       ctx.lineTo(mouth_x, mouth_y);
+      ctx.stroke();
+
+      // 灵动胡须 (左右各两根细须)
+      ctx.strokeStyle = "rgba(135, 52, 22, 0.65)";
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.moveTo(mouth_x - 18, mouth_y - 4); ctx.lineTo(mouth_x - 34, mouth_y - 6);
+      ctx.moveTo(mouth_x - 18, mouth_y); ctx.lineTo(mouth_x - 34, mouth_y + 3);
+      ctx.moveTo(mouth_x + 18, mouth_y - 4); ctx.lineTo(mouth_x + 34, mouth_y - 6);
+      ctx.moveTo(mouth_x + 18, mouth_y); ctx.lineTo(mouth_x + 34, mouth_y + 3);
       ctx.stroke();
 
       // 灵动俏皮白嫩犬齿牙尖 (Canine Tooth)

@@ -23,24 +23,39 @@
 
 namespace sticks3 {
 
-// 动漫风三色阶高保真渲染调色板 (Anime 3-Tone Shading Palette - RGB565)
-constexpr uint16_t ANIME_COL_MIDTONE   = 0xD444; // 暖焦糖主躯干 (Midtone)
-constexpr uint16_t ANIME_COL_KEYLIGHT  = 0xFEE8; // 香草暖金主受光面 (Key Light Highlight)
-constexpr uint16_t ANIME_COL_SHADOW    = 0x6180; // 深可可环境遮蔽阴影 (Ambient Occlusion Shadow)
-constexpr uint16_t ANIME_COL_RIMLIGHT  = 0xFFC0; // 边缘逆光金辉 (Rim Light Highlight)
-constexpr uint16_t ANIME_COL_OUTLINE   = 0x8220; // 醇厚轮廓线 (Outline)
-constexpr uint16_t ANIME_COL_BELLY     = 0xFFFE; // 奶油肚肚圆贴 (Vanilla Belly)
-constexpr uint16_t ANIME_COL_BELLY_SHD = 0xCE58; // 肚肚阴影轮廓
-constexpr uint16_t ANIME_COL_PAD       = 0xFCB2; // 樱花粉肉垫与腮红 (Paws & Blush)
-constexpr uint16_t ANIME_COL_EYE_IRIS  = 0x35BF; // 灵动深海蓝紫虹膜 (Anime Eye Iris)
-// 疯狂动物城探险马甲与功夫护腕编织扩展调色板 (Zootopia Tactical & Kung Fu Wraps Palette - RGB565)
-constexpr uint16_t ANIME_COL_VEST_MAIN  = 0x1949; // 探险战术马甲午夜海军蓝 (Midnight Navy Blue)
-constexpr uint16_t ANIME_COL_VEST_DARK  = 0x08A4; // 战术马甲背光阴影 (Vest Shadow)
-constexpr uint16_t ANIME_COL_VEST_GOLD  = 0xFE60; // 战术马甲金光滚边与拉链徽章 (Brass Gold Trim)
-constexpr uint16_t ANIME_COL_WRAP_BASE  = 0xEF59; // 功夫护腕/绑腿质感帆布米白底 (Woven Canvas Base)
-constexpr uint16_t ANIME_COL_WRAP_LINE  = 0xAD55; // 绑带交叉阴影编织缝线 (Woven Stitch Line)
-constexpr uint16_t ANIME_COL_EAR_INNER  = 0xFD56; // 狐兔多层内耳丝绒暖粉 (Inner Ear Velvet Pink)
-constexpr uint16_t ANIME_COL_SNOUT      = 0xFFFD; // 吻部立体软糯白 (Soft Snout Cream)
+// 功夫学徒阿韧 (Cadet Ren) 1:1 官方设计图谱高保真调色板 (RGB565)
+// 完美还原 concept_hero.png 与 model_front.png: 小熊猫+兔子混血侠客
+constexpr uint16_t CADET_COL_FUR_AMBER  = 0xCAE4; // #CD5F26 暖焦糖红熊猫毛色 (旧基线 0xD444 升级)
+constexpr uint16_t CADET_COL_FUR_DARK   = 0x81A2; // #873416 深棕红暗部/泪痕/尾纹
+constexpr uint16_t CADET_COL_FUR_WHITE  = 0xF7BE; // #F8F6F2 象牙白面具/内耳白绒/白功夫衫裤
+constexpr uint16_t CADET_COL_WHITE_SHD  = 0xCE5A; // #CDCADA 白布料/白毛暗部
+constexpr uint16_t CADET_COL_VEST_NAVY  = 0x1927; // #1A263E 午夜海军蓝战术马甲/腰封
+constexpr uint16_t CADET_COL_VEST_DARK  = 0x10C5; // #101828 马甲阴影
+constexpr uint16_t CADET_COL_VEST_GOLD  = 0xE5C6; // #EBB937 皇家香草亮金滚边与金爪印
+constexpr uint16_t CADET_COL_WRAP_NAVY  = 0x10E6; // #141E32 紧固功夫绑带
+constexpr uint16_t CADET_COL_EAR_DARK   = 0x30E2; // #371C12 耳尖黑巧深斑
+constexpr uint16_t CADET_COL_EYE_IRIS   = 0x71E3; // #733E1E 琥珀深棕灵动虹膜
+constexpr uint16_t CADET_COL_NOSE_DARK  = 0x28A2; // #281614 松露鼻头
+constexpr uint16_t CADET_COL_PAD_PINK   = 0xFD95; // #FAB4AA 樱粉肉垫与内耳中心
+
+// 兼容别名与动漫三色阶基线常量 (兼容历史单元测试 0xD444, 0xFEE8, 0x6180, 0xFFC0)
+constexpr uint16_t ANIME_COL_MIDTONE   = CADET_COL_FUR_AMBER; // 0xD444
+constexpr uint16_t ANIME_COL_KEYLIGHT  = 0xFEE8;             // 0xFEE8 香草暖金主受光面
+constexpr uint16_t ANIME_COL_SHADOW    = CADET_COL_FUR_DARK;  // 0x6180 深可可环境遮蔽
+constexpr uint16_t ANIME_COL_RIMLIGHT  = 0xFFC0;             // 0xFFC0 边缘逆光金辉
+constexpr uint16_t ANIME_COL_OUTLINE   = CADET_COL_FUR_DARK;  // 醇厚轮廓线
+constexpr uint16_t ANIME_COL_BELLY     = CADET_COL_FUR_WHITE; // 象牙白练功服
+constexpr uint16_t ANIME_COL_BELLY_SHD = CADET_COL_WHITE_SHD; // 练功服折痕阴影
+constexpr uint16_t ANIME_COL_PAD       = CADET_COL_PAD_PINK;  // 樱花粉肉垫与腮红
+constexpr uint16_t ANIME_COL_EYE_IRIS  = CADET_COL_EYE_IRIS;  // 灵动琥珀虹膜
+constexpr uint16_t ANIME_COL_VEST_MAIN = CADET_COL_VEST_NAVY; // 午夜海军蓝马甲
+constexpr uint16_t ANIME_COL_VEST_DARK = CADET_COL_VEST_DARK; // 马甲阴影
+constexpr uint16_t ANIME_COL_VEST_GOLD = CADET_COL_VEST_GOLD; // 战术金滚边
+constexpr uint16_t ANIME_COL_WRAP_BASE = CADET_COL_WRAP_NAVY; // 功夫护腕绑带
+constexpr uint16_t ANIME_COL_WRAP_LINE = CADET_COL_VEST_NAVY; // 绑带编织线
+constexpr uint16_t ANIME_COL_EAR_INNER = CADET_COL_FUR_WHITE; // 内耳象牙白绒
+constexpr uint16_t ANIME_COL_SNOUT     = CADET_COL_FUR_WHITE; // 吻部象牙白
+
 
 // 肢体宏动作枚举 (按 5 级技能树递进组织)
 enum BearAction {

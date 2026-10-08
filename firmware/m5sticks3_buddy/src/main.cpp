@@ -40,6 +40,7 @@
 #include "muse_gadget_client.h"
 #include "muse_pixel.h"
 #include "sticks3_bear_kinematics.h"
+#include "sticks3_cadet_bitmaps.h"
 
 using namespace sticks3::protocol;
 
@@ -883,43 +884,42 @@ static void drawBearFoot(LovyanGFX& d, int x, int y, int rx, int ry, uint16_t ma
     d.drawPixel(x - 1, y - 1, 0xFFFF);
 }
 
-// 蓬松狐兔大尾巴 (Fluffy S-Curve Brush Tail - 焦糖基底 + 奶白毛尖分层)
+// 丰满蓬松红熊猫大尾巴 (S-Curve Fluffy Red Panda Tail - 6段暖焦糖与深棕红交替环纹)
 static void drawBearTail(LovyanGFX& d, int tx, int ty, int tr, uint16_t base_col, uint16_t dark_col) {
-    tr = std::max(4, tr);
-    safeFillCircle(d, tx, ty + 1, tr, dark_col);
-    safeFillCircle(d, tx, ty, tr, base_col);
-    int mid_x = tx + 3;
-    int mid_y = ty - 4;
-    int mid_r = std::max(3, tr - 1);
-    safeFillCircle(d, mid_x, mid_y, mid_r, base_col);
-    int tip_x = tx + 5;
-    int tip_y = ty - 7;
-    int tip_r = std::max(2, tr - 2);
-    safeFillCircle(d, tip_x, tip_y, tip_r, sticks3::ANIME_COL_BELLY);
-    safeFillCircle(d, tip_x - 1, tip_y - 1, std::max(1, tip_r - 1), 0xFFFF);
-    safeDrawCircle(d, tx, ty, tr, sticks3::ANIME_COL_OUTLINE);
-    safeDrawCircle(d, tip_x, tip_y, tip_r, sticks3::ANIME_COL_BELLY_SHD);
+    tr = std::max(5, tr);
+    // 6 段多色阶重叠圆弧 (从根部向左上方优雅舒展卷起，完美呈现红熊猫标志性环状斑纹)
+    int segs[6][5] = {
+        {tx, ty, tr + 3, tr + 3, (int)base_col},
+        {tx - 6, ty - 1, tr + 4, tr + 4, (int)dark_col},
+        {tx - 11, ty - 4, tr + 5, tr + 5, (int)base_col},
+        {tx - 15, ty - 8, tr + 5, tr + 5, (int)dark_col},
+        {tx - 18, ty - 13, tr + 4, tr + 4, (int)base_col},
+        {tx - 19, ty - 18, tr + 3, tr + 4, (int)dark_col}
+    };
+    for (int i = 0; i < 6; i++) {
+        safeFillEllipse(d, segs[i][0], segs[i][1], segs[i][2], segs[i][3], (uint16_t)segs[i][4]);
+    }
 }
 
-// 上肢双段独立绘制单元 (供 3D Z-Depth 深度排序调用 - 元气舒展大臂小臂)
+// 上肢双段独立绘制单元 (供 3D Z-Depth 深度排序调用 - 白功夫短袖 + 午夜蓝护腕 + 琥珀前爪)
 static void drawBearUpperArmL(LovyanGFX& d, const sticks3::BearFullBodySkeleton& skel, int sh_lx, int sh_ly, int paw_lx, int paw_ly) {
-    drawBearArticulatedLimb(d, sh_lx, sh_ly, (int)skel.elbow_lx, (int)skel.elbow_ly, paw_lx, paw_ly, 6, 4, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
-    drawBearPaw(d, paw_lx, paw_ly, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+    drawBearArticulatedLimb(d, sh_lx, sh_ly, (int)skel.elbow_lx, (int)skel.elbow_ly, paw_lx, paw_ly, 6, 4, sticks3::CADET_COL_FUR_WHITE, sticks3::CADET_COL_WHITE_SHD, sticks3::CADET_COL_WRAP_NAVY, sticks3::CADET_COL_VEST_NAVY);
+    drawBearPaw(d, paw_lx, paw_ly, 7, sticks3::CADET_COL_FUR_AMBER, sticks3::CADET_COL_PAD_PINK);
 }
 
 static void drawBearUpperArmR(LovyanGFX& d, const sticks3::BearFullBodySkeleton& skel, int sh_rx, int sh_ry, int paw_rx, int paw_ry) {
-    drawBearArticulatedLimb(d, sh_rx, sh_ry, (int)skel.elbow_rx, (int)skel.elbow_ry, paw_rx, paw_ry, 6, 4, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+    drawBearArticulatedLimb(d, sh_rx, sh_ry, (int)skel.elbow_rx, (int)skel.elbow_ry, paw_rx, paw_ry, 6, 4, sticks3::CADET_COL_FUR_WHITE, sticks3::CADET_COL_WHITE_SHD, sticks3::CADET_COL_WRAP_NAVY, sticks3::CADET_COL_VEST_NAVY);
     if (sticks3::BearKinematicsController::getInstance().getCurrentAction() == sticks3::BEAR_ACT_KUNGFU) {
-        // 功夫推掌：开掌立掌造型 (Plump Open Pushing Palm)
-        safeFillEllipse(d, paw_rx, paw_ry, 8, 6, sticks3::ANIME_COL_MIDTONE);
-        safeDrawEllipse(d, paw_rx, paw_ry, 8, 6, sticks3::ANIME_COL_OUTLINE);
-        safeFillEllipse(d, paw_rx, paw_ry, 5, 4, sticks3::ANIME_COL_PAD);
-        safeFillCircle(d, paw_rx - 4, paw_ry - 4, 1, sticks3::ANIME_COL_PAD);
-        safeFillCircle(d, paw_rx,     paw_ry - 5, 1, sticks3::ANIME_COL_PAD);
-        safeFillCircle(d, paw_rx + 4, paw_ry - 4, 1, sticks3::ANIME_COL_PAD);
+        // 功夫推掌：开掌立掌造型 (Plump Open Pushing Palm with Pink Pads)
+        safeFillEllipse(d, paw_rx, paw_ry, 8, 6, sticks3::CADET_COL_FUR_AMBER);
+        safeDrawEllipse(d, paw_rx, paw_ry, 8, 6, sticks3::CADET_COL_FUR_DARK);
+        safeFillEllipse(d, paw_rx, paw_ry, 5, 4, sticks3::CADET_COL_PAD_PINK);
+        safeFillCircle(d, paw_rx - 4, paw_ry - 4, 1, sticks3::CADET_COL_PAD_PINK);
+        safeFillCircle(d, paw_rx,     paw_ry - 5, 1, sticks3::CADET_COL_PAD_PINK);
+        safeFillCircle(d, paw_rx + 4, paw_ry - 4, 1, sticks3::CADET_COL_PAD_PINK);
         d.drawPixel(paw_rx - 2, paw_ry, 0xFFFF);
     } else {
-        drawBearPaw(d, paw_rx, paw_ry, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+        drawBearPaw(d, paw_rx, paw_ry, 7, sticks3::CADET_COL_FUR_AMBER, sticks3::CADET_COL_PAD_PINK);
     }
 }
 
@@ -1086,16 +1086,29 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     // 4. 清空全屏角色渲染画布 (Y: 18 ~ 220，全面释放 202px 完整高度空间)
     out_d.fillRect(0, 18, W, 202, 0x0000);
 
-    // 地面软阴影 (Soft Ambient Occlusion Contact Shadow - 悬浮高度动态衰减)
-    int sh_y = (skel.is_sitting) ? (int)(skel.body_y + 18) : (int)(skel.body_y + 40);
-    if (!skel.is_jumping) {
-        int sh_rx = std::max(2, (int)(skel.body_w * 0.58f));
-        safeFillEllipse(out_d, (int)skel.body_x, sh_y, sh_rx, 5, sticks3::ANIME_COL_SHADOW);
+    sticks3::BearAction active_act = sticks3::BearKinematicsController::getInstance().getCurrentAction();
+    const uint8_t* atlas_bmp = sticks3::getCadetAtlasBitmap(active_act, anim_frame);
+
+    if (atlas_bmp != nullptr) {
+        // 地面软阴影 (Soft Ambient Occlusion Contact Shadow)
+        if (active_act != sticks3::BEAR_ACT_DRAGON_PUNCH) {
+            safeFillEllipse(out_d, (int)skel.body_x, 214, 28, 4, sticks3::ANIME_COL_SHADOW);
+        }
+        // 渲染 1:1 纯正图谱微雕线条 (Authentic 1:1 Atlas Line Art)
+        int dx = (int)constrain(s_smooth_roll * 0.05f, -3.0f, 3.0f);
+        int dy = (int)constrain(s_smooth_pitch * 0.04f, -3.0f, 3.0f);
+        sticks3::drawCadetAtlasLineart(out_d, atlas_bmp, sticks3::CADET_LINE_IVORY, dx, dy);
     } else {
-        // 跳跃腾空时阴影缩小并淡化
-        int sh_rx = std::max(2, (int)(skel.body_w * 0.35f));
-        safeFillEllipse(out_d, (int)skel.body_x, sh_y, sh_rx, 3, 0x18C3);
-    }
+        // 地面软阴影 (Soft Ambient Occlusion Contact Shadow - 悬浮高度动态衰减)
+        int sh_y = (skel.is_sitting) ? (int)(skel.body_y + 18) : (int)(skel.body_y + 40);
+        if (!skel.is_jumping) {
+            int sh_rx = std::max(2, (int)(skel.body_w * 0.58f));
+            safeFillEllipse(out_d, (int)skel.body_x, sh_y, sh_rx, 5, sticks3::ANIME_COL_SHADOW);
+        } else {
+            // 跳跃腾空时阴影缩小并淡化
+            int sh_rx = std::max(2, (int)(skel.body_w * 0.35f));
+            safeFillEllipse(out_d, (int)skel.body_x, sh_y, sh_rx, 3, 0x18C3);
+        }
 
     // 4.5 背景尾巴 (Front View: Tail behind body)
     if (!skel.is_back_view) {
@@ -1127,10 +1140,13 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         int foot_rx = (int)(skel.body_x + 15 + skel.right_leg.flex_x);
         int foot_ry = (int)(skel.body_y + 39 + skel.right_leg.flex_y);
 
-        drawBearArticulatedLimb(out_d, hip_lx, hip_ly, (int)skel.knee_lx, (int)skel.knee_ly, foot_lx, foot_ly, 7, 5, sticks3::ANIME_COL_BELLY, sticks3::ANIME_COL_OUTLINE, sticks3::ANIME_COL_VEST_MAIN, sticks3::ANIME_COL_VEST_GOLD);
-        drawBearArticulatedLimb(out_d, hip_rx, hip_ry, (int)skel.knee_rx, (int)skel.knee_ry, foot_rx, foot_ry, 7, 5, sticks3::ANIME_COL_BELLY, sticks3::ANIME_COL_OUTLINE, sticks3::ANIME_COL_VEST_MAIN, sticks3::ANIME_COL_VEST_GOLD);
-        drawBearFoot(out_d, foot_lx, foot_ly, 9, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
-        drawBearFoot(out_d, foot_rx, foot_ry, 9, 7, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+        drawBearArticulatedLimb(out_d, hip_lx, hip_ly, (int)skel.knee_lx, (int)skel.knee_ly, foot_lx, foot_ly, 8, 5, sticks3::CADET_COL_FUR_WHITE, sticks3::CADET_COL_WHITE_SHD, sticks3::CADET_COL_WRAP_NAVY, sticks3::CADET_COL_VEST_GOLD);
+        drawBearArticulatedLimb(out_d, hip_rx, hip_ry, (int)skel.knee_rx, (int)skel.knee_ry, foot_rx, foot_ry, 8, 5, sticks3::CADET_COL_FUR_WHITE, sticks3::CADET_COL_WHITE_SHD, sticks3::CADET_COL_WRAP_NAVY, sticks3::CADET_COL_VEST_GOLD);
+        // 宽松丝绸练功裤垂坠阴影
+        out_d.drawLine(hip_lx, hip_ly + 3, foot_lx, foot_ly - 5, sticks3::CADET_COL_WHITE_SHD);
+        out_d.drawLine(hip_rx, hip_ry + 3, foot_rx, foot_ry - 5, sticks3::CADET_COL_WHITE_SHD);
+        drawBearFoot(out_d, foot_lx, foot_ly, 9, 7, sticks3::CADET_COL_FUR_AMBER, sticks3::CADET_COL_PAD_PINK);
+        drawBearFoot(out_d, foot_rx, foot_ry, 9, 7, sticks3::CADET_COL_FUR_AMBER, sticks3::CADET_COL_PAD_PINK);
     }
 
     // 6. 3D 透视深度次序解算 (Painter's Algorithm Z-Depth Sorting)
@@ -1204,67 +1220,64 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         out_d.fillTriangle(bx + p_chest_rx, p_chest_y, bx - p_belly_rx, p_belly_y, bx + p_belly_rx, p_belly_y, sticks3::ANIME_COL_BELLY);
         safeDrawEllipse(out_d, bx, p_belly_y, p_belly_rx, p_belly_ry, sticks3::ANIME_COL_BELLY_SHD);
 
-        // 2. 疯狂动物城探险战术马甲 (Zootopia Tactical Adventure Vest - 午夜海军蓝 + 亮金滚边)
-        int vest_top = chest_y - chest_ry + 2;
-        int vest_bot = by + 1;
-        int vest_w = chest_rx;
-        // 左前襟 (Left Flap)
-        out_d.fillTriangle(bx - vest_w, vest_top, bx - 3, vest_top, bx - vest_w + 1, vest_bot, sticks3::ANIME_COL_VEST_MAIN);
-        out_d.fillTriangle(bx - 3, vest_top, bx - 5, vest_bot, bx - vest_w + 1, vest_bot, sticks3::ANIME_COL_VEST_MAIN);
-        // 右前襟 (Right Flap)
-        out_d.fillTriangle(bx + 3, vest_top, bx + vest_w, vest_top, bx + 5, vest_bot, sticks3::ANIME_COL_VEST_MAIN);
-        out_d.fillTriangle(bx + vest_w, vest_top, bx + vest_w - 1, vest_bot, bx + 5, vest_bot, sticks3::ANIME_COL_VEST_MAIN);
-        // 金色滚边
-        out_d.drawLine(bx - 3, vest_top, bx - 5, vest_bot, sticks3::ANIME_COL_VEST_GOLD);
-        out_d.drawLine(bx + 3, vest_top, bx + 5, vest_bot, sticks3::ANIME_COL_VEST_GOLD);
-        // 领口翻折小立领
-        out_d.drawTriangle(bx - 8, vest_top - 1, bx - 3, vest_top, bx - 9, vest_top + 3, sticks3::ANIME_COL_VEST_GOLD);
-        out_d.drawTriangle(bx + 8, vest_top - 1, bx + 3, vest_top, bx + 9, vest_top + 3, sticks3::ANIME_COL_VEST_GOLD);
+        // 2. 功夫学徒午夜海军蓝战术马甲 (Closed Midnight-Navy Cadet Vest with Gold Trim & Paw Badge)
+        int vest_top = chest_y - chest_ry + 1;
+        int vest_bot = by + 2;
+        int vest_w = chest_rx + 1;
+        out_d.fillRect(bx - vest_w, vest_top, vest_w * 2, vest_bot - vest_top, sticks3::CADET_COL_VEST_NAVY);
+        // 领口立领与金色镶边
+        out_d.fillRect(bx - 6, vest_top - 2, 12, 3, sticks3::CADET_COL_VEST_NAVY);
+        out_d.drawFastHLine(bx - 6, vest_top - 2, 12, sticks3::CADET_COL_VEST_GOLD);
+        // 马甲外轮廓金边
+        out_d.drawFastVLine(bx - vest_w, vest_top, vest_bot - vest_top, sticks3::CADET_COL_VEST_GOLD);
+        out_d.drawFastVLine(bx + vest_w - 1, vest_top, vest_bot - vest_top, sticks3::CADET_COL_VEST_GOLD);
+        out_d.drawFastHLine(bx - vest_w, vest_bot - 1, vest_w * 2, sticks3::CADET_COL_VEST_GOLD);
 
-        // 呆萌小肚脐 (Cute Belly Button)
-        out_d.drawPixel(bx, by + 12, sticks3::ANIME_COL_BELLY_SHD);
+        // 胸口金色爪印徽章 (Golden Pawprint Badge)
+        int badge_y = by - 3;
+        safeFillEllipse(out_d, bx, badge_y, 4, 3, sticks3::CADET_COL_VEST_GOLD);
+        safeFillCircle(out_d, bx - 3, badge_y - 4, 1, sticks3::CADET_COL_VEST_GOLD);
+        safeFillCircle(out_d, bx - 1, badge_y - 5, 1, sticks3::CADET_COL_VEST_GOLD);
+        safeFillCircle(out_d, bx + 1, badge_y - 5, 1, sticks3::CADET_COL_VEST_GOLD);
+        safeFillCircle(out_d, bx + 3, badge_y - 4, 1, sticks3::CADET_COL_VEST_GOLD);
+
+        // 左右战术工装口袋
+        out_d.drawRect(bx - vest_w + 2, vest_bot - 6, 6, 4, sticks3::CADET_COL_VEST_GOLD);
+        out_d.drawRect(bx + vest_w - 8, vest_bot - 6, 6, 4, sticks3::CADET_COL_VEST_GOLD);
 
         // 3. 功夫战术腰带与飘带 (Martial Arts Sash Belt & Dynamic Ribbon Tails)
-        int sash_y = by + 14;
-        int sash_w = belly_rx - 2;
-        out_d.fillRect(bx - sash_w, sash_y - 1, sash_w * 2, 3, sticks3::ANIME_COL_VEST_MAIN);
-        out_d.drawFastHLine(bx - sash_w, sash_y - 1, sash_w * 2, sticks3::ANIME_COL_VEST_GOLD);
-        out_d.drawFastHLine(bx - sash_w, sash_y + 1, sash_w * 2, sticks3::ANIME_COL_VEST_DARK);
-        // 腰带中央金环扣与高光
-        safeFillCircle(out_d, bx - 2, sash_y, 2, sticks3::ANIME_COL_VEST_GOLD);
-        safeDrawCircle(out_d, bx - 2, sash_y, 2, 0xFFFF);
+        int sash_y = vest_bot + 1;
+        int sash_w = belly_rx;
+        out_d.fillRect(bx - sash_w, sash_y - 1, sash_w * 2, 3, sticks3::CADET_COL_VEST_NAVY);
+        out_d.drawFastHLine(bx - sash_w, sash_y - 1, sash_w * 2, sticks3::CADET_COL_VEST_GOLD);
+        out_d.drawFastHLine(bx - sash_w, sash_y + 1, sash_w * 2, sticks3::CADET_COL_VEST_DARK);
+        // 中央金色方扣
+        out_d.fillRect(bx - 2, sash_y - 2, 5, 5, sticks3::CADET_COL_VEST_GOLD);
         // 随运动与微风动态飘舞的两根武术结丝带 (Secondary Follow-Through Motion)
         float ribbon_sway = std::sin(now * 0.007f) * 2.5f + (skel.body_x - 67.5f) * 0.15f;
-        int r1_end_x = bx - 6 + (int)ribbon_sway;
-        int r2_end_x = bx + 4 + (int)(ribbon_sway * 0.8f);
+        int r1_end_x = bx - 4 + (int)ribbon_sway;
+        int r2_end_x = bx + 3 + (int)(ribbon_sway * 0.8f);
         int r1_end_y = sash_y + 9;
         int r2_end_y = sash_y + 8;
-        out_d.fillTriangle(bx - 3, sash_y + 1, r1_end_x, r1_end_y, bx - 1, sash_y + 8, sticks3::ANIME_COL_VEST_MAIN);
-        out_d.drawLine(bx - 3, sash_y + 1, r1_end_x, r1_end_y, sticks3::ANIME_COL_VEST_GOLD);
-        out_d.fillTriangle(bx, sash_y + 1, r2_end_x, r2_end_y, bx + 1, sash_y + 7, sticks3::ANIME_COL_VEST_MAIN);
-        out_d.drawLine(bx, sash_y + 1, r2_end_x, r2_end_y, sticks3::ANIME_COL_VEST_GOLD);
-
-        // 探险巡警金星徽章 (5-Pointed Patrol Star Badge)
-        uint16_t badge_col = growth_mgr.getBadgeColor();
-        safeFillCircle(out_d, bx - 8, vest_top + 5, 4, sticks3::ANIME_COL_VEST_GOLD);
-        safeFillCircle(out_d, bx - 8, vest_top + 5, 3, badge_col);
-        out_d.drawLine(bx - 10, vest_top + 5, bx - 6, vest_top + 5, 0xFFFF);
-        out_d.drawLine(bx - 8, vest_top + 3, bx - 8, vest_top + 7, 0xFFFF);
-        out_d.drawPixel(bx - 8, vest_top + 5, 0xFFFF);
+        out_d.fillTriangle(bx - 2, sash_y + 2, r1_end_x, r1_end_y, bx, sash_y + 8, sticks3::CADET_COL_VEST_NAVY);
+        out_d.drawLine(bx - 2, sash_y + 2, r1_end_x, r1_end_y, sticks3::CADET_COL_VEST_GOLD);
+        out_d.fillTriangle(bx + 1, sash_y + 2, r2_end_x, r2_end_y, bx + 2, sash_y + 7, sticks3::CADET_COL_VEST_NAVY);
+        out_d.drawLine(bx + 1, sash_y + 2, r2_end_x, r2_end_y, sticks3::CADET_COL_VEST_GOLD);
     } else {
-        // 萌熊后背：探险马甲后背拼接线与背脊 + 后腰带
-        int vest_top = chest_y - chest_ry + 2;
-        int vest_bot = by + 1;
-        out_d.fillRect(bx - chest_rx, vest_top, chest_rx * 2, vest_bot - vest_top, sticks3::ANIME_COL_VEST_MAIN);
-        out_d.drawFastHLine(bx - chest_rx, vest_top, chest_rx * 2, sticks3::ANIME_COL_VEST_GOLD);
-        out_d.drawFastHLine(bx - chest_rx, vest_bot, chest_rx * 2, sticks3::ANIME_COL_VEST_GOLD);
-        out_d.drawLine(bx, vest_top, bx, vest_bot, sticks3::ANIME_COL_VEST_DARK);
+        // 侠客后背：午夜蓝战术马甲后背拼接线与金色边缘 + 后腰带
+        int vest_top = chest_y - chest_ry + 1;
+        int vest_bot = by + 2;
+        int vest_w = chest_rx + 1;
+        out_d.fillRect(bx - vest_w, vest_top, vest_w * 2, vest_bot - vest_top, sticks3::CADET_COL_VEST_NAVY);
+        out_d.drawFastHLine(bx - vest_w, vest_top, vest_w * 2, sticks3::CADET_COL_VEST_GOLD);
+        out_d.drawFastHLine(bx - vest_w, vest_bot, vest_w * 2, sticks3::CADET_COL_VEST_GOLD);
+        out_d.drawLine(bx, vest_top, bx, vest_bot, sticks3::CADET_COL_VEST_DARK);
 
-        int sash_y = by + 14;
-        int sash_w = belly_rx - 2;
-        out_d.fillRect(bx - sash_w, sash_y - 1, sash_w * 2, 3, sticks3::ANIME_COL_VEST_MAIN);
-        out_d.drawFastHLine(bx - sash_w, sash_y - 1, sash_w * 2, sticks3::ANIME_COL_VEST_GOLD);
-        out_d.drawFastHLine(bx - sash_w, sash_y + 1, sash_w * 2, sticks3::ANIME_COL_VEST_DARK);
+        int sash_y = vest_bot + 1;
+        int sash_w = belly_rx;
+        out_d.fillRect(bx - sash_w, sash_y - 1, sash_w * 2, 3, sticks3::CADET_COL_VEST_NAVY);
+        out_d.drawFastHLine(bx - sash_w, sash_y - 1, sash_w * 2, sticks3::CADET_COL_VEST_GOLD);
+        out_d.drawFastHLine(bx - sash_w, sash_y + 1, sash_w * 2, sticks3::CADET_COL_VEST_DARK);
     }
 
     // (C) 绘制处于前方的近景肢体 (Foreground Limbs)
@@ -1297,110 +1310,106 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     int ear_flop_r = (int)(-s_smooth_roll * 0.15f);
     if (bl_state == sticks3::BL_STATE_LISTENING) ear_flop_l -= 5;
 
-    // 疯狂动物城立体狐兔大耳 (朱迪/尼克多层修长大耳廓: 焦糖暖绒外耳 + 樱粉丝绒内耳 + 根部萌毛簇)
-    int ex_l = cx - 21;
-    int ey_l = cy - 24 + ear_flop_l;
-    int ex_r = cx + 21;
-    int ey_r = cy - 24 + ear_flop_r;
+    // 兔子高耸立耳 (Tall Upright Rabbit Ears: 琥珀外耳 + 黑巧耳尖 + 象牙白内耳绒毛 + 核心浅粉)
+    int ex_l = cx - 15;
+    int ey_l = cy - 28 + ear_flop_l;
+    int ex_r = cx + 15;
+    int ey_r = cy - 28 + ear_flop_r;
 
     if (skel.is_back_view) {
-        // --- 3D 萌熊后脑勺与萌背视角 (Back View: Head & Ear Backs, Foreground Tail) ---
-        safeFillEllipse(out_d, ex_l, ey_l, 9, 15, sticks3::ANIME_COL_MIDTONE);
-        safeFillEllipse(out_d, ex_r, ey_r, 9, 15, sticks3::ANIME_COL_MIDTONE);
-        safeDrawEllipse(out_d, ex_l, ey_l, 9, 15, sticks3::ANIME_COL_OUTLINE);
-        safeDrawEllipse(out_d, ex_r, ey_r, 9, 15, sticks3::ANIME_COL_OUTLINE);
-        safeFillEllipse(out_d, ex_l, ey_l - 11, 7, 4, 0x18C3);
-        safeFillEllipse(out_d, ex_r, ey_r - 11, 7, 4, 0x18C3);
-        safeDrawArc(out_d, ex_l - 1, ey_l - 2, 7, 8, 210, 290, sticks3::ANIME_COL_KEYLIGHT);
-        safeDrawArc(out_d, ex_r + 1, ey_r - 2, 7, 8, 250, 330, sticks3::ANIME_COL_KEYLIGHT);
+        // --- 3D 萌侠后脑勺与萌背视角 (Back View: Head & Ear Backs, Foreground Tail) ---
+        safeFillEllipse(out_d, ex_l, ey_l, 7, 18, sticks3::CADET_COL_FUR_AMBER);
+        safeFillEllipse(out_d, ex_r, ey_r, 7, 18, sticks3::CADET_COL_FUR_AMBER);
+        safeDrawEllipse(out_d, ex_l, ey_l, 7, 18, sticks3::CADET_COL_FUR_DARK);
+        safeDrawEllipse(out_d, ex_r, ey_r, 7, 18, sticks3::CADET_COL_FUR_DARK);
+        safeFillEllipse(out_d, ex_l, ey_l - 12, 6, 6, sticks3::CADET_COL_EAR_DARK);
+        safeFillEllipse(out_d, ex_r, ey_r - 12, 6, 6, sticks3::CADET_COL_EAR_DARK);
 
-        int rx_head = std::max(4, (int)(27.0f * skel.head_scale_x));
-        int ry_head = std::max(4, (int)(24.0f * skel.head_scale_y));
-        safeFillEllipse(out_d, cx, cy + 2, rx_head + 1, ry_head + 1, sticks3::ANIME_COL_SHADOW);
-        safeFillEllipse(out_d, cx, cy, rx_head, ry_head, sticks3::ANIME_COL_MIDTONE);
-        safeDrawArc(out_d, cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, sticks3::ANIME_COL_KEYLIGHT);
+        int rx_head = std::max(4, (int)(24.0f * skel.head_scale_x));
+        int ry_head = std::max(4, (int)(19.0f * skel.head_scale_y));
+        safeFillEllipse(out_d, cx, cy + 2, rx_head + 1, ry_head + 1, sticks3::CADET_COL_FUR_DARK);
+        safeFillEllipse(out_d, cx, cy, rx_head, ry_head, sticks3::CADET_COL_FUR_AMBER);
 
-        out_d.fillTriangle(cx - 3, cy - ry_head + 2, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 2, sticks3::ANIME_COL_MIDTONE);
-        out_d.drawTriangle(cx - 3, cy - ry_head + 2, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 2, sticks3::ANIME_COL_OUTLINE);
+        out_d.fillTriangle(cx - 3, cy - ry_head + 2, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 2, sticks3::CADET_COL_FUR_AMBER);
+        out_d.drawTriangle(cx - 3, cy - ry_head + 2, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 2, sticks3::CADET_COL_FUR_DARK);
 
         int tx = (int)skel.joints_screen[sticks3::OP_TAIL].sx;
         int ty = (int)skel.joints_screen[sticks3::OP_TAIL].sy;
-        drawBearTail(out_d, tx, ty, 9, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_OUTLINE);
+        drawBearTail(out_d, tx, ty, 9, sticks3::CADET_COL_FUR_AMBER, sticks3::CADET_COL_FUR_DARK);
     } else {
-        // --- 3D 萌熊正面立体五官 (Front View: Glossy Anime Doe Eyes, Plump Muzzle & W-Smile) ---
-        // 1. 狐兔多层修长大耳 (外耳焦糖 + 内耳樱粉 + 耳尖黑巧 + 根部白绒毛簇)
-        safeFillEllipse(out_d, ex_l, ey_l, 9, 15, sticks3::ANIME_COL_MIDTONE);
-        safeFillEllipse(out_d, ex_r, ey_r, 9, 15, sticks3::ANIME_COL_MIDTONE);
-        safeDrawEllipse(out_d, ex_l, ey_l, 9, 15, sticks3::ANIME_COL_OUTLINE);
-        safeDrawEllipse(out_d, ex_r, ey_r, 9, 15, sticks3::ANIME_COL_OUTLINE);
+        // --- 3D 功夫学徒正面立体五官 (Front View: Red Panda Face Mask + Doe Eyes + Snout) ---
+        // 1. 高耸立耳 (外耳琥珀 + 耳尖黑巧 + 内耳象牙白绒毛 + 核心浅粉)
+        for (int side = 0; side < 2; side++) {
+            int ex = (side == 0) ? ex_l : ex_r;
+            int ey = (side == 0) ? ey_l : ey_r;
+            safeFillEllipse(out_d, ex, ey, 7, 18, sticks3::CADET_COL_FUR_AMBER);
+            safeDrawEllipse(out_d, ex, ey, 7, 18, sticks3::CADET_COL_FUR_DARK);
+            safeFillEllipse(out_d, ex, ey - 12, 6, 6, sticks3::CADET_COL_EAR_DARK);
+            safeFillEllipse(out_d, ex, ey + 1, 5, 12, sticks3::CADET_COL_FUR_WHITE);
+            safeFillEllipse(out_d, ex, ey + 3, 2, 7, sticks3::CADET_COL_PAD_PINK);
+        }
 
-        // 耳尖黑巧萌斑 (Dark Tipped Ears - 疯狂动物城朱迪/尼克标志性造型)
-        safeFillEllipse(out_d, ex_l, ey_l - 11, 7, 4, 0x18C3);
-        safeFillEllipse(out_d, ex_r, ey_r - 11, 7, 4, 0x18C3);
-
-        safeFillEllipse(out_d, ex_l + 1, ey_l + 1, 5, 10, sticks3::ANIME_COL_EAR_INNER);
-        safeFillEllipse(out_d, ex_r - 1, ey_r + 1, 5, 10, sticks3::ANIME_COL_EAR_INNER);
-        safeDrawEllipse(out_d, ex_l + 1, ey_l + 1, 5, 10, 0xF9B0);
-        safeDrawEllipse(out_d, ex_r - 1, ey_r + 1, 5, 10, 0xF9B0);
-
-        // 耳根白绒毛簇 (Fluffy Ear Base Tufts)
-        out_d.fillTriangle(ex_l - 4, ey_l + 9, ex_l + 3, ey_l + 9, ex_l - 1, ey_l + 5, sticks3::ANIME_COL_BELLY);
-        out_d.fillTriangle(ex_r + 4, ey_r + 9, ex_r - 3, ey_r + 9, ex_r + 1, ey_r + 5, sticks3::ANIME_COL_BELLY);
-
-        // 2. 头部主体与颊侧灵动绒毛簇 (Cheek Fur Tufts)
-        int rx_head = std::max(4, (int)(27.0f * skel.head_scale_x));
-        int ry_head = std::max(4, (int)(24.0f * skel.head_scale_y));
-        safeFillEllipse(out_d, cx, cy + 2, rx_head + 1, ry_head + 1, sticks3::ANIME_COL_SHADOW);
-        safeFillEllipse(out_d, cx, cy, rx_head, ry_head, sticks3::ANIME_COL_MIDTONE);
+        // 2. 头部主体 (琥珀红熊猫饱满圆脸)
+        int rx_head = std::max(4, (int)(24.0f * skel.head_scale_x));
+        int ry_head = std::max(4, (int)(19.0f * skel.head_scale_y));
+        safeFillEllipse(out_d, cx, cy + 2, rx_head + 1, ry_head + 1, sticks3::CADET_COL_FUR_DARK);
+        safeFillEllipse(out_d, cx, cy, rx_head, ry_head, sticks3::CADET_COL_FUR_AMBER);
         safeDrawArc(out_d, cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, sticks3::ANIME_COL_KEYLIGHT);
 
-        // 颊侧灵动毛簇 (左右各两段飘逸毛尖)
-        out_d.fillTriangle(cx - rx_head + 2, cy + 3, cx - rx_head - 4, cy + 7, cx - rx_head + 3, cy + 9, sticks3::ANIME_COL_MIDTONE);
-        out_d.fillTriangle(cx - rx_head + 3, cy + 9, cx - rx_head - 3, cy + 13, cx - rx_head + 4, cy + 15, sticks3::ANIME_COL_MIDTONE);
-        out_d.drawLine(cx - rx_head + 2, cy + 3, cx - rx_head - 4, cy + 7, sticks3::ANIME_COL_OUTLINE);
-        out_d.drawLine(cx - rx_head - 4, cy + 7, cx - rx_head + 3, cy + 9, sticks3::ANIME_COL_OUTLINE);
-
-        out_d.fillTriangle(cx + rx_head - 2, cy + 3, cx + rx_head + 4, cy + 7, cx + rx_head - 3, cy + 9, sticks3::ANIME_COL_MIDTONE);
-        out_d.fillTriangle(cx + rx_head - 3, cy + 9, cx + rx_head + 3, cy + 13, cx + rx_head - 4, cy + 15, sticks3::ANIME_COL_MIDTONE);
-        out_d.drawLine(cx + rx_head - 2, cy + 3, cx + rx_head + 4, cy + 7, sticks3::ANIME_COL_OUTLINE);
-        out_d.drawLine(cx + rx_head + 4, cy + 7, cx + rx_head - 3, cy + 9, sticks3::ANIME_COL_OUTLINE);
-
         // 额顶萌毛束
-        out_d.fillTriangle(cx - 3, cy - ry_head + 1, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 1, sticks3::ANIME_COL_MIDTONE);
-        out_d.drawTriangle(cx - 3, cy - ry_head + 1, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 1, sticks3::ANIME_COL_OUTLINE);
+        out_d.fillTriangle(cx - 3, cy - ry_head + 1, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 1, sticks3::CADET_COL_FUR_AMBER);
+        out_d.drawTriangle(cx - 3, cy - ry_head + 1, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 1, sticks3::CADET_COL_FUR_DARK);
 
-        // 3. 颊红与腮边软萌微光
-        int blush_r = (cur_m == sticks3::MOOD_HAPPY) ? 7 : 5;
-        safeFillEllipse(out_d, cx - 18, cy + 7, blush_r, blush_r - 1, sticks3::ANIME_COL_PAD);
-        safeFillEllipse(out_d, cx + 18, cy + 7, blush_r, blush_r - 1, sticks3::ANIME_COL_PAD);
-        out_d.drawPixel(cx - 19, cy + 6, 0xFFFF);
-        out_d.drawPixel(cx - 17, cy + 6, 0xFFFF);
-        out_d.drawPixel(cx + 17, cy + 6, 0xFFFF);
-        out_d.drawPixel(cx + 19, cy + 6, 0xFFFF);
+        // 3. 标志性红熊猫面部花纹 (Red Panda White Mask & Cheek Tufts)
+        // 脸颊两侧白色圆润绒毛区
+        safeFillEllipse(out_d, cx - 16, cy + 6, 9, 8, sticks3::CADET_COL_FUR_WHITE);
+        safeFillEllipse(out_d, cx + 16, cy + 6, 9, 8, sticks3::CADET_COL_FUR_WHITE);
+        // 颊侧向外延伸白毛尖
+        out_d.fillTriangle(cx - 18, cy + 4, cx - 24, cy + 7, cx - 17, cy + 10, sticks3::CADET_COL_FUR_WHITE);
+        out_d.fillTriangle(cx + 18, cy + 4, cx + 24, cy + 7, cx + 17, cy + 10, sticks3::CADET_COL_FUR_WHITE);
 
-        // 4. 立体微凸软糯吻部 (Plump 3D Muzzle Snout)
-        safeFillEllipse(out_d, cx, cy + 6, 15, 11, sticks3::ANIME_COL_SNOUT);
-        safeDrawEllipse(out_d, cx, cy + 6, 15, 11, sticks3::ANIME_COL_BELLY_SHD);
+        // 吻部软糯象牙白区域
+        int snout_y = cy + 6;
+        safeFillEllipse(out_d, cx, snout_y, 13, 8, sticks3::CADET_COL_FUR_WHITE);
 
-        // 黑松露高光纽扣鼻
-        safeFillEllipse(out_d, cx, cy + 2, 4, 3, 0x1082);
-        out_d.drawPixel(cx - 1, cy + 1, 0xFFFF); // 纽扣鼻水润高光
+        // 眼睛上方白色水滴眉斑 (Iconic White Teardrop Eyebrows)
+        safeFillEllipse(out_d, cx - 9, cy - 9, 3, 2, sticks3::CADET_COL_FUR_WHITE);
+        safeFillEllipse(out_d, cx + 9, cy - 9, 3, 2, sticks3::CADET_COL_FUR_WHITE);
 
-        // 人中竖线与柔美 ω 微笑弧
-        out_d.drawLine(cx, cy + 5, cx, cy + 7, 0x1082);
-        safeDrawArc(out_d, cx - 4, cy + 7, 3, 4, 25, 155, 0x1082); // 左唇微笑弧
-        safeDrawArc(out_d, cx + 4, cy + 7, 3, 4, 25, 155, 0x1082); // 右唇微笑弧
+        // 眼角至脸颊深棕红泪痕条纹 (Auburn Tear Stripes)
+        out_d.drawLine(cx - 13, cy, cx - 9, cy + 7, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx - 14, cy, cx - 10, cy + 7, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx + 13, cy, cx + 9, cy + 7, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx + 14, cy, cx + 10, cy + 7, sticks3::CADET_COL_FUR_DARK);
+
+        // 颊红
+        int blush_r = (cur_m == sticks3::MOOD_HAPPY) ? 5 : 4;
+        safeFillEllipse(out_d, cx - 17, cy + 8, blush_r, blush_r - 1, sticks3::CADET_COL_PAD_PINK);
+        safeFillEllipse(out_d, cx + 17, cy + 8, blush_r, blush_r - 1, sticks3::CADET_COL_PAD_PINK);
+
+        // 4. 黑松露纽扣鼻
+        safeFillEllipse(out_d, cx, snout_y - 2, 3, 2, sticks3::CADET_COL_NOSE_DARK);
+        out_d.drawPixel(cx - 1, snout_y - 3, 0xFFFF);
+
+        // 人中与软糯微笑弧
+        out_d.drawLine(cx, snout_y, cx, snout_y + 3, sticks3::CADET_COL_NOSE_DARK);
+        safeDrawArc(out_d, cx - 3, snout_y + 3, 3, 3, 20, 160, sticks3::CADET_COL_NOSE_DARK);
+        safeDrawArc(out_d, cx + 3, snout_y + 3, 3, 3, 20, 160, sticks3::CADET_COL_NOSE_DARK);
 
         // 灵动俏皮白嫩犬齿牙尖 (Canine Tooth)
-        out_d.fillTriangle(cx + 1, cy + 7, cx + 4, cy + 7, cx + 2, cy + 10, 0xFFFF);
-        out_d.drawLine(cx + 1, cy + 7, cx + 2, cy + 10, 0x1082);
-        out_d.drawLine(cx + 4, cy + 7, cx + 2, cy + 10, 0x1082);
+        out_d.fillTriangle(cx + 1, snout_y + 3, cx + 4, snout_y + 3, cx + 2, snout_y + 6, 0xFFFF);
+
+        // 灵动胡须 (左右各两根细须)
+        out_d.drawLine(cx - 12, snout_y + 1, cx - 21, snout_y + 2, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx - 12, snout_y + 3, cx - 21, snout_y + 5, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx + 12, snout_y + 1, cx + 21, snout_y + 2, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx + 12, snout_y + 3, cx + 21, snout_y + 5, sticks3::CADET_COL_FUR_DARK);
 
         // 迪士尼/日漫灵动双星水光大眼 (Doe-Eyes)
-        int lx = cx - 13;
-        int ly = cy - 4;
-        int rx = cx + 13;
-        int ry = cy - 4;
+        int lx = cx - 10;
+        int ly = cy - 3;
+        int rx = cx + 10;
+        int ry = cy - 3;
 
         int gaze_x = (int)constrain(s_smooth_roll * 0.08f, -2.5f, 2.5f);
         int gaze_y = (int)constrain(s_smooth_pitch * 0.06f, -2.5f, 2.5f);
@@ -1418,38 +1427,38 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         bool is_tumble = (std::abs(s_smooth_roll) > 45.0f || a_mag < 0.35f);
 
         if (cur_m == sticks3::MOOD_SLEEP) {
-            out_d.drawArc(lx, ly, 5, 7, 15, 165, 0x1082);
-            out_d.drawArc(rx, ry, 5, 7, 15, 165, 0x1082);
+            out_d.drawArc(lx, ly, 4, 6, 15, 165, sticks3::CADET_COL_NOSE_DARK);
+            out_d.drawArc(rx, ry, 4, 6, 15, 165, sticks3::CADET_COL_NOSE_DARK);
         } else if (s_is_blinking) {
-            out_d.drawArc(lx, ly, 5, 6, 10, 170, 0x1082);
-            out_d.drawArc(rx, ry, 5, 6, 10, 170, 0x1082);
+            out_d.drawArc(lx, ly, 4, 5, 10, 170, sticks3::CADET_COL_NOSE_DARK);
+            out_d.drawArc(rx, ry, 4, 5, 10, 170, sticks3::CADET_COL_NOSE_DARK);
         } else if (cur_m == sticks3::MOOD_HAPPY) {
-            out_d.fillCircle(lx, ly - 1, 6, 0x1082);
-            out_d.fillCircle(lx, ly + 3, 6, sticks3::ANIME_COL_MIDTONE);
-            out_d.fillCircle(rx, ry - 1, 6, 0x1082);
-            out_d.fillCircle(rx, ry + 3, 6, sticks3::ANIME_COL_MIDTONE);
+            out_d.fillCircle(lx, ly - 1, 5, sticks3::CADET_COL_NOSE_DARK);
+            out_d.fillCircle(lx, ly + 3, 5, sticks3::CADET_COL_FUR_AMBER);
+            out_d.fillCircle(rx, ry - 1, 5, sticks3::CADET_COL_NOSE_DARK);
+            out_d.fillCircle(rx, ry + 3, 5, sticks3::CADET_COL_FUR_AMBER);
         } else if (is_dizzy) {
-            out_d.drawCircle(lx, ly, 3, 0xFE60);
-            out_d.drawCircle(lx, ly, 5, 0xFE60);
-            out_d.drawCircle(rx, ry, 3, 0xFE60);
-            out_d.drawCircle(rx, ry, 5, 0xFE60);
+            out_d.drawCircle(lx, ly, 3, sticks3::CADET_COL_VEST_GOLD);
+            out_d.drawCircle(lx, ly, 5, sticks3::CADET_COL_VEST_GOLD);
+            out_d.drawCircle(rx, ry, 3, sticks3::CADET_COL_VEST_GOLD);
+            out_d.drawCircle(rx, ry, 5, sticks3::CADET_COL_VEST_GOLD);
         } else if (is_tumble) {
-            out_d.fillCircle(lx, ly, 7, 0xFFFF);
-            out_d.drawCircle(lx, ly, 7, 0x1082);
+            out_d.fillCircle(lx, ly, 6, 0xFFFF);
+            out_d.drawCircle(lx, ly, 6, sticks3::CADET_COL_NOSE_DARK);
             out_d.fillCircle(lx + gaze_x, ly + gaze_y, 3, 0x0110);
-            out_d.fillCircle(rx, ry, 7, 0xFFFF);
-            out_d.drawCircle(rx, ry, 7, 0x1082);
+            out_d.fillCircle(rx, ry, 6, 0xFFFF);
+            out_d.drawCircle(rx, ry, 6, sticks3::CADET_COL_NOSE_DARK);
             out_d.fillCircle(rx + gaze_x, ry + gaze_y, 3, 0x0110);
         } else {
             // 日漫高保真双星水光眼 (Dual-Star Anime Glossy Eyes)
-            out_d.fillRoundRect(lx - 5, ly - 7, 11, 14, 5, 0x0841);
-            out_d.fillRoundRect(rx - 5, ry - 7, 11, 14, 5, 0x0841);
-            out_d.drawRoundRect(lx - 5, ly - 7, 11, 14, 5, sticks3::ANIME_COL_OUTLINE);
-            out_d.drawRoundRect(rx - 5, ry - 7, 11, 14, 5, sticks3::ANIME_COL_OUTLINE);
+            out_d.fillRoundRect(lx - 4, ly - 6, 9, 12, 4, 0x0841);
+            out_d.fillRoundRect(rx - 4, ry - 6, 9, 12, 4, 0x0841);
+            out_d.drawRoundRect(lx - 4, ly - 6, 9, 12, 4, sticks3::CADET_COL_FUR_DARK);
+            out_d.drawRoundRect(rx - 4, ry - 6, 9, 12, 4, sticks3::CADET_COL_FUR_DARK);
 
-            // 渐变虹膜
-            out_d.fillCircle(lx + gaze_x, ly + gaze_y + 1, 3, sticks3::ANIME_COL_EYE_IRIS);
-            out_d.fillCircle(rx + gaze_x, ry + gaze_y + 1, 3, sticks3::ANIME_COL_EYE_IRIS);
+            // 琥珀深棕灵动虹膜
+            out_d.fillCircle(lx + gaze_x, ly + gaze_y + 1, 3, sticks3::CADET_COL_EYE_IRIS);
+            out_d.fillCircle(rx + gaze_x, ry + gaze_y + 1, 3, sticks3::CADET_COL_EYE_IRIS);
 
             // 主星璀璨双高光
             out_d.fillCircle(lx + gaze_x - 1, ly + gaze_y - 2, 2, 0xFFFF);
@@ -1458,21 +1467,21 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
             out_d.drawPixel(rx + gaze_x + 2, ry + gaze_y + 2, 0xFFFF);
 
             // 软萌上睫毛微弧
-            out_d.drawLine(lx - 4, ly - 8, lx + 4, ly - 8, sticks3::ANIME_COL_OUTLINE);
-            out_d.drawLine(rx - 4, ry - 8, rx + 4, ry - 8, sticks3::ANIME_COL_OUTLINE);
+            out_d.drawLine(lx - 4, ly - 7, lx + 4, ly - 7, sticks3::CADET_COL_FUR_DARK);
+            out_d.drawLine(rx - 4, ry - 7, rx + 4, ry - 7, sticks3::CADET_COL_FUR_DARK);
 
             auto cur_act = sticks3::BearKinematicsController::getInstance().getCurrentAction();
             bool is_martial_act = (cur_act == sticks3::BEAR_ACT_KUNGFU || cur_act == sticks3::BEAR_ACT_WINGCHUN || cur_act == sticks3::BEAR_ACT_DRAGON_PUNCH);
             if (is_martial_act) {
                 // 功夫专注英气坚毅剑眉 (Determined Martial Brows)
-                out_d.drawLine(lx - 5, ly - 8, lx + 4, ly - 12, sticks3::ANIME_COL_OUTLINE);
-                out_d.drawLine(lx - 5, ly - 7, lx + 4, ly - 11, sticks3::ANIME_COL_OUTLINE);
-                out_d.drawLine(rx - 4, ry - 12, rx + 5, ry - 8, sticks3::ANIME_COL_OUTLINE);
-                out_d.drawLine(rx - 4, ry - 11, rx + 5, ry - 7, sticks3::ANIME_COL_OUTLINE);
+                out_d.drawLine(lx - 5, ly - 7, lx + 4, ly - 11, sticks3::CADET_COL_FUR_DARK);
+                out_d.drawLine(lx - 5, ly - 6, lx + 4, ly - 10, sticks3::CADET_COL_FUR_DARK);
+                out_d.drawLine(rx - 4, ry - 11, rx + 5, ry - 7, sticks3::CADET_COL_FUR_DARK);
+                out_d.drawLine(rx - 4, ry - 10, rx + 5, ry - 6, sticks3::CADET_COL_FUR_DARK);
             } else {
                 // 灵动柔和动漫双眉 (Expressive Anime Brows)
-                out_d.drawLine(lx - 5, ly - 10, lx + 4, ly - 11, sticks3::ANIME_COL_OUTLINE);
-                out_d.drawLine(rx - 4, ry - 11, rx + 5, ry - 10, sticks3::ANIME_COL_OUTLINE);
+                out_d.drawLine(lx - 5, ly - 9, lx + 4, ly - 10, sticks3::CADET_COL_FUR_DARK);
+                out_d.drawLine(rx - 4, ry - 10, rx + 5, ry - 9, sticks3::CADET_COL_FUR_DARK);
             }
         }
 
@@ -1529,12 +1538,12 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
             out_d.drawString("?", cx - 22, cy - 26);
         }
     }
+    } // end else (procedural kinematic assembly)
 
     // 8.5 全屏等级晋升与技能解锁庆典特效 (Skill Unlock Ceremony Overlay)
     drawUnlockCeremonyOverlay(out_d, now, growth_mgr);
 
     // 8.8 屏显动作与姿态阅兵浮层 (On-Screen Action HUD Pill Banner)
-    sticks3::BearAction active_act = sticks3::BearKinematicsController::getInstance().getCurrentAction();
     if (active_act != sticks3::BEAR_ACT_IDLE || s_demo_showcase_mode) {
         int hud_w = W - 14; // 121px
         int hud_h = 16;

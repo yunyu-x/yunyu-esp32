@@ -25,6 +25,7 @@ build/
 venv/
 .venv/
 env/
+scratch/
 
 # KiCad EDA temporary files
 *.kicad_prb
