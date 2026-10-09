@@ -548,6 +548,103 @@ def test_disney_cinematic_actions_and_demo_showcase_contracts():
     assert "SUCCESS" in res.stdout
 
 
+def test_cadet_ren_phase2_stunts_and_mode_contracts():
+    """
+    验证微信小程序功夫学徒阿韧 Phase 2 动作导播控制台契约：
+    1. index.wxml 包含 cadet-director-card, cadet-mode-pill, btn-cadet-macro, cadet-stunts-wrapper
+    2. index.wxss 包含 .cadet-director-card, .cadet-mode-pill, .btn-cadet-macro, .cadet-stunt-card
+    3. index.js 定义了 7 大绝招 (bow, kungfu, taichi, dragon_punch, wave, wingchun, combo_martial) 及对应导播方法
+    4. buddy_service.js 导出 triggerBearCombo, setCadetRenderMode, toggleCadetRenderMode 并在 Node.js 中执行通过
+    5. 设备端 135x240 全色域预览图与阅兵动图资源在 docs 和 wechat_miniprogram 目录完整归档
+    """
+    idx_wxml = os.path.join(MP_DIR, "pages", "index", "index.wxml")
+    with open(idx_wxml, "r", encoding="utf-8") as f:
+        wxml_src = f.read()
+
+    assert "cadet-director-card" in wxml_src, "index.wxml 必须包含 cadet-director-card"
+    assert "cadet-mode-pill" in wxml_src, "index.wxml 必须包含 cadet-mode-pill 双模式切换胶囊"
+    assert "btn-cadet-macro" in wxml_src, "index.wxml 必须包含 btn-cadet-macro 连携套路按钮"
+    assert "cadet-scroll-view" in wxml_src, "index.wxml 必须包含 cadet-scroll-view"
+    assert "handleTriggerCadetStunt" in wxml_src, "index.wxml 必须绑定 handleTriggerCadetStunt"
+    assert "handleToggleCadetMode" in wxml_src, "index.wxml 必须绑定 handleToggleCadetMode"
+
+    idx_wxss = os.path.join(MP_DIR, "pages", "index", "index.wxss")
+    with open(idx_wxss, "r", encoding="utf-8") as f:
+        wxss_src = f.read()
+
+    assert ".cadet-director-card" in wxss_src, "index.wxss 必须定义 .cadet-director-card"
+    assert ".cadet-mode-pill" in wxss_src, "index.wxss 必须定义 .cadet-mode-pill"
+    assert ".btn-cadet-macro" in wxss_src, "index.wxss 必须定义 .btn-cadet-macro"
+    assert ".cadet-stunt-card" in wxss_src, "index.wxss 必须定义 .cadet-stunt-card"
+
+    idx_js = os.path.join(MP_DIR, "pages", "index", "index.js")
+    with open(idx_js, "r", encoding="utf-8") as f:
+        js_src = f.read()
+
+    assert "cadetRenderMode" in js_src, "index.js 必须定义 cadetRenderMode"
+    assert "cadetStunts" in js_src, "index.js 必须定义 cadetStunts"
+    assert "handleTriggerCadetStunt" in js_src, "index.js 必须实现 handleTriggerCadetStunt"
+    assert "handleToggleCadetMode" in js_src, "index.js 必须实现 handleToggleCadetMode"
+    assert "handleTriggerCadetCombo" in js_src, "index.js 必须实现 handleTriggerCadetCombo"
+
+    # 验证 7 大绝招
+    cadet_stunts_list = ["bow", "kungfu", "taichi", "dragon_punch", "wave", "wingchun", "combo_martial"]
+    for stunt in cadet_stunts_list:
+        assert f'act: "{stunt}"' in js_src or f"act: '{stunt}'" in js_src, f"index.js 缺少阿韧绝招: {stunt}"
+
+    # 验证 buddy_service.js 导出方法
+    bs_path = os.path.join(MP_DIR, "utils", "buddy_service.js")
+    with open(bs_path, "r", encoding="utf-8") as f:
+        bs_src = f.read()
+
+    assert "triggerBearCombo(" in bs_src, "buddy_service.js 必须包含 triggerBearCombo"
+    assert "setCadetRenderMode(" in bs_src, "buddy_service.js 必须包含 setCadetRenderMode"
+    assert "toggleCadetRenderMode(" in bs_src, "buddy_service.js 必须包含 toggleCadetRenderMode"
+
+    # 验证 Node.js 执行阿韧导播与模式切换契约
+    node_script = """
+    global.wx = {
+        getStorageSync: () => ({}),
+        setStorageSync: () => {},
+        vibrateShort: () => {},
+        showToast: () => {},
+        request: (options) => {
+            if (options && options.success) options.success({ statusCode: 200, data: { status: "ok" } });
+        }
+    };
+    const { buddyService } = require('./wechat_miniprogram/utils/buddy_service.js');
+    (async () => {
+        const r1 = await buddyService.triggerBearCombo('martial');
+        if (!r1.success || r1.combo !== 'martial') throw new Error("triggerBearCombo failed");
+
+        const r2 = await buddyService.setCadetRenderMode('fullcolor');
+        if (!r2.success || r2.cadetMode !== 'fullcolor') throw new Error("setCadetRenderMode fullcolor failed");
+
+        const r3 = await buddyService.setCadetRenderMode('lineart');
+        if (!r3.success || r3.cadetMode !== 'lineart') throw new Error("setCadetRenderMode lineart failed");
+
+        const r4 = await buddyService.toggleCadetRenderMode();
+        if (!r4.success) throw new Error("toggleCadetRenderMode failed");
+
+        console.log("SUCCESS: Cadet Ren Phase 2 stunts & mode switching validated in Node!");
+        process.exit(0);
+    })().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+    """
+    res = subprocess.run(["node", "-e", node_script], cwd=ROOT_DIR, capture_output=True, text=True, timeout=10)
+    assert res.returncode == 0, f"阿韧导播与模式切换契约测试失败: {res.stderr}\n{res.stdout}"
+    assert "SUCCESS" in res.stdout
+
+    # 验证资产文件存在
+    preview_gif_docs = os.path.join(ROOT_DIR, "docs", "assets", "cadet_ren", "cadet_ren_fullcolor_parade.gif")
+    preview_gif_mp = os.path.join(MP_DIR, "assets", "cadet_ren", "cadet_ren_fullcolor_parade.gif")
+    assert os.path.exists(preview_gif_docs), f"缺少文档阅兵动图: {preview_gif_docs}"
+    assert os.path.exists(preview_gif_mp), f"缺少小程序阅兵动图: {preview_gif_mp}"
+
+
+
 
 
 

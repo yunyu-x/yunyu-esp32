@@ -222,6 +222,53 @@
     </scroll-view>
   </view>
 
+  <!-- 功夫学徒阿韧动作导播与全色域渲染控制舱 (Cadet Ren Martial Director) -->
+  <view class="cadet-director-card">
+    <view class="cadet-director-header">
+      <view class="cadet-title-group">
+        <text class="cadet-title">🥋 功夫学徒阿韧 · 动作导播台</text>
+        <text class="cadet-sub">Phase 2 全色域微雕分层渲染 · 7 大绝招即时点播</text>
+      </view>
+      <!-- 双模式即时切换 Pill 胶囊按钮 -->
+      <view class="cadet-mode-pill" bindtap="handleToggleCadetMode">
+        <text class="pill-dot {{cadetRenderMode === 'fullcolor' ? 'dot-color' : 'dot-line'}}"></text>
+        <text class="pill-text">{{cadetRenderMode === 'fullcolor' ? '🎨 全色域彩绘' : '✍️ 象牙金微雕'}}</text>
+      </view>
+    </view>
+
+    <!-- 宗师连招与套路一键宏快捷栏 -->
+    <view class="cadet-macro-bar">
+      <button class="btn-cadet-macro" bindtap="handleTriggerCadetCombo">
+        <text class="macro-icon">⚡</text>
+        <text class="macro-text">一键发动【宗师连携套路】(抱拳·马步·太极·咏春·升龙)</text>
+      </button>
+    </view>
+
+    <!-- 7 大绝招横向滑动漫游卡片 -->
+    <scroll-view class="cadet-scroll-view" scroll-x="true" enable-flex="true">
+      <view class="cadet-stunts-wrapper">
+        <block wx:for="{{cadetStunts}}" wx:key="act">
+          <view 
+            class="cadet-stunt-card {{currentCadetStunt === item.act ? 'stunt-active' : ''}} {{petState.level < item.minLvl ? 'stunt-locked' : ''}}"
+            bindtap="handleTriggerCadetStunt"
+            data-act="{{item.act}}"
+            data-minlvl="{{item.minLvl}}"
+          >
+            <view class="stunt-header">
+              <text class="stunt-icon">{{item.icon}}</text>
+              <text class="stunt-lvl {{petState.level >= item.minLvl ? 'stunt-lvl-on' : ''}}">
+                {{petState.level < item.minLvl ? '🔒 Lv.' + item.minLvl : 'Lv.' + item.minLvl}}
+              </text>
+            </view>
+            <text class="stunt-name">{{item.name}}</text>
+            <text class="stunt-en">{{item.en}}</text>
+            <text class="stunt-desc">{{item.desc}}</text>
+          </view>
+        </block>
+      </view>
+    </scroll-view>
+  </view>
+
   <!-- 3D 姿态与人形关节动力学控制舱 (Apple HIG 拟物卡片) -->
   <view class="posture-card">
     <view class="section-title">

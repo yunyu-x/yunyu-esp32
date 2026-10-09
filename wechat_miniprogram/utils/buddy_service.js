@@ -1292,6 +1292,38 @@ class BuddyService {
     }
     return { success: true, mode: "sim" };
   }
+
+  // 功夫学徒阿韧全套组合连携套路 (Combo Routine Macro)
+  async triggerBearCombo(comboName = "martial") {
+    haptics.vibrate("heavy");
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("bear_combo", { action: "bear_combo", combo: comboName });
+      return { success: true, mode: "ble", combo: comboName };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("combo", { combo: comboName });
+      return { success: true, mode: "wifi", combo: comboName };
+    }
+    return { success: true, mode: "sim", combo: comboName };
+  }
+
+  // 功夫学徒阿韧双模式即时切换 (0: 线稿微雕, 1: 全色域功夫学员)
+  async setCadetRenderMode(mode = "fullcolor") {
+    haptics.notification();
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("cadet_mode", { action: "cadet_mode", mode });
+      return { success: true, mode: "ble", cadetMode: mode };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      await this.httpClient.sendPetAction("cadet_mode", { mode });
+      return { success: true, mode: "wifi", cadetMode: mode };
+    }
+    return { success: true, mode: "sim", cadetMode: mode };
+  }
+
+  async toggleCadetRenderMode() {
+    return this.setCadetRenderMode("toggle");
+  }
 }
 
 const buddyService = new BuddyService();

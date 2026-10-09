@@ -1018,3 +1018,198 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ================= 功夫学徒阿韧动作导播与全色域控制舱 ================= */
+.cadet-director-card {
+  background: var(--ios-card-bg, rgba(28, 28, 30, 0.85));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 0.5px solid rgba(255, 149, 0, 0.25);
+  border-radius: var(--ios-radius-card, 32rpx);
+  padding: 24rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.35);
+}
+
+.cadet-director-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18rpx;
+}
+
+.cadet-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.cadet-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.cadet-sub {
+  font-size: 20rpx;
+  color: var(--ios-label-secondary, #8E8E93);
+  margin-top: 4rpx;
+}
+
+.cadet-mode-pill {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  background: rgba(255, 149, 0, 0.15);
+  border: 0.5px solid rgba(255, 149, 0, 0.4);
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  transition: all 0.15s ease;
+}
+
+.cadet-mode-pill:active {
+  transform: scale(0.96);
+  opacity: 0.85;
+}
+
+.pill-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+}
+
+.dot-color {
+  background: #FF9500;
+  box-shadow: 0 0 8rpx #FF9500;
+}
+
+.dot-line {
+  background: #EBEBF5;
+  box-shadow: 0 0 8rpx #FFFFFF;
+}
+
+.pill-text {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #FF9500;
+}
+
+.cadet-macro-bar {
+  margin-bottom: 18rpx;
+}
+
+.btn-cadet-macro {
+  width: 100% !important;
+  height: 72rpx;
+  min-height: 72rpx;
+  background: linear-gradient(135deg, rgba(255, 149, 0, 0.25), rgba(255, 59, 48, 0.2));
+  border: 0.5px solid rgba(255, 149, 0, 0.45);
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  margin: 0;
+  padding: 0 20rpx;
+  transition: all 0.12s ease;
+}
+
+.btn-cadet-macro:active {
+  transform: scale(0.98);
+  background: linear-gradient(135deg, rgba(255, 149, 0, 0.35), rgba(255, 59, 48, 0.3));
+}
+
+.macro-icon {
+  font-size: 26rpx;
+}
+
+.macro-text {
+  font-size: 21rpx;
+  font-weight: 700;
+  color: #FFA000;
+  letter-spacing: -0.2rpx;
+}
+
+.cadet-scroll-view {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.cadet-stunts-wrapper {
+  display: inline-flex;
+  gap: 14rpx;
+  padding: 4rpx 0;
+}
+
+.cadet-stunt-card {
+  display: flex;
+  flex-direction: column;
+  width: 180rpx;
+  flex-shrink: 0;
+  background: #242426;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20rpx;
+  padding: 16rpx 14rpx;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.cadet-stunt-card:active {
+  transform: scale(0.96);
+}
+
+.stunt-active {
+  background: linear-gradient(145deg, rgba(255, 149, 0, 0.25), rgba(205, 95, 38, 0.15));
+  border-color: #FF9500;
+  box-shadow: 0 0 16rpx rgba(255, 149, 0, 0.35);
+}
+
+.stunt-locked {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
+
+.stunt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.stunt-icon {
+  font-size: 32rpx;
+}
+
+.stunt-lvl {
+  font-size: 16rpx;
+  font-weight: 700;
+  color: #8E8E93;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2rpx 8rpx;
+  border-radius: 8rpx;
+}
+
+.stunt-lvl-on {
+  color: #FF9500;
+  background: rgba(255, 149, 0, 0.18);
+}
+
+.stunt-name {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin-bottom: 2rpx;
+}
+
+.stunt-en {
+  font-size: 16rpx;
+  color: var(--ios-label-tertiary, #636366);
+  margin-bottom: 6rpx;
+  text-transform: uppercase;
+}
+
+.stunt-desc {
+  font-size: 16rpx;
+  color: #8E8E93;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

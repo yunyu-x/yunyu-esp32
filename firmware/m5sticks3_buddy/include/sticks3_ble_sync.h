@@ -23,6 +23,7 @@
 #include "sticks3_bailian_client.h"
 #include "sticks3_wakeword.h"
 #include "sticks3_bear_kinematics.h"
+#include "sticks3_cadet_bitmaps.h"
 
 namespace sticks3 {
 
@@ -609,6 +610,36 @@ public:
         } else if (action == "bear_joint_clear" || action == "joint_clear" || action == "joints_reset") {
             BearKinematicsController::getInstance().clearJointOverrides();
             Serial.println("[BLE-INJECT] Bear Joint overrides cleared");
+        } else if (action == "bear_act" || action == "act") {
+            String act_str = doc["act"] | (doc["action"] | "wave");
+            uint32_t dur = doc["duration"] | 2800;
+            BearAction act = stringToBearAction(act_str.c_str());
+            BearKinematicsController::getInstance().triggerAction(act, dur);
+            StickS3Audio::getInstance().playTone(1700, 30, 0.40f);
+            Serial.printf("[BLE-INJECT] Bear Action triggered: %s (duration %u ms)\n", act_str.c_str(), (unsigned)dur);
+        } else if (action == "bear_combo" || action == "combo") {
+            String c_name = doc["combo"] | "martial";
+            BearKinematicsController::getInstance().triggerComboByName(c_name.c_str());
+            StickS3Audio::getInstance().playTone(1800, 40, 0.45f);
+            Serial.printf("[BLE-INJECT] Bear Combo triggered: %s\n", c_name.c_str());
+        } else if (action == "cadet_mode" || action == "set_cadet_mode") {
+            String m_val = doc["mode"] | (doc["value"] | "toggle");
+            m_val.toLowerCase();
+            if (m_val == "lineart" || m_val == "line_art" || m_val == "0") {
+                setCadetRenderMode(CADET_MODE_LINEART);
+            } else if (m_val == "fullcolor" || m_val == "full_color" || m_val == "1") {
+                setCadetRenderMode(CADET_MODE_FULLCOLOR);
+            } else {
+                toggleCadetRenderMode();
+            }
+            Preferences p;
+            if (p.begin("sticks3_cfg", false)) {
+                p.putUChar("cadet_mode", (uint8_t)getCadetRenderMode());
+                p.end();
+            }
+            StickS3Audio::getInstance().playTone(1900, 35, 0.40f);
+            Serial.printf("[BLE-INJECT] Cadet Render Mode switched to: %s\n",
+                          getCadetRenderMode() == CADET_MODE_FULLCOLOR ? "Full-Color" : "Line-Art");
         } else if (action == "query_wifi_status" || action == "get_status") {
             // 立即刷新并推送特征值
             updateSnapshots();

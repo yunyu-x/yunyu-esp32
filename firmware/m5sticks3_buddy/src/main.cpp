@@ -52,6 +52,8 @@ enum ActivePetType {
 };
 static ActivePetType g_active_pet = PET_QIAOQIAO; // 当前活跃宠物形象
 static bool g_pet_avatar_mode = true; // 默认启动拟人化灵宠微表情模式 (短按侧键B切换)
+sticks3::CadetRenderMode sticks3::g_cadet_render_mode = sticks3::CADET_MODE_FULLCOLOR; // 默认全色域功夫学员模式
+static uint32_t s_cadet_mode_banner_until = 0;
 
 // 蓝牙 NUS UUIDs
 #define SERVICE_UUID           "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
@@ -1089,16 +1091,30 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     sticks3::BearAction active_act = sticks3::BearKinematicsController::getInstance().getCurrentAction();
     const uint8_t* atlas_bmp = sticks3::getCadetAtlasBitmap(active_act, anim_frame);
 
-    if (atlas_bmp != nullptr) {
-        // 地面软阴影 (Soft Ambient Occlusion Contact Shadow)
-        if (active_act != sticks3::BEAR_ACT_DRAGON_PUNCH) {
-            safeFillEllipse(out_d, (int)skel.body_x, 214, 28, 4, sticks3::ANIME_COL_SHADOW);
+    int dx = (int)constrain(s_smooth_roll * 0.05f, -3.0f, 3.0f);
+    int dy = (int)constrain(s_smooth_pitch * 0.04f, -3.0f, 3.0f);
+
+    bool rendered_atlas = false;
+    if (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR) {
+        // 1. 全色域灵动功夫学员模式 (Full-Color Mode): 1:1 原画多层色块注入 + 墨线切面
+        if (atlas_bmp != nullptr) {
+            if (active_act != sticks3::BEAR_ACT_DRAGON_PUNCH) {
+                safeFillEllipse(out_d, (int)skel.body_x, 214, 28, 4, sticks3::ANIME_COL_SHADOW);
+            }
+            rendered_atlas = sticks3::drawCadetFullColorFrame(out_d, active_act, anim_frame, dx, dy);
         }
-        // 渲染 1:1 纯正图谱微雕线条 (Authentic 1:1 Atlas Line Art)
-        int dx = (int)constrain(s_smooth_roll * 0.05f, -3.0f, 3.0f);
-        int dy = (int)constrain(s_smooth_pitch * 0.04f, -3.0f, 3.0f);
-        sticks3::drawCadetAtlasLineart(out_d, atlas_bmp, sticks3::CADET_LINE_IVORY, dx, dy);
     } else {
+        // 2. 极简象牙金微雕原画模式 (Minimal Ivory-Gold Line-Art Mode)
+        if (atlas_bmp != nullptr) {
+            if (active_act != sticks3::BEAR_ACT_DRAGON_PUNCH) {
+                safeFillEllipse(out_d, (int)skel.body_x, 214, 28, 4, sticks3::ANIME_COL_SHADOW);
+            }
+            sticks3::drawCadetAtlasLineart(out_d, atlas_bmp, sticks3::CADET_LINE_IVORY, dx, dy);
+            rendered_atlas = true;
+        }
+    }
+
+    if (!rendered_atlas) {
         // 地面软阴影 (Soft Ambient Occlusion Contact Shadow - 悬浮高度动态衰减)
         int sh_y = (skel.is_sitting) ? (int)(skel.body_y + 18) : (int)(skel.body_y + 40);
         if (!skel.is_jumping) {
@@ -1568,6 +1584,20 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         out_d.drawString(act_banner, W / 2, hud_y + 8);
     }
 
+    // 8.9 原画微雕 / 全色域切换即时 Toast Banner
+    if (now < s_cadet_mode_banner_until) {
+        int hud_w = W - 14;
+        int hud_h = 16;
+        int hud_x = 7;
+        int hud_y = 20;
+        bool is_fc = (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR);
+        out_d.fillRoundRect(hud_x, hud_y, hud_w, hud_h, 4, is_fc ? 0x9240 : 0x0862);
+        out_d.drawRoundRect(hud_x, hud_y, hud_w, hud_h, 4, is_fc ? 0xFDE0 : sticks3::CADET_LINE_IVORY);
+        out_d.setTextDatum(MC_DATUM);
+        out_d.setTextColor(0xFFFF, is_fc ? 0x9240 : 0x0862);
+        out_d.drawString(is_fc ? "[全色域功夫学员]" : "[象牙金微雕线稿]", W / 2, hud_y + 8);
+    }
+
     // 9. 底部灵宠养成与系统硬件全维度看板 (Y: 220 ~ 240) - 沉浸式展示等级与胶囊EXP进度条
     out_d.fillRect(0, 220, W, 20, 0x0000);
     out_d.setTextDatum(ML_DATUM);
@@ -1759,16 +1789,22 @@ void setup() {
         sticks3::StickS3BailianClient::getInstance().onWakeWordDetected(conf, dur_ms);
     });
 
-    // 8.6 读取持久化灵宠形象选择 (Meta Jollybot 像素宠 / 灵伴悄悄矢量宠)
+    // 8.6 读取持久化灵宠形象选择 (Meta Jollybot 像素宠 / 灵伴悄悄矢量宠) 与功夫学徒阿韧渲染模式
     Preferences prefs_pet;
     if (prefs_pet.begin("sticks3_cfg", true)) {
         uint8_t saved_p = prefs_pet.getUChar("active_pet", (uint8_t)PET_QIAOQIAO);
         if (saved_p < PET_COUNT) {
             g_active_pet = (ActivePetType)saved_p;
         }
+        uint8_t saved_cm = prefs_pet.getUChar("cadet_mode", (uint8_t)sticks3::CADET_MODE_FULLCOLOR);
+        if (saved_cm <= (uint8_t)sticks3::CADET_MODE_FULLCOLOR) {
+            sticks3::setCadetRenderMode((sticks3::CadetRenderMode)saved_cm);
+        }
         prefs_pet.end();
     }
-    Serial.printf("[BOOT] Active Pet Avatar: %s\n", (g_active_pet == PET_JOLLYBOT) ? "Meta Jollybot (Full-Body Disney Bear)" : "灵伴悄悄 (Procedural Vector)");
+    Serial.printf("[BOOT] Active Pet Avatar: %s | Cadet Mode: %s\n",
+                  (g_active_pet == PET_JOLLYBOT) ? "Meta Jollybot (Full-Body Disney Bear)" : "灵伴悄悄 (Procedural Vector)",
+                  (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR) ? "Full-Color" : "Line-Art");
 
     // 初始化小熊骨骼动力学与养成系统
     sticks3::BearKinematicsController::getInstance().init();
@@ -1794,6 +1830,27 @@ void setup() {
             uint32_t dur = doc["duration_ms"] | 2800;
             auto& gm = sticks3::BearGrowthManager::getInstance();
             auto& kc = sticks3::BearKinematicsController::getInstance();
+
+            if (!doc["cadet_mode"].isNull()) {
+                String cm_val = doc["cadet_mode"].as<String>();
+                cm_val.toLowerCase();
+                if (cm_val == "fullcolor" || cm_val == "color" || cm_val == "1") {
+                    sticks3::setCadetRenderMode(sticks3::CADET_MODE_FULLCOLOR);
+                } else if (cm_val == "lineart" || cm_val == "line" || cm_val == "0") {
+                    sticks3::setCadetRenderMode(sticks3::CADET_MODE_LINEART);
+                } else {
+                    sticks3::toggleCadetRenderMode();
+                }
+                Preferences p_cm;
+                if (p_cm.begin("sticks3_cfg", false)) {
+                    p_cm.putUChar("cadet_mode", (uint8_t)sticks3::getCadetRenderMode());
+                    p_cm.end();
+                }
+                s_cadet_mode_banner_until = millis() + 2200;
+                bool is_fc = (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR);
+                Serial.printf("[MAIN-TOOL] Executed Cadet Mode: %s\n", is_fc ? "fullcolor" : "lineart");
+                return "{\"status\":\"success\",\"cadet_mode\":\"" + String(is_fc ? "fullcolor" : "lineart") + "\"}";
+            }
 
             if (!doc["yaw"].isNull()) {
                 float yaw_val = doc["yaw"].as<float>();
@@ -1952,9 +2009,11 @@ void loop() {
     bool curA = digitalRead(PIN_BTN_A);
     bool curB = digitalRead(PIN_BTN_B);
     btnA_clicked = (btnA_prev == HIGH && curA == LOW);
+    btnB_clicked = (btnB_prev == HIGH && curB == LOW);
 
     // 侧键 B 状态机检测:
     // 短按释放 (< 750ms): 切换微表情模式 vs 工程师诊断看板
+    // 双击检测 (< 350ms): 切换阿韧渲染模式 (象牙金微雕线稿 <-> 全色域功夫学员)
     // 长按触发 (>= 750ms): 切换灵宠形象 (Meta 原版 Jollybot 像素宠 <-> 灵伴悄悄矢量大眼)
     static uint32_t s_btnB_press_down_tick = 0;
     static bool s_btnB_long_press_handled = false;
@@ -1977,6 +2036,7 @@ void loop() {
 
     // 正面按键 A 状态机检测:
     // 短按释放 (< 750ms): 切换下一个姿态
+    // 双击检测 (< 350ms): 切换阿韧渲染模式 (象牙金微雕线稿 <-> 全色域功夫学员)
     // 长按触发 (>= 750ms): 开启/退出自动阅兵模式
     static uint32_t s_btnA_press_down_tick = 0;
     static bool s_btnA_long_press_handled = false;
@@ -1999,6 +2059,64 @@ void loop() {
 
     btnA_prev = curA;
     btnB_prev = curB;
+
+    // 按键双击状态机 (支持正面按键 A 或侧面按键 B 快速双击即时在全色域与微雕线稿间切换)
+    static uint32_t s_btnA_last_release_tick = 0;
+    static uint32_t s_btnB_last_release_tick = 0;
+    static bool s_btnA_pending_single = false;
+    static bool s_btnB_pending_single = false;
+    bool btnA_double_clicked = false;
+    bool btnB_double_clicked = false;
+
+    if (btnA_short_clicked) {
+        if (s_btnA_pending_single && (millis() - s_btnA_last_release_tick <= 350)) {
+            btnA_double_clicked = true;
+            s_btnA_pending_single = false;
+        } else {
+            s_btnA_pending_single = true;
+            s_btnA_last_release_tick = millis();
+        }
+    }
+
+    if (btnB_short_clicked) {
+        if (s_btnB_pending_single && (millis() - s_btnB_last_release_tick <= 350)) {
+            btnB_double_clicked = true;
+            s_btnB_pending_single = false;
+        } else {
+            s_btnB_pending_single = true;
+            s_btnB_last_release_tick = millis();
+        }
+    }
+
+    if (btnA_long_pressed) s_btnA_pending_single = false;
+    if (btnB_long_pressed) s_btnB_pending_single = false;
+
+    bool btnA_confirmed_single = false;
+    if (s_btnA_pending_single && (millis() - s_btnA_last_release_tick > 350)) {
+        s_btnA_pending_single = false;
+        btnA_confirmed_single = true;
+    }
+
+    bool btnB_confirmed_single = false;
+    if (s_btnB_pending_single && (millis() - s_btnB_last_release_tick > 350)) {
+        s_btnB_pending_single = false;
+        btnB_confirmed_single = true;
+    }
+
+    // 双击即时切换渲染模式 (公理三 PSRAM 零撕裂离线重绘 + 极速响应)
+    if (btnA_double_clicked || btnB_double_clicked) {
+        sticks3::toggleCadetRenderMode();
+        s_cadet_mode_banner_until = millis() + 2200;
+        sticks3::StickS3Audio::getInstance().playTone(1900, 35, 0.45f);
+        Preferences p_cm;
+        if (p_cm.begin("sticks3_cfg", false)) {
+            p_cm.putUChar("cadet_mode", (uint8_t)sticks3::getCadetRenderMode());
+            p_cm.end();
+        }
+        Serial.printf("[CADET-MODE] Double-clicked (%s) -> Switched to: %s\n",
+                      btnA_double_clicked ? "Btn A" : "Btn B",
+                      (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR) ? "Full-Color" : "Line-Art");
+    }
 
     // 硬件双键长按 10 秒触发物理出厂恢复 (正面按键 A + 侧面按键 B 同时长按，杜绝意外挤压误触)
     static uint32_t s_dual_press_start = 0;
@@ -2067,11 +2185,23 @@ void loop() {
                     } else if (cmd_or_msg == "m" || cmd_or_msg == "M") {
                         Serial.printf("{\"type\":\"mic_level\",\"rms_percent\":%d}\n", mic_rms);
                     } else if (cmd_or_msg == "btn_a" || cmd_or_msg == "BTN_A") {
-                        btnA_clicked = true;
+                        btnA_confirmed_single = true;
                         Serial.println("{\"type\":\"btn_sim\",\"button\":\"A\"}");
                     } else if (cmd_or_msg == "btn_b" || cmd_or_msg == "BTN_B") {
-                        btnB_clicked = true;
+                        btnB_confirmed_single = true;
                         Serial.println("{\"type\":\"btn_sim\",\"button\":\"B\"}");
+                    } else if (cmd_or_msg == "btn_a_double" || cmd_or_msg == "btn_b_double" || cmd_or_msg == "double_click") {
+                        btnA_double_clicked = true;
+                        sticks3::toggleCadetRenderMode();
+                        s_cadet_mode_banner_until = millis() + 2200;
+                        sticks3::StickS3Audio::getInstance().playTone(1900, 35, 0.45f);
+                        Preferences p_cm;
+                        if (p_cm.begin("sticks3_cfg", false)) {
+                            p_cm.putUChar("cadet_mode", (uint8_t)sticks3::getCadetRenderMode());
+                            p_cm.end();
+                        }
+                        Serial.printf("{\"type\":\"btn_sim\",\"action\":\"double_click\",\"cadet_mode\":\"%s\"}\n",
+                                      (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR) ? "fullcolor" : "lineart");
                     } else if (cmd_or_msg == "i" || cmd_or_msg == "I") {
                         sticks3::StickS3BailianClient::getInstance().interrupt("Serial-I-Key");
                         Serial.println("{\"type\":\"interrupt_ack\",\"status\":\"ok\"}");
@@ -2179,6 +2309,30 @@ void loop() {
                         c_name.trim();
                         bool ok = sticks3::BearKinematicsController::getInstance().triggerComboByName(c_name.c_str());
                         Serial.printf("@combo {\"combo\":\"%s\",\"success\":%s}\n", c_name.c_str(), ok ? "true" : "false");
+                    } else if (cmd_or_msg.startsWith(">cadet_mode") || cmd_or_msg.startsWith(">cadet")) {
+                        int eq_idx = cmd_or_msg.indexOf('=');
+                        if (eq_idx > 0) {
+                            String val = cmd_or_msg.substring(eq_idx + 1);
+                            val.trim();
+                            val.toLowerCase();
+                            if (val == "fullcolor" || val == "full_color" || val == "color" || val == "1" || val == "true") {
+                                sticks3::setCadetRenderMode(sticks3::CADET_MODE_FULLCOLOR);
+                            } else if (val == "lineart" || val == "line_art" || val == "line" || val == "0" || val == "false") {
+                                sticks3::setCadetRenderMode(sticks3::CADET_MODE_LINEART);
+                            } else if (val == "toggle") {
+                                sticks3::toggleCadetRenderMode();
+                            }
+                            s_cadet_mode_banner_until = millis() + 2200;
+                            sticks3::StickS3Audio::getInstance().playTone(1900, 30, 0.40f);
+                            Preferences p_cm;
+                            if (p_cm.begin("sticks3_cfg", false)) {
+                                p_cm.putUChar("cadet_mode", (uint8_t)sticks3::getCadetRenderMode());
+                                p_cm.end();
+                            }
+                        }
+                        bool is_fc = (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR);
+                        Serial.printf("@cadet_mode {\"mode\":\"%s\",\"cadet_mode\":%u,\"success\":true}\n",
+                                      is_fc ? "fullcolor" : "lineart", (unsigned)sticks3::getCadetRenderMode());
                     } else if (cmd_or_msg.startsWith(">yaw=")) {
                         float y_val = cmd_or_msg.substring(5).toFloat();
                         sticks3::BearKinematicsController::getInstance().setTargetYaw(y_val);
@@ -2426,7 +2580,7 @@ void loop() {
                 audio.playTone(800, 40, 0.35f);
                 Serial.println("@demo {\"status\":\"stopped\"}");
             }
-        } else if (btnA_short_clicked || btnA_clicked) {
+        } else if (btnA_confirmed_single) {
             if (g_active_pet == PET_JOLLYBOT) {
                 // Jollybot 萌熊模式下单击正面按键 A：即时切换至下一个动作姿态，全套 17 种动作循环演示！
                 s_demo_showcase_idx = (s_demo_showcase_idx + 1) % SHOWCASE_COUNT;
@@ -2486,7 +2640,7 @@ void loop() {
                           (g_active_pet == PET_JOLLYBOT) ? "Meta Jollybot (Pixel Art)" : "灵伴悄悄 (Procedural Vector)");
             Serial.printf("@pet {\"active\":\"%s\",\"switched_by\":\"btn_b_long_press\",\"success\":true}\n",
                           (g_active_pet == PET_JOLLYBOT) ? "jollybot" : "qiaoqiao");
-        } else if (btnB_short_clicked) {
+        } else if (btnB_confirmed_single) {
             // 侧面按键 B 短按 (< 750ms): 切换灵宠微表情模式与工程诊断看板
             g_pet_avatar_mode = !g_pet_avatar_mode;
             sticks3::StickS3Avatar::getInstance().setAvatarMode(g_pet_avatar_mode);

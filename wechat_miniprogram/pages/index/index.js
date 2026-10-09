@@ -113,7 +113,20 @@ Page({
       { id: 20, act: "locked_try",    name: "困惑挠头",     category: "空间特技", minLvl: 1, icon: "🤔", desc: "右爪抓耳·萌态歪头" }
     ],
     currentActionAct: "idle",
-    isDemoShowcaseActive: false
+    isDemoShowcaseActive: false,
+
+    // 功夫学徒阿韧 Phase 2 动作导播台与双模式渲染
+    cadetRenderMode: "fullcolor",
+    cadetStunts: [
+      { id: 1, act: "bow",           name: "抱拳行礼", en: "Bow",          icon: "🙇", desc: "拱手敬师·气沉丹田", minLvl: 1 },
+      { id: 2, act: "kungfu",        name: "马步冲拳", en: "Horse Stance", icon: "🥋", desc: "弓马沉稳·右掌生风", minLvl: 1 },
+      { id: 3, act: "taichi",        name: "太极云手", en: "Tai Chi",      icon: "☯️", desc: "圆周运化·行云流水", minLvl: 2 },
+      { id: 4, act: "dragon_punch",  name: "升龙霸天", en: "Dragon Punch", icon: "🐉", desc: "蓄力前摇·冲霄暴扣", minLvl: 3 },
+      { id: 5, act: "wave",          name: "元气挥手", en: "Wave",         icon: "👋", desc: "抱爪招展·元气满满", minLvl: 1 },
+      { id: 6, act: "wingchun",      name: "咏春快拳", en: "Wing Chun",    icon: "🥊", desc: "日字连打·身躯反扭", minLvl: 2 },
+      { id: 7, act: "combo_martial", name: "宗师连携", en: "Grandmaster",  icon: "⚡", desc: "五式连招·宗师套路", minLvl: 3 }
+    ],
+    currentCadetStunt: "bow"
   },
 
   onLoad() {
@@ -464,6 +477,48 @@ Page({
   handleNextPose() {
     this.buddyService.triggerNextPose();
     wx.showToast({ title: "⏭ 切换至下一个动作姿态", icon: "none" });
+  },
+
+  // 10. 功夫学徒阿韧 7 大绝招与宗师连携套路导播
+  handleTriggerCadetStunt(e) {
+    const act = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.act) || "bow";
+    const minLvl = Number(e.currentTarget.dataset.minlvl) || 1;
+    const curLvl = Number(this.data.petState.level) || 1;
+    if (curLvl < minLvl) {
+      haptics.vibrate("medium");
+      wx.showModal({
+        title: "招式尚未领悟",
+        content: `该绝招需要小熊达到 Lv.${minLvl} 解锁，当前为 Lv.${curLvl}。快多和阿韧切磋互动提升等级吧！`,
+        showCancel: false
+      });
+      this.buddyService.triggerBearAction("locked_try");
+      return;
+    }
+    this.setData({ currentCadetStunt: act });
+    if (act === "combo_martial") {
+      this.buddyService.triggerBearCombo("martial");
+      wx.showToast({ title: "⚡ 施展: 宗师连携大招套路!", icon: "none" });
+    } else {
+      this.buddyService.triggerBearAction(act);
+      const item = this.data.cadetStunts.find(s => s.act === act);
+      wx.showToast({ title: `🥋 施展: ${item ? item.name : act}`, icon: "none" });
+    }
+  },
+
+  handleToggleCadetMode() {
+    const nextMode = (this.data.cadetRenderMode === "fullcolor") ? "lineart" : "fullcolor";
+    this.setData({ cadetRenderMode: nextMode });
+    this.buddyService.setCadetRenderMode(nextMode);
+    wx.showToast({
+      title: nextMode === "fullcolor" ? "🎨 已切换: 全色域功夫学员" : "✍️ 已切换: 象牙金微雕线稿",
+      icon: "none"
+    });
+  },
+
+  handleTriggerCadetCombo() {
+    this.setData({ currentCadetStunt: "combo_martial" });
+    this.buddyService.triggerBearCombo("martial");
+    wx.showToast({ title: "⚡ 启动: 功夫阿韧五式宗师连携套路", icon: "none" });
   },
 
   // Tab 页面跳转导航

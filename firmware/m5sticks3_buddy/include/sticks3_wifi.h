@@ -35,6 +35,7 @@
 #include "sticks3_wakeword.h"
 #include "sticks3_avatar.h"
 #include "sticks3_bear_kinematics.h"
+#include "sticks3_cadet_bitmaps.h"
 
 namespace sticks3 {
 
@@ -1891,6 +1892,32 @@ private:
                 if (_web_server.hasArg("enabled")) en = (_web_server.arg("enabled") == "true" || _web_server.arg("enabled") == "1");
                 else if (_web_server.hasArg("value")) en = (_web_server.arg("value") == "true" || _web_server.arg("value") == "1");
                 BearKinematicsController::getInstance().setImuBalanceEnabled(en);
+            } else if (act == "action" || act == "bear_act") {
+                String act_name = _web_server.hasArg("act") ? _web_server.arg("act") : "wave";
+                uint32_t dur = _web_server.hasArg("duration") ? _web_server.arg("duration").toInt() : 2800;
+                BearAction b_act = stringToBearAction(act_name.c_str());
+                BearKinematicsController::getInstance().triggerAction(b_act, dur);
+                audio.playTone(1700, 30, 0.40f);
+            } else if (act == "combo" || act == "bear_combo") {
+                String combo_name = _web_server.hasArg("combo") ? _web_server.arg("combo") : "martial";
+                BearKinematicsController::getInstance().triggerComboByName(combo_name.c_str());
+                audio.playTone(1800, 40, 0.45f);
+            } else if (act == "cadet_mode" || act == "set_cadet_mode") {
+                String m_val = _web_server.hasArg("mode") ? _web_server.arg("mode") : "toggle";
+                m_val.toLowerCase();
+                if (m_val == "lineart" || m_val == "line_art" || m_val == "0") {
+                    setCadetRenderMode(CADET_MODE_LINEART);
+                } else if (m_val == "fullcolor" || m_val == "full_color" || m_val == "1") {
+                    setCadetRenderMode(CADET_MODE_FULLCOLOR);
+                } else {
+                    toggleCadetRenderMode();
+                }
+                Preferences p;
+                if (p.begin("sticks3_cfg", false)) {
+                    p.putUChar("cadet_mode", (uint8_t)getCadetRenderMode());
+                    p.end();
+                }
+                audio.playTone(1900, 35, 0.40f);
             }
 
             const auto& st = avatar.getStats();

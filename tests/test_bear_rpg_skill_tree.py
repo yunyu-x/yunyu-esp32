@@ -689,3 +689,87 @@ def test_hatch_demo_and_step_commands_support():
     assert ">next" in src
 
 
+def test_cadet_ren_phase2_fullcolor_rle_and_dual_mode_verification():
+    """
+    验证功夫学徒阿韧 Phase 2 全色域微雕分层渲染与硬件双模式切换
+    1. sticks3_cadet_bitmaps.h 包含 16 色调色板、RLE 压缩色块、7 套姿态资产
+    2. Flash 总占用量严格受控在 100KB 物理预算内 (< 102400 bytes)
+    3. main.cpp 包含双模式分支、NVS 记忆持久化、按键双击即时切换与 Toast Banner
+    4. sticks3_ble_sync.h 和 sticks3_wifi.h 支持 cadet_mode, bear_act, bear_combo
+    """
+    cadet_header = "firmware/m5sticks3_buddy/include/sticks3_cadet_bitmaps.h"
+    assert os.path.exists(cadet_header), f"缺少阿韧字模头文件: {cadet_header}"
+
+    with open(cadet_header, "r", encoding="utf-8") as f:
+        cadet_src = f.read()
+
+    # 1. 验证枚举与数据结构
+    assert "enum CadetRenderMode" in cadet_src
+    assert "CADET_MODE_LINEART" in cadet_src
+    assert "CADET_MODE_FULLCOLOR" in cadet_src
+    assert "struct CadetColorRun" in cadet_src
+    assert "CADET_PALETTE_16[16]" in cadet_src
+
+    # 2. 验证 7 套姿态色块注入数组
+    expected_color_runs = [
+        "CADET_COLOR_BOW",
+        "CADET_COLOR_HORSE_STRIKE",
+        "CADET_COLOR_TAICHI",
+        "CADET_COLOR_DRAGON_PUNCH",
+        "CADET_COLOR_WAVE_1",
+        "CADET_COLOR_WAVE_2",
+        "CADET_COLOR_FRONT_IDLE"
+    ]
+    for cr in expected_color_runs:
+        assert cr in cadet_src, f"缺少阿韧色块注入数组: {cr}"
+
+    # 3. 验证渲染方法
+    assert "drawCadetColorInfill" in cadet_src
+    assert "drawCadetAtlasLineart" in cadet_src
+    assert "drawCadetFullColorFrame" in cadet_src
+    assert "toggleCadetRenderMode" in cadet_src
+
+    # 4. 严格验证 Flash 预算 (< 100KB)
+    # 计算 1-bit 线稿 (7 * 4080 B = 28560 B) + RLE Runs (CadetColorRun: 2B each)
+    rle_elements = 0
+    for match in re.finditer(r'const CadetColorRun\s+CADET_COLOR_\w+\[(\d+)\]', cadet_src):
+        rle_elements += int(match.group(1))
+
+    total_1bit_bytes = 7 * 4080  # 28,560 bytes
+    total_rle_bytes = rle_elements * 2  # 2 bytes per struct
+    total_cadet_flash_bytes = total_1bit_bytes + total_rle_bytes
+    print(f"\n[CADET-FLASH-AUDIT] 1-bit: {total_1bit_bytes} B, RLE: {total_rle_bytes} B, Total: {total_cadet_flash_bytes} B ({total_cadet_flash_bytes/1024:.2f} KB)")
+    assert total_cadet_flash_bytes < 100 * 1024, f"阿韧资产超过 100KB 物理上限: {total_cadet_flash_bytes} B"
+
+    # 5. 验证 main.cpp 双模式渲染与按键双击状态机
+    with open(MAIN_CPP, "r", encoding="utf-8") as f:
+        main_src = f.read()
+
+    assert "CADET_MODE_FULLCOLOR" in main_src
+    assert "CADET_MODE_LINEART" in main_src
+    assert "drawCadetFullColorFrame" in main_src
+    assert "drawCadetAtlasLineart" in main_src
+    assert "s_cadet_mode_banner_until" in main_src
+    assert "[全色域功夫学员]" in main_src
+    assert "[象牙金微雕线稿]" in main_src
+    assert "btnA_double_clicked" in main_src
+    assert "btnB_double_clicked" in main_src
+    assert ">cadet_mode" in main_src
+
+    # 6. 验证 BLE 与 HTTP 端点
+    ble_header = "firmware/m5sticks3_buddy/include/sticks3_ble_sync.h"
+    with open(ble_header, "r", encoding="utf-8") as f:
+        ble_src = f.read()
+    assert 'action == "cadet_mode"' in ble_src
+    assert 'action == "bear_act"' in ble_src
+    assert 'action == "bear_combo"' in ble_src
+
+    wifi_header = "firmware/m5sticks3_buddy/include/sticks3_wifi.h"
+    with open(wifi_header, "r", encoding="utf-8") as f:
+        wifi_src = f.read()
+    assert 'act == "cadet_mode"' in wifi_src
+    assert 'act == "bear_act"' in wifi_src
+    assert 'act == "bear_combo"' in wifi_src
+
+
+

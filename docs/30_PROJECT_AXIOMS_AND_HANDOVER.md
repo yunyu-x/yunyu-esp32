@@ -97,7 +97,7 @@ graph TD
   - 在主循环 `loop()` 中挂接 `StickS3BLESync::getInstance().update()`。
   - 实现了基于网络源（热点/宽带/离线）的橙色 "HOT"、绿色 "WiFi"、红色 "!NET" 徽章。
 
-### 3. 最新周期里程碑成果与全栈优化 (2026-10-03 Milestone)
+### 3. 前期周期里程碑成果与全栈优化 (2026-10-03 Milestone)
 - **【代号纯净归一】**：全面检索并清理固件、小程序、Web端及所有测试中遗留的“小木”代号，全栈 100% 统一为「悄悄」，0 处残留。
 - **【双通道配网平滑无跳动】**：彻底解耦 `settings.js` 中硬件背景遥测与用户活动表单模式，消除从手机热点切换至常规宽带 Wi-Fi 时的自动跳回与抖动；固件端 `hotspot_cfg` 正确保持既有热点模式标志。
 - **【具身互动硬件链路完整闭环】**：
@@ -113,6 +113,22 @@ graph TD
   - 整理《用户隐私保护指引》配置指南（仅需勾选【蓝牙信息】声明，本地存储无需声明）；
   - 配备「🎮 仿真模式」与真机视频测试说明，破解无硬件审核被拒难题。
 
+### 4. Cadet Ren 功夫学徒阿韧 Phase 2 全色域微雕分层渲染与姿态交互增强 (2026-10-09 Milestone)
+- **【全色域 16 色多层色块注入与高压缩 RLE】**：
+  - 在已提取的 1:1 轮廓与内结构墨线内，注入焦糖暖橙毛色 (`#CD5F26`)、午夜海军蓝战术马甲 (`#1A263E`)、金色爪印徽章 (`#EBB937`)、象牙白丝绸灯笼裤 (`#F8F6F2`) 与红熊猫环纹尾 (`#873416`)。
+  - 采用 16 色标准 RGB565 调色板与 2-byte RLE (`CadetColorRun`) 压缩，7 套姿态色块注入仅占 31.82 KB，叠加 1-bit 线稿总 Flash 占用 **59.71 KB**，严格控制在 100KB 物理上限以内（余量达 40.29 KB）。
+- **【硬件双模式即时切换 (Atlas Line-Art vs Full-Color Procedural)】**：
+  - 固件支持 `CADET_MODE_LINEART`（象牙金微雕线稿）与 `CADET_MODE_FULLCOLOR`（全色域灵动学员）双模式。
+  - 硬件按键双击状态机：正面按键 A 或侧面按键 B 双击（间隔 <= 350ms）毫秒级无缝切换模式，自动保存至 NVS (`sticks3_cfg/cadet_mode`)，屏幕浮动 2.2 秒 Apple HIG 风格 Toast 胶囊横幅（`[全色域功夫学员]` vs `[象牙金微雕线稿]`）。
+  - 支持多通道控制：物理双击、BLE NUS (`cadet_mode`)、HTTP Web (`/pet/action?action=cadet_mode`)、串口协议 (`>cadet_mode=fullcolor/lineart/toggle`)、百炼大模型 Tool Call (`sticks3_control_bear {"cadet_mode":"..."}`)。
+- **【微信小程序功夫动作导播台深度联动】**：
+  - 首页新增 Apple HIG 风格 `cadet-director-card` 导播舱，包含双模式切换动态 Pill 胶囊与一键发动【宗师连携套路】宏；
+  - 7 大绝招即时点播横向漫游卡片：抱拳礼 (`bow`)、马步冲拳 (`kungfu`)、太极云手 (`taichi`)、升龙霸天 (`dragon_punch`)、元气挥手 (`wave`)、咏春快拳 (`wingchun`)、宗师连携 (`combo_martial`)；
+  - `buddy_service.js` 完备导出 `triggerBearCombo`、`setCadetRenderMode`、`toggleCadetRenderMode`。
+- **【实机与自动化测试闭环验证】**：
+  - 自动化回归测试：140/140 项自动化测试 100% 绿色全绿通过 (`python -u scripts/run_tests.py --timeout 120`，耗时 9.05s)；
+  - COM3 物理硬件实测：81.3 ~ 88.5 FPS 零撕裂运行，PSRAM 剩余 7.30MB，0 Panic，0 I2C 失败，阿里百炼实时流式语音正常会话。
+
 ---
 
 ## 第三部分：下一个对话的系统交接描述 (Session Handover Spec)
@@ -121,15 +137,16 @@ graph TD
 - **开发板**：M5Stack StickS3（ESP32-S3-PICO-1, 8MB Flash, 8MB PSRAM）。
 - **物理接口连接**：已连接至本地端口 `COM3`，波特率 `115200`。
 - **网络当前分配**：局域网 STA IP `192.168.110.67`，SoftAP IP `192.168.4.1`。
-- **当前 Git 分支**：`feature/lingbuddy-companion`。
+- **当前 Git 分支**：`feature/meta-muse-bailian-adaptation`。
+- **自动化测试基线**：140/140 项测试 100% 绿色全绿通过。
 
 ### 2. 当前运行性能与健康度指标 (实机监控基线)
-- **主循环帧率**：`FPS: 96.8 ~ 98.9 FPS`。
-- **内部 SRAM**：`free = 141KB, max_block = 127KB`（充裕健康）。
-- **外部 PSRAM**：`free = 7.36MB / 8.00MB`（显存仅占 64.8KB，空间极度充裕）。
-- **I2C 总线健康**：PMIC 与 BMI270 累计执行 1000+ 笔事务，`Fails = 0`。
-- **长程运行周期**：`Tick > 3000+` 无一次重启，硬件长时间运行稳定。
-- **屏幕显示效果**：15 FPS 离线合成 + DMA 单次刷新，全屏零撕裂、零频闪。
+- **主循环帧率**：`FPS: 81.3 ~ 88.5 FPS`。
+- **内部 SRAM**：`free = 61KB, max_block = 43KB`（稳定健康）。
+- **外部 PSRAM**：`free = 7.30MB / 8.00MB`（空间极度充裕）。
+- **I2C 总线健康**：PMIC 与 BMI270 累计执行 2600+ 笔事务，`Fails = 0`。
+- **长程运行周期**：`Tick > 3000+` 无一次 Panic 重启，硬件长时间运行稳定。
+- **屏幕显示效果**：135x240 PSRAM LGFX_Sprite 离线合成 + DMA 原子推送，全屏零撕裂、零频闪。
 
 ### 3. 下一个 Agent 必须掌握的工具链命令
 - **编译固件**：
