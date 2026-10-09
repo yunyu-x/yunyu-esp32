@@ -181,6 +181,12 @@ class StickS3HttpClient {
     return this._req("/audio/volume", { timeout: 3500 });
   }
 
+  // 20. 发送控制台或对话文本命令 (POST /send)
+  sendMessage(msg) {
+    const data = `msg=${encodeURIComponent(msg)}`;
+    return this._req("/send", { method: "POST", data, contentType: "application/x-www-form-urlencoded" });
+  }
+
   // 启动微信小程序 mDNS 本地局域网服务发现 (ZeroConf)
   startLocalDiscovery(onServiceFound, onError) {
     if (this.isDiscoveryRunning) return;

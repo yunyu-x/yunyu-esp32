@@ -15,9 +15,29 @@ import threading
 import requests
 import serial
 
-DEV_IP = "192.168.110.67"
-API_KEY = "sk-ws-H.EPHMIMH.PqIK.MEQCIHgyLDXLvnwi_PGoocOu5C-Azgxc8ISga2Mrz3n-DTdxAiBsI8cGPSo2p6JA4WbyHX0YWN8KeBoDZ86Puoqt7YVLug"
-COM_PORT = "COM3"
+import os
+
+DEV_IP = os.environ.get("STICK_DEVICE_IP", "192.168.110.67")
+COM_PORT = os.environ.get("STICK_COM_PORT", "COM3")
+
+def load_bailian_api_key() -> str:
+    key = os.environ.get("BAILIAN_API_KEY", "").strip()
+    if not key:
+        for cand in [".env", os.path.join(os.path.dirname(__file__), "..", ".env")]:
+            if os.path.exists(cand):
+                try:
+                    with open(cand, "r", encoding="utf-8") as f:
+                        for line in f:
+                            if line.strip().startswith("BAILIAN_API_KEY="):
+                                key = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                                break
+                    if key:
+                        break
+                except Exception:
+                    pass
+    return key
+
+API_KEY = load_bailian_api_key()
 
 stop_flag = False
 serial_logs = []

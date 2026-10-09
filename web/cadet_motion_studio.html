@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadet Ren 功夫学徒阿韧 · 自由动作切换与动效解算工作台</title>
+<style>
+  :root {
+    --bg-base: #0a0e17;
+    --card-bg: rgba(20, 26, 40, 0.85);
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --accent-gold: #f59e0b;
+    --accent-cyan: #38bdf8;
+    --accent-red: #ef4444;
+    --accent-navy: #1e293b;
+    --text-primary: #f8fafc;
+    --text-muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", sans-serif; }
+  body {
+    background: radial-gradient(circle at 50% 10%, #151f32 0%, var(--bg-base) 85%);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .header {
+    text-align: center;
+    max-width: 900px;
+    margin-bottom: 24px;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: var(--accent-gold);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #fff 40%, var(--accent-gold) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .header p {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .main-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr 340px;
+    gap: 20px;
+    max-width: 1280px;
+    width: 100%;
+    align-items: start;
+  }
+  @media(max-width: 1100px) {
+    .main-layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.4);
+    backdrop-filter: blur(16px);
+  }
+  .panel h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #e2e8f0;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 10px;
+  }
+
+  /* Center Screen Frame */
+  .viewport-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .device-shell {
+    width: 216px;
+    height: 384px;
+    background: #000;
+    border-radius: 24px;
+    border: 4px solid #334155;
+    box-shadow: 0 0 0 8px #0f172a, 0 20px 40px rgba(0,0,0,0.85);
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: pixelated;
+  }
+  .hud-badge {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #10b981;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+  .hud-fps {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #f59e0b;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  /* Poses Grid */
+  .pose-btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .btn-pose {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+  }
+  .btn-pose span.title { font-weight: 600; font-size: 13px; }
+  .btn-pose span.desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .btn-pose:hover {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: var(--accent-cyan);
+  }
+  .btn-pose.active-a {
+    background: rgba(245, 158, 11, 0.25);
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+  }
+  .btn-pose.active-b {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  }
+
+  /* Controls Form */
+  .control-group {
+    margin-bottom: 14px;
+  }
+  .control-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .control-group input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent-gold);
+  }
+
+  .timeline-bar {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle);
+  }
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+  .btn-action {
+    flex: 1;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-action:hover { opacity: 0.9; }
+  .btn-sec {
+    background: rgba(51, 65, 85, 0.8);
+    color: #cbd5e1;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  pre.code-card {
+    background: rgba(10, 14, 23, 0.9);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 11px;
+    color: #a7f3d0;
+    overflow-x: auto;
+    max-height: 220px;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge">🥋 CADET REN CINEMATIC MOTION ENGINE</div>
+  <h1>功夫学徒阿韧 · 自由动作切换与连续补间工作台</h1>
+  <p>纯数学 14-DOF 骨骼解算 + 迪士尼12黄金法则（预备蓄力、体积守恒挤压拉伸、惯性超调跟随） | 🌟 真实原画双向光流变形 + 角色体量守恒自适应（解决人物大小忽大忽小突变）</p>
+</div>
+
+<div class="main-layout">
+  <!-- Left Panel: Pose Selection -->
+  <div class="panel">
+    <h2>🎯 1. 选择起始与目标姿态</h2>
+    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+      左键单击设定 <b style="color: var(--accent-gold);">[姿态 A]</b>，右键或按 Alt 单击设定 <b style="color: var(--accent-cyan);">[姿态 B]</b>：
+    </div>
+    <div class="pose-btn-grid" id="poseGrid"></div>
+
+    <div style="margin-top: 14px; font-size: 12px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px;">
+      <div>起势 A: <b id="lblPoseA" style="color: var(--accent-gold);">bow (抱拳礼)</b></div>
+      <div style="margin-top: 4px;">定势 B: <b id="lblPoseB" style="color: var(--accent-cyan);">kungfu (马步冲拳)</b></div>
+    </div>
+  </div>
+
+  <!-- Center Viewport -->
+  <div class="viewport-center">
+    <div class="device-shell">
+      <div class="hud-badge">STICK-S3 135x240</div>
+      <div class="hud-fps" id="fpsDisplay">60 FPS</div>
+      <img id="authenticGifView" src="../docs/assets/cadet_ren/transitions/trans_bow_to_kungfu.gif" alt="Authentic Cadet Ren" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display: block;">
+      <canvas id="viewCanvas" width="270" height="480" style="display: none;"></canvas>
+    </div>
+
+    <!-- Timeline & Playback Bar -->
+    <div class="timeline-bar">
+      <div style="display: flex; justify-content: space-between; font-size: 12px;">
+        <span>连续过渡插值进度 t</span>
+        <b id="lblProgVal" style="color: var(--accent-gold);">0.00 (Pose A)</b>
+      </div>
+      <input type="range" id="sliderProgress" min="0" max="1000" value="0" style="width: 100%;">
+
+      <div class="btn-row">
+        <button class="btn-action" id="btnPlayPause">▶ 自动演武播放</button>
+        <button class="btn-sec" id="btnToggleAuthenticMode" style="border-color: var(--accent-gold); color: var(--accent-gold); font-weight: 600;">🌟 高保真原画动效</button>
+        <button class="btn-sec" id="btnPingPong">乒乓循环: 开</button>
+        <button class="btn-sec" id="btnToggleSkeleton">骨架透视</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel: Disney 12 Principles Physics & DNA Tuning -->
+  <div class="panel">
+    <h2>⚙️ 2. 迪士尼运动学参数调谐</h2>
+    <div class="control-group">
+      <label>
+        <span>预备蓄力反向下蹲 (Anticipation)</span>
+        <span id="lblValAnt">100%</span>
+      </label>
+      <input type="range" id="slAnt" min="0" max="200" value="100">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>体积守恒挤压拉伸 (Squash & Stretch)</span>
+        <span id="lblValSq">100%</span>
+      </label>
+      <input type="range" id="slSq" min="0" max="200" value="100">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>弹簧回弹超调量 (Overshoot Damping)</span>
+        <span id="lblValOver">100%</span>
+      </label>
+      <input type="range" id="slOver" min="0" max="200" value="100">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>耳朵与尾巴惯性延迟 (Phase Lag)</span>
+        <span id="lblValLag">65ms</span>
+      </label>
+      <input type="range" id="slLag" min="0" max="150" value="65">
+    </div>
+
+    <h2 style="margin-top: 20px;">🧬 3. Character DNA 提示词</h2>
+    <pre class="code-card" id="codePrompt">masterpiece, best quality, authentic 2d character design, cadet ren, anthropomorphic young red panda martial artist hero, caramel amber fluffy fur, dark auburn eye markings and tail rings, midnight navy tactical vest with standing collar and imperial gold trim, golden paw print chest badge, baggy ivory white silk kung fu trousers, navy blue shin wraps.</pre>
+  </div>
+</div>
+
+<script>
+// =============================================================================
+// Pose State & Library Definition (JavaScript Mirrored from Python Engine)
+// =============================================================================
+const POSE_LIB = {
+  idle: {
+    title: "从容待命", desc: "自然垂立 调息养气",
+    bodyY: 0.0, squash: 1.0, tilt: 0.0, legSpread: 16.0,
+    lArm: "idle", rArm: "idle", lProg: 0, rProg: 0,
+    earFlop: 0, tailSway: 0.2, sashSway: 0.1, gaze: [0, 0], blink: 0
+  },
+  bow: {
+    title: "抱拳礼", desc: "微躬作揖 双手抱拳",
+    bodyY: 2.5, squash: 0.96, tilt: 0.0, legSpread: 12.0,
+    lArm: "salute", rArm: "salute", lProg: 1, rProg: 1,
+    earFlop: -0.2, tailSway: -0.3, sashSway: -0.2, gaze: [0, 0.3], blink: 0
+  },
+  kungfu: {
+    title: "马步冲拳", desc: "沉肩坠肘 烈火推掌",
+    bodyY: 5.0, squash: 0.92, tilt: 2.0, legSpread: 24.0,
+    lArm: "fist_waist", rArm: "push_palm", lProg: 0, rProg: 1,
+    earFlop: 0.1, tailSway: 0.6, sashSway: 0.4, gaze: [0.6, -0.2], blink: 0
+  },
+  taichi: {
+    title: "太极云手", desc: "行云流水 阴阳太极",
+    bodyY: 1.0, squash: 0.98, tilt: -3.0, legSpread: 19.0,
+    lArm: "cloud_up", rArm: "cloud_down", lProg: 0.25, rProg: 0.25,
+    earFlop: 0.25, tailSway: -0.5, sashSway: -0.3, gaze: [-0.4, -0.1], blink: 0
+  },
+  dragon_punch: {
+    title: "升龙霸天", desc: "腾空暴起 金光拳风",
+    bodyY: -24.0, squash: 1.22, tilt: 4.0, legSpread: 14.0,
+    lArm: "fist_waist", rArm: "dragon_punch", lProg: 0, rProg: 1,
+    earFlop: -0.5, tailSway: -0.8, sashSway: -0.9, gaze: [0.2, -0.8], blink: 0
+  },
+  wave: {
+    title: "元气挥手", desc: "单手高举 萌趣打招呼",
+    bodyY: -1.0, squash: 1.02, tilt: 1.5, legSpread: 15.0,
+    lArm: "idle", rArm: "wave", lProg: 0, rProg: 0.5,
+    earFlop: 0.3, tailSway: 0.7, sashSway: 0.3, gaze: [0.3, -0.2], blink: 0
+  },
+  cheer: {
+    title: "欢呼雀跃", desc: "双手高擎 胜利狂欢",
+    bodyY: -8.0, squash: 1.12, tilt: 0.0, legSpread: 18.0,
+    lArm: "high_v", rArm: "high_v", lProg: 1, rProg: 1,
+    earFlop: 0.4, tailSway: 0.9, sashSway: 0.6, gaze: [0, -0.4], blink: 0
+  },
+  defend: {
+    title: "伏地金钟", desc: "深蹲蓄力 稳如泰山",
+    bodyY: 8.0, squash: 0.86, tilt: -1.0, legSpread: 26.0,
+    lArm: "cross_guard", rArm: "cross_guard", lProg: 1, rProg: 1,
+    earFlop: -0.4, tailSway: 0.1, sashSway: 0.1, gaze: [0, 0.2], blink: 0
+  }
+};
+
+let currentPoseA = "bow";
+let currentPoseB = "kungfu";
+let progress = 0.0;
+let isPlaying = false;
+let isPingPong = true;
+let playDirection = 1;
+let showSkeleton = false;
+
+// Physics tuning weights
+let paramAnticipation = 1.0;
+let paramSquash = 1.0;
+let paramOvershoot = 1.0;
+let paramLagMs = 65;
+
+const canvas = document.getElementById("viewCanvas");
+const ctx = canvas.getContext("2d");
+
+// =============================================================================
+// Interpolation & Kinematics Engine
+// =============================================================================
+function quinticEaseInOut(t) {
+  t = Math.max(0, Math.min(1, t));
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+function interpolatePose(pA, pB, t) {
+  t = Math.max(0, Math.min(1, t));
+  const easeT = quinticEaseInOut(t);
+
+  // 1. Anticipation (0.0 to 0.20)
+  let antCrouch = 0;
+  let antSquash = 0;
+  if (t < 0.20) {
+    const pAnt = (t / 0.20) * Math.PI;
+    const antIntensity = Math.sin(pAnt) * paramAnticipation;
+    antCrouch = 4.0 * antIntensity;
+    antSquash = -0.07 * antIntensity * paramSquash;
+  }
+
+  // 2. Overshoot (0.80 to 1.0)
+  let overDy = 0;
+  let overSquash = 0;
+  let overTilt = 0;
+  if (t >= 0.80) {
+    const pOver = (t - 0.80) / 0.20;
+    const damp = Math.exp(-3.5 * pOver);
+    const osc = Math.sin(pOver * 3.0 * Math.PI) * damp * paramOvershoot;
+    overDy = 3.0 * osc;
+    overSquash = 0.06 * osc * paramSquash;
+    overTilt = 2.0 * osc;
+  }
+
+  // Primary body translation
+  const baseDy = pA.bodyY + (pB.bodyY - pA.bodyY) * easeT;
+  const bodyY = baseDy + antCrouch + overDy;
+
+  const baseSq = pA.squash + (pB.squash - pA.squash) * easeT;
+  const speedStretch = Math.sin(t * Math.PI) * 0.05 * paramSquash;
+  const squash = baseSq + antSquash + overSquash + speedStretch;
+
+  const tilt = pA.tilt + (pB.tilt - pA.tilt) * easeT + overTilt;
+  const legSpread = pA.legSpread + (pB.legSpread - pA.legSpread) * easeT;
+
+  // Secondary motion lag
+  const lagRatio = (paramLagMs / 1000) * 1.5;
+  const tLag = Math.max(0, Math.min(1, t - lagRatio));
+  const easeLag = quinticEaseInOut(tLag);
+
+  let earFlop = pA.earFlop + (pB.earFlop - pA.earFlop) * easeLag;
+  if (t > 0.1 && t < 0.9) {
+    earFlop += Math.sin(t * Math.PI * 2.5) * 0.18;
+  }
+
+  const tailSway = pA.tailSway + (pB.tailSway - pA.tailSway) * easeLag;
+  const sashSway = pA.sashSway + (pB.sashSway - pA.sashSway) * easeLag;
+
+  // Arms
+  const lArm = t < 0.5 ? pA.lArm : pB.lArm;
+  const rArm = t < 0.5 ? pA.rArm : pB.rArm;
+  const lProg = t < 0.5 ? (pA.lProg + (1 - pA.lProg) * (t / 0.5)) : (pB.lProg * ((t - 0.5) / 0.5));
+  const rProg = t < 0.5 ? (pA.rProg + (1 - pA.rProg) * (t / 0.5)) : (pB.rProg * ((t - 0.5) / 0.5));
+
+  // Gaze & blink
+  const gaze = [
+    pA.gaze[0] + (pB.gaze[0] - pA.gaze[0]) * easeT,
+    pA.gaze[1] + (pB.gaze[1] - pA.gaze[1]) * easeT
+  ];
+  const blink = (t >= 0.42 && t <= 0.58) ? Math.sin((t - 0.42) / 0.16 * Math.PI) : 0;
+
+  return { bodyY, squash, tilt, legSpread, lArm, rArm, lProg, rProg, earFlop, tailSway, sashSway, gaze, blink };
+}
+
+// =============================================================================
+// Vector Character Drawing Engine
+// =============================================================================
+function renderCharacter(c, pose) {
+  const W = 270;
+  const H = 480;
+  const sf = v => v * 2.0;
+
+  c.clearRect(0, 0, W, H);
+  c.fillStyle = "#0f172a";
+  c.fillRect(0, 0, W, H);
+
+  const bx = sf(67.5);
+  const by = sf(134.0 + pose.bodyY);
+  const sq = pose.squash;
+
+  // 1. Soft Contact Shadow
+  const isAirborne = pose.bodyY < -8.0;
+  const shW = sf(32.0 * (isAirborne ? 0.55 : (1.0 / sq)));
+  const shY = sf(134.0 + 50.0);
+  c.fillStyle = isAirborne ? "rgba(6,9,16,0.5)" : "rgba(6,9,16,0.85)";
+  c.beginPath();
+  c.ellipse(bx, shY, shW, sf(5.0), 0, 0, Math.PI * 2);
+  c.fill();
+
+  // 2. Red Panda Bushy Tail
+  const tx = bx - sf(12.0);
+  const ty = by + sf(16.0);
+  const tSw = pose.tailSway * sf(7.0);
+  const tailSegs = [
+    [tx, ty, sf(11), "#cd5f26"],
+    [tx - sf(12) + tSw * 0.2, ty - sf(2), sf(13), "#873416"],
+    [tx - sf(22) + tSw * 0.5, ty - sf(8), sf(14.5), "#cd5f26"],
+    [tx - sf(30) + tSw * 0.8, ty - sf(17), sf(15), "#873416"],
+    [tx - sf(35) + tSw * 1.0, ty - sf(28), sf(14), "#cd5f26"],
+    [tx - sf(36) + tSw * 1.2, ty - sf(38), sf(12), "#873416"]
+  ];
+  tailSegs.forEach(([sx, sy, sr, col]) => {
+    c.fillStyle = col;
+    c.beginPath();
+    c.arc(sx, sy, sr, 0, Math.PI * 2);
+    c.fill();
+  });
+
+  // 3. Ivory Silk Baggy Trousers
+  const hipY = by + sf(14.0);
+  const footLY = sf(134.0 + 48.0);
+  const footLX = bx - sf(pose.legSpread);
+  const footRX = bx + sf(pose.legSpread);
+
+  [[footLX, -1], [footRX, 1]].forEach(([flx, sgn]) => {
+    const kneeX = (bx + flx) * 0.5 + sgn * sf(6.0);
+    const kneeY = (hipY + footLY) * 0.5 - sf(2.0);
+
+    c.fillStyle = "#f8f6f2";
+    c.beginPath();
+    c.moveTo(bx + sgn * sf(3.0), hipY);
+    c.lineTo(bx + sgn * sf(18.0), hipY + sf(4.0));
+    c.lineTo(kneeX + sgn * sf(8.0), kneeY);
+    c.lineTo(flx + sgn * sf(6.0), footLY - sf(12.0));
+    c.lineTo(flx - sgn * sf(5.0), footLY - sf(12.0));
+    c.lineTo(kneeX - sgn * sf(6.0), kneeY + sf(4.0));
+    c.lineTo(bx, hipY + sf(10.0));
+    c.closePath();
+    c.fill();
+
+    // Crease shadow
+    c.strokeStyle = "#cdcada";
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(bx + sgn * sf(12.0), hipY + sf(6.0));
+    c.lineTo(flx, footLY - sf(13.0));
+    c.stroke();
+  });
+
+  // 4. Shin Wraps & Paws
+  [footLX, footRX].forEach(fx => {
+    c.fillStyle = "#141e32";
+    c.fillRect(fx - sf(7.0), footLY - sf(12.0), sf(14.0), sf(8.0));
+    c.strokeStyle = "#ebb937";
+    c.lineWidth = 2;
+    c.strokeRect(fx - sf(7.0), footLY - sf(12.0), sf(14.0), sf(8.0));
+
+    // Paw
+    c.fillStyle = "#cd5f26";
+    c.beginPath();
+    c.ellipse(fx, footLY + sf(1.0), sf(7.0), sf(4.0), 0, 0, Math.PI * 2);
+    c.fill();
+  });
+
+  // 5. Tactical Navy Vest & Collar
+  const shLX = bx - sf(18.0);
+  const shLY = by - sf(12.0);
+  const shRX = bx + sf(18.0);
+  const shRY = by - sf(12.0);
+  const vestTop = by - sf(16.0);
+  const vestBot = by + sf(13.0);
+  const vestW = sf(20.0 * (1.0 / Math.sqrt(Math.max(0.5, sq))));
+
+  c.fillStyle = "#1a263e";
+  c.beginPath();
+  c.moveTo(bx - sf(12.0), vestTop);
+  c.lineTo(bx + sf(12.0), vestTop);
+  c.lineTo(bx + vestW, by);
+  c.lineTo(bx + vestW - sf(2.0), vestBot);
+  c.lineTo(bx - vestW + sf(2.0), vestBot);
+  c.lineTo(bx - vestW, by);
+  c.closePath();
+  c.fill();
+
+  c.strokeStyle = "#ebb937";
+  c.lineWidth = 3;
+  c.stroke();
+
+  // Golden Paw Emblem
+  c.fillStyle = "#ebb937";
+  c.beginPath();
+  c.ellipse(bx, by - sf(2.0), sf(4.5), sf(3.5), 0, 0, Math.PI * 2);
+  c.fill();
+
+  // 6. Waist Sash & Ribbon
+  const sashY = vestBot + sf(2.0);
+  c.fillStyle = "#1a263e";
+  c.fillRect(bx - sf(16.0), sashY - sf(2.5), sf(32.0), sf(5.0));
+  c.strokeStyle = "#ebb937";
+  c.lineWidth = 2;
+  c.strokeRect(bx - sf(16.0), sashY - sf(2.5), sf(32.0), sf(5.0));
+
+  const rSw = pose.sashSway * sf(5.0);
+  c.fillStyle = "#1a263e";
+  c.beginPath();
+  c.moveTo(bx - sf(3.5), sashY + sf(3.0));
+  c.lineTo(bx - sf(7.5) + rSw, sashY + sf(17.0));
+  c.lineTo(bx - sf(2.5) + rSw, sashY + sf(15.5));
+  c.closePath();
+  c.fill();
+
+  // 7. Arms
+  // (Left Arm)
+  c.strokeStyle = "#f8f6f2";
+  c.lineWidth = 12;
+  c.lineCap = "round";
+  if (pose.lArm === "fist_waist") {
+    c.beginPath();
+    c.moveTo(shLX, shLY);
+    c.lineTo(bx - sf(25.0), by + sf(4.0));
+    c.stroke();
+    c.fillStyle = "#873416";
+    c.beginPath();
+    c.arc(bx - sf(25.0), by + sf(12.0), sf(6.0), 0, Math.PI * 2);
+    c.fill();
+  } else if (pose.lArm === "salute") {
+    c.beginPath();
+    c.moveTo(shLX, shLY);
+    c.lineTo(bx - sf(4.0), by - sf(2.0));
+    c.stroke();
+    c.fillStyle = "#cd5f26";
+    c.beginPath();
+    c.arc(bx - sf(2.0), by - sf(2.0), sf(6.0), 0, Math.PI * 2);
+    c.fill();
+  } else {
+    c.beginPath();
+    c.moveTo(shLX, shLY);
+    c.lineTo(shLX - sf(8.0), by + sf(12.0));
+    c.stroke();
+    c.fillStyle = "#cd5f26";
+    c.beginPath();
+    c.arc(shLX - sf(8.0), by + sf(18.0), sf(6.0), 0, Math.PI * 2);
+    c.fill();
+  }
+
+  // (Right Arm)
+  if (pose.rArm === "push_palm") {
+    c.beginPath();
+    c.moveTo(shRX, shRY);
+    c.lineTo(bx + sf(42.0), by - sf(4.0));
+    c.stroke();
+    c.fillStyle = "#cd5f26";
+    c.beginPath();
+    c.arc(bx + sf(46.0), by - sf(2.0), sf(8.0), 0, Math.PI * 2);
+    c.fill();
+    // Pink Pad
+    c.fillStyle = "#fab4aa";
+    c.beginPath();
+    c.arc(bx + sf(46.0), by - sf(2.0), sf(4.0), 0, Math.PI * 2);
+    c.fill();
+  } else if (pose.rArm === "salute") {
+    c.beginPath();
+    c.moveTo(shRX, shRY);
+    c.lineTo(bx + sf(4.0), by - sf(2.0));
+    c.stroke();
+    c.fillStyle = "#873416";
+    c.beginPath();
+    c.arc(bx + sf(2.0), by - sf(2.0), sf(6.0), 0, Math.PI * 2);
+    c.fill();
+  } else if (pose.rArm === "dragon_punch") {
+    c.beginPath();
+    c.moveTo(shRX, shRY);
+    c.lineTo(bx + sf(24.0), by - sf(48.0));
+    c.stroke();
+    c.fillStyle = "#873416";
+    c.beginPath();
+    c.arc(bx + sf(24.0), by - sf(52.0), sf(8.0), 0, Math.PI * 2);
+    c.fill();
+    // Ki fire spark
+    c.fillStyle = "#f59e0b";
+    c.beginPath();
+    c.arc(bx + sf(24.0), by - sf(40.0), sf(6.0), 0, Math.PI * 2);
+    c.fill();
+  } else if (pose.rArm === "wave") {
+    c.beginPath();
+    c.moveTo(shRX, shRY);
+    c.lineTo(bx + sf(32.0), by - sf(32.0));
+    c.stroke();
+    c.fillStyle = "#cd5f26";
+    c.beginPath();
+    c.arc(bx + sf(34.0), by - sf(32.0), sf(7.0), 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "#fab4aa";
+    c.beginPath();
+    c.arc(bx + sf(34.0), by - sf(32.0), sf(3.5), 0, Math.PI * 2);
+    c.fill();
+  } else {
+    c.beginPath();
+    c.moveTo(shRX, shRY);
+    c.lineTo(shRX + sf(8.0), by + sf(12.0));
+    c.stroke();
+    c.fillStyle = "#cd5f26";
+    c.beginPath();
+    c.arc(shRX + sf(8.0), by + sf(18.0), sf(6.0), 0, Math.PI * 2);
+    c.fill();
+  }
+
+  // 8. Head & Big Bunny/Red Panda Ears
+  const hx = bx;
+  const hy = by - sf(36.0);
+
+  // Ears
+  [[hx - sf(15.0), -1], [hx + sf(15.0), 1]].forEach(([ex, sgn]) => {
+    const ey = hy - sf(31.0) + pose.earFlop * sgn * sf(3.5);
+    c.fillStyle = "#cd5f26";
+    c.beginPath();
+    c.ellipse(ex, ey - sf(2.0), sf(9.0), sf(20.0), 0, 0, Math.PI * 2);
+    c.fill();
+    // Ear tip dark chocolate
+    c.fillStyle = "#371c12";
+    c.beginPath();
+    c.ellipse(ex, ey - sf(17.0), sf(8.0), sf(6.0), 0, 0, Math.PI * 2);
+    c.fill();
+    // White inner fluff
+    c.fillStyle = "#f8f6f2";
+    c.beginPath();
+    c.ellipse(ex, ey - sf(1.0), sf(5.5), sf(14.0), 0, 0, Math.PI * 2);
+    c.fill();
+  });
+
+  // Head Base
+  c.fillStyle = "#cd5f26";
+  c.beginPath();
+  c.ellipse(hx, hy, sf(24.0), sf(19.0 * sq), 0, 0, Math.PI * 2);
+  c.fill();
+
+  // White Cheeks
+  c.fillStyle = "#f8f6f2";
+  c.beginPath();
+  c.ellipse(hx - sf(16.0), hy + sf(6.0), sf(9.0), sf(8.0), 0, 0, Math.PI * 2);
+  c.ellipse(hx + sf(16.0), hy + sf(6.0), sf(9.0), sf(8.0), 0, 0, Math.PI * 2);
+  c.ellipse(hx, hy + sf(6.0), sf(13.0), sf(8.0), 0, 0, Math.PI * 2);
+  c.fill();
+
+  // Brow teardrop spots
+  c.beginPath();
+  c.ellipse(hx - sf(9.0), hy - sf(10.0), sf(3.5), sf(3.0), 0, 0, Math.PI * 2);
+  c.ellipse(hx + sf(9.0), hy - sf(10.0), sf(3.5), sf(3.0), 0, 0, Math.PI * 2);
+  c.fill();
+
+  // Nose
+  c.fillStyle = "#281614";
+  c.beginPath();
+  c.arc(hx, hy + sf(4.0), sf(3.0), 0, Math.PI * 2);
+  c.fill();
+
+  // Big Doe Eyes
+  const curEyeH = Math.max(1, sf(6.0) * (1.0 - pose.blink * 0.9));
+  [hx - sf(9.5), hx + sf(9.5)].forEach(ex => {
+    if (pose.blink > 0.8) {
+      c.strokeStyle = "#281614";
+      c.lineWidth = 3;
+      c.beginPath();
+      c.arc(ex, hy - sf(2.0), sf(5.0), 0.2, Math.PI - 0.2);
+      c.stroke();
+    } else {
+      c.fillStyle = "#140f0c";
+      c.beginPath();
+      c.ellipse(ex, hy - sf(3.0), sf(5.0), curEyeH, 0, 0, Math.PI * 2);
+      c.fill();
+
+      // Iris
+      c.fillStyle = "#733e1e";
+      c.beginPath();
+      c.ellipse(ex + sf(pose.gaze[0]), hy - sf(3.0) + sf(pose.gaze[1]), sf(3.8), curEyeH * 0.75, 0, 0, Math.PI * 2);
+      c.fill();
+
+      // Catchlight star
+      c.fillStyle = "#ffffff";
+      c.beginPath();
+      c.arc(ex - sf(1.8), hy - sf(4.5), sf(1.5), 0, Math.PI * 2);
+      c.fill();
+    }
+  });
+
+  // Skeleton Wireframe Overlay
+  if (showSkeleton) {
+    c.strokeStyle = "#38bdf8";
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(bx, by); c.lineTo(hx, hy);
+    c.moveTo(bx, by); c.lineTo(shLX, shLY);
+    c.moveTo(bx, by); c.lineTo(shRX, shRY);
+    c.moveTo(bx, hipY); c.lineTo(footLX, footLY);
+    c.moveTo(bx, hipY); c.lineTo(footRX, footRY);
+    c.stroke();
+
+    c.fillStyle = "#f59e0b";
+    [[bx, by], [hx, hy], [shLX, shLY], [shRX, shRY], [footLX, footLY], [footRX, footRY]].forEach(([kx, ky]) => {
+      c.beginPath();
+      c.arc(kx, ky, 5, 0, Math.PI * 2);
+      c.fill();
+    });
+  }
+}
+
+// =============================================================================
+// UI Initialization & Event Handlers
+// =============================================================================
+function initUI() {
+  const grid = document.getElementById("poseGrid");
+  Object.keys(POSE_LIB).forEach(key => {
+    const item = POSE_LIB[key];
+    const btn = document.createElement("button");
+    btn.className = "btn-pose";
+    btn.id = "btn_pose_" + key;
+    btn.innerHTML = `<span class="title">${item.title}</span><span class="desc">${key}</span>`;
+
+    btn.addEventListener("click", e => {
+      if (e.altKey) {
+        setPoseB(key);
+      } else {
+        setPoseA(key);
+      }
+    });
+    btn.addEventListener("contextmenu", e => {
+      e.preventDefault();
+      setPoseB(key);
+    });
+
+    grid.appendChild(btn);
+  });
+
+  updateActiveButtons();
+
+  document.getElementById("sliderProgress").addEventListener("input", e => {
+    progress = parseInt(e.target.value) / 1000.0;
+    updateProgressDisplay();
+  });
+
+  document.getElementById("btnPlayPause").addEventListener("click", () => {
+    isPlaying = !isPlaying;
+    document.getElementById("btnPlayPause").innerText = isPlaying ? "⏸ 暂停播放" : "▶ 自动演武播放";
+  });
+
+  document.getElementById("btnPingPong").addEventListener("click", () => {
+    isPingPong = !isPingPong;
+    document.getElementById("btnPingPong").innerText = isPingPong ? "乒乓循环: 开" : "单向循环: 开";
+  });
+
+  document.getElementById("btnToggleAuthenticMode").addEventListener("click", () => {
+    isAuthenticMode = !isAuthenticMode;
+    const gifEl = document.getElementById("authenticGifView");
+    const canvasEl = document.getElementById("viewCanvas");
+    const btn = document.getElementById("btnToggleAuthenticMode");
+    if (isAuthenticMode) {
+      gifEl.style.display = "block";
+      canvasEl.style.display = "none";
+      btn.innerText = "🌟 高保真原画动效";
+      btn.style.color = "var(--accent-gold)";
+      btn.style.borderColor = "var(--accent-gold)";
+      updateAuthenticGif();
+    } else {
+      gifEl.style.display = "none";
+      canvasEl.style.display = "block";
+      btn.innerText = "📐 骨骼几何仿真";
+      btn.style.color = "var(--accent-cyan)";
+      btn.style.borderColor = "var(--accent-cyan)";
+    }
+  });
+
+  document.getElementById("btnToggleSkeleton").addEventListener("click", () => {
+    showSkeleton = !showSkeleton;
+    document.getElementById("btnToggleSkeleton").style.borderColor = showSkeleton ? "var(--accent-cyan)" : "var(--border-subtle)";
+  });
+
+  // Physics Sliders
+  document.getElementById("slAnt").addEventListener("input", e => {
+    paramAnticipation = parseInt(e.target.value) / 100.0;
+    document.getElementById("lblValAnt").innerText = e.target.value + "%";
+  });
+  document.getElementById("slSq").addEventListener("input", e => {
+    paramSquash = parseInt(e.target.value) / 100.0;
+    document.getElementById("lblValSq").innerText = e.target.value + "%";
+  });
+  document.getElementById("slOver").addEventListener("input", e => {
+    paramOvershoot = parseInt(e.target.value) / 100.0;
+    document.getElementById("lblValOver").innerText = e.target.value + "%";
+  });
+  document.getElementById("slLag").addEventListener("input", e => {
+    paramLagMs = parseInt(e.target.value);
+    document.getElementById("lblValLag").innerText = e.target.value + "ms";
+  });
+}
+
+let isAuthenticMode = true;
+
+function updateAuthenticGif() {
+  const gifEl = document.getElementById("authenticGifView");
+  if (!gifEl) return;
+  const pA = (currentPoseA === 'idle') ? 'idle' : currentPoseA;
+  const pB = (currentPoseB === 'idle') ? 'idle' : currentPoseB;
+  gifEl.src = `../docs/assets/cadet_ren/transitions/trans_${pA}_to_${pB}.gif`;
+}
+
+function setPoseA(key) {
+  currentPoseA = key;
+  document.getElementById("lblPoseA").innerText = `${key} (${POSE_LIB[key].title})`;
+  updateActiveButtons();
+  updatePrompt();
+  if (isAuthenticMode) updateAuthenticGif();
+}
+
+function setPoseB(key) {
+  currentPoseB = key;
+  document.getElementById("lblPoseB").innerText = `${key} (${POSE_LIB[key].title})`;
+  updateActiveButtons();
+  updatePrompt();
+  if (isAuthenticMode) updateAuthenticGif();
+}
+
+function updateActiveButtons() {
+  Object.keys(POSE_LIB).forEach(key => {
+    const el = document.getElementById("btn_pose_" + key);
+    if (!el) return;
+    el.classList.remove("active-a", "active-b");
+    if (key === currentPoseA) el.classList.add("active-a");
+    if (key === currentPoseB) el.classList.add("active-b");
+  });
+}
+
+function updateProgressDisplay() {
+  const lbl = document.getElementById("lblProgVal");
+  if (progress <= 0.02) {
+    lbl.innerText = `0.00 (Pose A: ${currentPoseA})`;
+  } else if (progress >= 0.98) {
+    lbl.innerText = `1.00 (Pose B: ${currentPoseB})`;
+  } else {
+    lbl.innerText = progress.toFixed(2);
+  }
+}
+
+function updatePrompt() {
+  const code = document.getElementById("codePrompt");
+  code.innerText = `masterpiece, authentic 2d cadet ren, transition from ${currentPoseA} to ${currentPoseB}, dynamic kung fu, caramel amber fur, navy vest with gold paw emblem, baggy silk pants.`;
+}
+
+// =============================================================================
+// Main Render Loop (60 FPS)
+// =============================================================================
+let lastTime = performance.now();
+let frameCount = 0;
+let lastFpsUpdate = performance.now();
+
+function animate(now) {
+  const dt = (now - lastTime) / 1000.0;
+  lastTime = now;
+
+  // FPS Counter
+  frameCount++;
+  if (now - lastFpsUpdate >= 500) {
+    const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+    document.getElementById("fpsDisplay").innerText = fps + " FPS";
+    frameCount = 0;
+    lastFpsUpdate = now;
+  }
+
+  // Playback Step
+  if (isPlaying) {
+    const step = 0.5 * dt; // 2 seconds per full transition
+    progress += step * playDirection;
+
+    if (progress >= 1.0) {
+      if (isPingPong) {
+        progress = 1.0;
+        playDirection = -1;
+      } else {
+        progress = 0.0;
+      }
+    } else if (progress <= 0.0) {
+      if (isPingPong) {
+        progress = 0.0;
+        playDirection = 1;
+      }
+    }
+    document.getElementById("sliderProgress").value = Math.round(progress * 1000);
+    updateProgressDisplay();
+  }
+
+  // Render Frame
+  const pA = POSE_LIB[currentPoseA];
+  const pB = POSE_LIB[currentPoseB];
+  const activePose = interpolatePose(pA, pB, progress);
+  renderCharacter(ctx, activePose);
+
+  requestAnimationFrame(animate);
+}
+
+// Bootstrap
+initUI();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

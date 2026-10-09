@@ -476,6 +476,25 @@ class StickS3BLEClient {
     });
   }
 
+  // 公理六【自适应协议与防截断编码】：UTF-8 字符级边界保护安全切片器
+  splitIntoSafeChunks(text, maxBytes = 20) {
+    if (!text) return [];
+    const chunks = [];
+    let cur = "";
+    for (const char of text) {
+      const candidate = cur + char;
+      const byteLen = this.str2ab(candidate).byteLength;
+      if (byteLen > maxBytes) {
+        if (cur.length > 0) chunks.push(cur);
+        cur = char;
+      } else {
+        cur = candidate;
+      }
+    }
+    if (cur.length > 0) chunks.push(cur);
+    return chunks;
+  }
+
   // 监听连接状态并执行指数退避重连
   listenConnectionState() {
     wx.onBLEConnectionStateChange((res) => {

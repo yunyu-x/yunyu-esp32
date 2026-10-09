@@ -13,23 +13,27 @@
 
 ```markdown
 你好！请接手并继续推进本项目开发。在开始编写代码前，请先完整阅读工作交接文档与核心源码：
-1. 项目最高公理与全栈交接：`docs/30_PROJECT_AXIOMS_AND_HANDOVER.md` (必读！严格遵守六大不可违背公理)
+1. 项目最高公理与全栈交接：`docs/30_PROJECT_AXIOMS_AND_HANDOVER.md` (必读！严格遵守核心工程公理与安全红线)
 2. 移动端与小程序交接：`docs/29_微信小程序与移动端研发交接指南_HANDOVER_MOBILE.md`
 3. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`
 4. 固件核心源码：`firmware/m5sticks3_buddy/src/main.cpp` 与 `include/sticks3_ble_sync.h`
 
-【本项目六大不可违背公理 (Project Constitutional Axioms)】：
+【本项目核心工程公理与安全红线 (Constitutional Axioms & Security Laws)】：
 - 公理一【真实硬件烧录验证】：固件改动必须烧录真实硬件 (COM3) 并 RTS/DTR 硬重启，串口实测 10~15 秒验证通过，拒绝空谈。
 - 公理二【中断通讯异步解耦】：严禁在底层任务 (如 BTC_TASK) 中执行 Flash 读写或 WiFi 重连，必须经队列解耦至 loopTask。
 - 公理三【显存零撕裂双缓冲】：物理屏严禁直接擦写，必须经 PSRAM LGFX_Sprite (135x240) 离线合成后 DMA 原子推送，消灭频闪。
 - 公理四【网络显式区分一致】：手机热点 (橙色 HOT / 流量熔断) 与宽带 WiFi (绿色 WiFi) 强区分，小程序主页与设置页数据 100% 一致。
-- 公理五【零功能回退渐进加固】：离线唤醒词「悄悄」、阿里百炼流式语音、12种微表情、记忆存储与物理打断绝对不容劣化。
+- 公理五【零功能回退渐进加固】：测试执行必须具备进度与超时守护 (`python -u scripts/run_tests.py --timeout 120`)，离线唤醒词「悄悄」、阿里百炼流式语音、12种微表情、记忆存储与物理打断绝对不容劣化。
 - 公理六【自适应协议与防截断】：跨端分包重组，中文截断必须使用 safeTruncateUtf8 字符级保护器，杜绝非法字节崩溃。
+- 公理七【敏感信息零泄露与工程卫生】：严禁明文硬编码 API Key/Token，强制 .env 隔离；严禁将私有工具配置（project.private.config.json）、音频转储（*.pcm/*.wav）与调试日志提交至版本库。
 
 【当前硬件与工程基线】：
 - 硬件平台：M5Stack StickS3 (ESP32-S3-PICO-1, 8MB Flash, 8MB PSRAM)，已连接在本地串口 `COM3`，局域网 IP `192.168.110.67`。
-- 固件状态：Anti-Flicker Double-Buffer Canvas (135x240 in PSRAM) 稳定运行，主循环 FPS: 96.8 ~ 98.0，SRAM: 64KB free，PSRAM: 7.22MB free，I2C 零失败，长程运行零重启。
+- 自动化测试基线：156/156 项自动化测试 100% 绿色全绿通过 (`python -u scripts/run_tests.py --timeout 120`，耗时 11.48s)。
+- 固件状态：Anti-Flicker Double-Buffer Canvas (135x240 in PSRAM) 稳定运行，主循环 FPS: 80.9 ~ 88.5，SRAM: 61KB free，PSRAM: 7.30MB free，I2C 0 Fail，长程运行 7700+ Ticks 零重启。
 - 自动化流水线：
+  - 自动化测试：`python -u scripts/run_tests.py --timeout 120`
+  - 凭证泄漏排查：`python -c "import os, re; p=re.compile(r'sk-[a-zA-Z0-9]{20,}'); leaks=[f for r,d,fs in os.walk('.') if not any(x in r for x in ['.git','.pio','__pycache__','.env']) for f in fs if p.search(open(os.path.join(r,f),encoding='utf-8',errors='ignore').read())]; print('LEAKS FOUND:', leaks) if leaks else print('ALL CLEAR: 0 leaked secrets!')"`
   - 编译固件：`python -m platformio run -e m5sticks3_buddy`
   - 烧录固件：`python -m platformio run -e m5sticks3_buddy -t upload`
   - 验证运行：`python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"`
@@ -328,6 +332,41 @@
    - 严格遵守六大不可违背工程公理，物理屏幕维持 >= 80 FPS 零撕裂刷新，自动化测试维持 100% 绿色全绿。
 ```
 
+
+---
+
+### 方向 20：Cadet Ren 功夫学徒阿韧 动作连续补间、离线动作库扩展与骨骼下沉 (Cadet Ren Pose Continuity & Procedural Rigging)
+
+```markdown
+【本次开发目标】：Cadet Ren 功夫学徒阿韧 动作连续补间、离线动作库扩展与骨骼下沉
+在已完成 GitHub 开源调研 (AnimatedDrawings, MimicMotion, FILM)、真实概念原画 1:1 双向稠密光流补间、体量守恒自适应缩放与墨线补充引擎 (`scripts/cadet_motion_studio.py`，MSE 0.62 极致保真、消灭忽大忽小突变与帧间去重)、14-DOF 纯数学骨骼解算器与 HTML5 导播台 (`web/cadet_motion_studio.html`) 的基础上：
+1. 连贯姿态下沉为嵌入式动效 (Embedded In-Betweening Delivery)：
+   - 将由真实原画光流插帧与体量守恒自适应解算出的过渡帧（如 `bow` -> `kungfu` 4~16 帧），通过 Phase 2 RLE 紧凑算法烘焙入 Flash 或由 `loopTask` 离线解压，消灭硬件端动作切换的硬切顿挫；
+2. 自由动作生成与骨骼逆运动学 (IK) 扩展：
+   - 支持通过微信小程序或 Web 伴侣拖拽解算阿韧肢体关节点，实时输出姿态配置 JSON 并保存为自定义动作招式；
+3. 开源图生视频/插帧管线工具链打通：
+   - 接入 FILM (Frame Interpolation for Large Motion) 或 ComfyUI ControlNet-OpenPose，支持批量导入新原画概念并自动生成标准过渡帧切片；
+4. 约束：
+   - 严格遵守六大不可违背工程公理，156/156 项自动化测试 100% 保持绿色全绿，嵌入式 Flash 余量控制在安全边界。
+```
+
+---
+
+### 方向 21：StickS3 硬件 30 轮极限压测基线固化与微信小程序真机无线发布 (Hardware Stress Baseline & Mini-Program Live Delivery)
+
+```markdown
+【本次开发目标】：StickS3 硬件 30 轮极限压测基线固化与微信小程序真机无线发布
+在已达成 30 轮多模式深度人机对话压测 100% 通过（平均 81.1 FPS、SRAM 50.2KB、PSRAM 7.21MB、0 冲突、0 Panic）、微信小程序双伴侣（悄悄/阿韧）与双渲染模式（全色域/线稿微雕）及 9 大平滑过渡动效完整交付的基础上：
+1. 自动化 CI/CD 压测回归集成：
+   - 将 `scripts/stress_test_30rounds_dialogue.py` 封装为 GitHub Actions / 本地一键硬件验收指令，支持一键触发 30 轮对话自动化巡检并生成 HTML/JSON 可视化图表；
+2. 微信小程序真机无线发布与扫码预览：
+   - 执行 `node wechat_miniprogram/ci_upload.js`，通过 miniprogram-ci 上传体验版与预览二维码，验证真机微信下双伴侣即时切换、过渡动效播放与 BLE 蓝牙长报文无损分片；
+3. 动态帧率与功耗自适应管理：
+   - 针对电池供电场景，优化在空闲待机与高负荷语音播音间的动态调频（从 240MHz 降频至 80MHz 或进入轻度睡眠），延长随身伴侣续航；
+4. 约束：
+   - 严格遵守六大不可违背工程公理，每次提交必须通过 `python -u scripts/run_tests.py --timeout 120`（156 项 100% 全绿）。
+```
+
 ---
 
 ## 三、 代码提交与交接执行准则 (Commit SOP for Agents)
@@ -341,10 +380,13 @@
    - 运行灵宠表情、具身动力学与向量知识库测试：`pytest tests/test_avatar_and_empathy.py tests/test_vector_knowledge_base.py -v`（13 项全绿）。
    - 运行核心全套回归测试：`pytest tests/test_avatar_and_empathy.py tests/test_vector_knowledge_base.py tests/test_wakeword_engine.py tests/test_wifi_and_bailian_pipeline.py tests/test_audio_stream_pipeline.py tests/test_firmware_driver_suite.py tests/test_sticks3_three_schemes.py -v`（51 项全绿）。
    - 运行硬件在环与真机端到端验证：`python scripts/lingbuddy_companion.py` 与 PlatformIO 固件编译 (`python -m platformio run -d firmware/m5sticks3_buddy`)。
-3. **更新交接文档与续写提示词**：
-   - 在对应模块的文档（如 `docs/HANDOVER_VOICE_DIALOGUE_AND_RESOURCE_MANAGEMENT.md` 与 `docs/27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md`）中记录最新演进、根因与方案。
+3. **敏感信息与工程卫生审计先行 (Zero Credential Leakage & Noise)**：
+   - 检查工作区凭证：严禁任何代码包含硬编码的 API Key、私钥或密码。
+   - 核验 `.gitignore` 与状态：确保 `.env`、临时音频录音（`*.pcm`, `*.wav`）、日志（`*.log`）以及微信小程序开发者私有配置（`project.private.config.json`）未被误追踪。
+4. **更新交接文档与续写提示词**：
+   - 在对应模块的文档（如 `docs/30_PROJECT_AXIOMS_AND_HANDOVER.md`、`docs/33_CADET_REN_MOTION_CONTINUITY_AND_OPEN_SOURCE_SURVEY.md` 等）中记录最新演进、根因与方案。
    - 在本文件（`docs/AGENT_CONTINUATION_PROMPTS.md`）中登记新增功能方向的续写提示词。
-4. **提交信息规范**：
+5. **提交信息规范**：
    Commit Message 遵循 Conventional Commits 规范，必须附带说明核心交付物与交接指引。
-5. **向用户输出交接描述**：
+6. **向用户输出交接描述**：
    在向用户的对话总结中，**必须明确附带下一步开发的继续开发提示词描述**，以便用户直接复制开启下一轮会话。

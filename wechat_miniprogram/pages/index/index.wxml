@@ -44,22 +44,37 @@
     <text class="banner-text">热点流量已使用 {{hotspot.usedMb}}MB (超80%)，请留意流量消耗。点击管理 ›</text>
   </view>
 
-  <!-- 灵宠主画板区 (采用高自适应 <avatar-canvas> 自定义组件) -->
+  <!-- 灵宠主画板区 (自适应 <avatar-canvas> 或 功夫阿韧微雕动画像素舱) -->
   <view class="avatar-card">
     <view class="canvas-wrapper">
-      <avatar-canvas 
-        id="buddyAvatar"
-        petState="{{petState}}" 
-        widthRpx="270" 
-        heightRpx="480"
-        bind:avataction="handleAvatarTouchAction"
-      ></avatar-canvas>
+      <block wx:if="{{activePet === 'jollybot'}}">
+        <view class="cadet-preview-wrapper" bindtap="handleCadetAvatarTap">
+          <image class="cadet-preview-image" src="{{cadetPreviewUrl}}" mode="aspectFit" />
+          <view class="cadet-live-badge">
+            <text class="cadet-live-dot"></text>
+            <text>{{isTransitionPlaying ? '⚡ 动作过渡中' : (cadetRenderMode === 'fullcolor' ? '🎨 全色域' : '✍️ 线稿微雕')}}</text>
+          </view>
+        </view>
+      </block>
+      <block wx:else>
+        <avatar-canvas 
+          id="buddyAvatar"
+          petState="{{petState}}" 
+          widthRpx="270" 
+          heightRpx="480"
+          bind:avataction="handleAvatarTouchAction"
+        ></avatar-canvas>
+      </block>
     </view>
 
     <!-- 侧边实时 HUD 遥测数值面板 -->
     <view class="hud-meta">
       <view class="pet-title-row">
         <text class="pet-name">{{petState.name}}</text>
+        <view class="pet-switch-pill" bindtap="handleTogglePetType">
+          <text class="pill-switch-icon">🔄</text>
+          <text class="pill-switch-text">{{activePet === 'jollybot' ? '切悄悄' : '切阿韧'}}</text>
+        </view>
         <text class="mood-pill">{{currentMoodTag}}</text>
       </view>
 

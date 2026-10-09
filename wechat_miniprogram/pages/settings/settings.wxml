@@ -624,6 +624,33 @@
     </view>
   </view>
 
+  <!-- 7.5. 伴侣形象与功夫学徒渲染设置 (数据源 100% 同步) -->
+  <view class="panel-card">
+    <view class="panel-header">
+      <view class="panel-title-group">
+        <text class="panel-title">🐾 伴侣形象与功夫学徒渲染</text>
+        <text class="badge-conn-pill">{{activePet === 'jollybot' ? '功夫阿韧' : '灵伴悄悄'}}</text>
+      </view>
+      <text class="panel-subtitle">支持与硬件和主页 100% 数据源同构一致</text>
+    </view>
+
+    <view class="setting-row">
+      <view class="setting-info">
+        <text class="setting-title">当前活跃伴侣</text>
+        <text class="setting-desc">{{activePet === 'jollybot' ? 'Meta Jollybot 功夫学徒阿韧' : '悄悄 · 迪士尼灵动微表情伴侣'}}</text>
+      </view>
+      <button class="btn-ctrl-sub" bindtap="handleTogglePetTypeSettings">切换为{{activePet === 'jollybot' ? '悄悄' : '阿韧'}}</button>
+    </view>
+
+    <view class="setting-row" wx:if="{{activePet === 'jollybot'}}">
+      <view class="setting-info">
+        <text class="setting-title">阿韧画风渲染</text>
+        <text class="setting-desc">{{cadetRenderMode === 'fullcolor' ? '🎨 Phase 2 全色域彩绘微雕' : '✍️ 象牙金线稿微雕'}}</text>
+      </view>
+      <button class="btn-ctrl-sub" bindtap="handleToggleCadetModeSettings">切换画风</button>
+    </view>
+  </view>
+
   <!-- 8. 偏好与系统设置 -->
   <view class="panel-card">
     <view class="panel-header">

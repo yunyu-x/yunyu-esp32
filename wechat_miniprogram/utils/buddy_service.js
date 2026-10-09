@@ -171,6 +171,9 @@ class BuddyService {
     });
     if (st.mood !== undefined) cur.mood = st.mood;
     if (st.mood_id !== undefined) cur.mood = st.mood_id;
+    if (st.active_pet !== undefined) cur.active_pet = st.active_pet;
+    else if (st.pet !== undefined) cur.active_pet = st.pet;
+    if (st.cadet_mode !== undefined) cur.cadet_mode = st.cadet_mode;
 
     const now = Date.now();
     const isVolumeProtected = this._lastUserVolumeSetTime && (now - this._lastUserVolumeSetTime < 3500);
@@ -1323,6 +1326,39 @@ class BuddyService {
 
   async toggleCadetRenderMode() {
     return this.setCadetRenderMode("toggle");
+  }
+
+  // 伴侣灵宠类型即时切换 ('qiaoqiao' | 'jollybot')
+  async setPetType(petType = "jollybot") {
+    haptics.notification();
+    const pType = (petType === "jollybot" || petType === "jolly" || petType === "cadet") ? "jollybot" : "qiaoqiao";
+    this.petState.active_pet = pType;
+    this.petState.name = (pType === "jollybot") ? "Meta Jollybot" : "悄悄";
+
+    if (this.isBleMode && this.bleClient.isConnected) {
+      await this.bleClient.injectAction("switch_pet", { action: "switch_pet", pet: pType });
+      StorageManager.savePetState(this.petState);
+      this.notifyListeners("petState", this.petState);
+      return { success: true, mode: "ble", activePet: pType };
+    }
+    if (this.isWifiMode || (this.httpClient && this.httpClient.host)) {
+      try {
+        await this.httpClient.sendMessage(`>pet=${pType}`);
+      } catch (e) {
+        console.warn("[BuddyService] Wi-Fi setPetType failed:", e);
+      }
+      StorageManager.savePetState(this.petState);
+      this.notifyListeners("petState", this.petState);
+      return { success: true, mode: "wifi", activePet: pType };
+    }
+    StorageManager.savePetState(this.petState);
+    this.notifyListeners("petState", this.petState);
+    return { success: true, mode: "sim", activePet: pType };
+  }
+
+  async togglePetType() {
+    const nextType = (this.petState.active_pet === "jollybot" || this.petState.name === "Meta Jollybot") ? "qiaoqiao" : "jollybot";
+    return this.setPetType(nextType);
   }
 }
 

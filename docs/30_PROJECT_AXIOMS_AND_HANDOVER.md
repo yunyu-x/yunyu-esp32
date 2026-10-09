@@ -78,6 +78,14 @@ graph TD
 
 ---
 
+### 【公理七（安全红线）：敏感信息零泄露与工程卫生隔离公理】(Zero-Leakage & Repository Hygiene Law)
+1. **凭证绝不硬编码 (Zero Credential Leakage)**：严禁在任何源码、单元测试、基准压测脚本或文档中明文写入真实 API Key（如百炼 `sk-...`、OpenAI、GitHub Token、私钥证书等）。所有凭证必须通过环境变量（`os.environ` / `process.env`）或受 `.gitignore` 保护的本地 `.env` 文件读取。
+2. **环境配置隔离范式 (.env Isolation Pattern)**：仓库仅提交干净的标准配置模板（如 [`.env.example`](../.env.example)）。真实的 `.env` 文件必须被 `.gitignore` 永久忽略，严禁以任何理由推送至远程仓库。
+3. **私有配置与非必要资产阻断 (Zero Noise & Artifact Clutter)**：严禁将微信开发者工具个人状态（`project.private.config.json`）、IDE 个人配置（`.vscode/`, `.idea/`）、临时音频（`*.pcm`, `*.wav`）、调试日志（`*.log`, `logs/`）或中间二进制产物提交至版本库。
+4. **提交前双重合规审计 (Pre-Commit Compliance Audit)**：代码提交前必须执行未追踪文件核查 (`git status --ignored`) 与敏感字符串扫描，确保暂存区 100% 纯净、安全。
+
+---
+
 ## 第二部分：当前所有的工作与改动全景整理
 
 本周期内完成的全栈关键改造涵盖固件、通信协议、算法与移动端小程序，清单如下：
@@ -126,8 +134,17 @@ graph TD
   - 7 大绝招即时点播横向漫游卡片：抱拳礼 (`bow`)、马步冲拳 (`kungfu`)、太极云手 (`taichi`)、升龙霸天 (`dragon_punch`)、元气挥手 (`wave`)、咏春快拳 (`wingchun`)、宗师连携 (`combo_martial`)；
   - `buddy_service.js` 完备导出 `triggerBearCombo`、`setCadetRenderMode`、`toggleCadetRenderMode`。
 - **【实机与自动化测试闭环验证】**：
-  - 自动化回归测试：140/140 项自动化测试 100% 绿色全绿通过 (`python -u scripts/run_tests.py --timeout 120`，耗时 9.05s)；
+  - 自动化回归测试：156/156 项自动化测试 100% 绿色全绿通过 (`python -u scripts/run_tests.py --timeout 120`，耗时 11.48s)；
   - COM3 物理硬件实测：81.3 ~ 88.5 FPS 零撕裂运行，PSRAM 剩余 7.30MB，0 Panic，0 I2C 失败，阿里百炼实时流式语音正常会话。
+
+### 5. 工程资产规范治理、敏感信息阻断与隐私防线 (2026-10-09 Security & Hygiene)
+- **【敏感凭证彻底脱敏与隔离】**：
+  - 全面排查并重构 `scripts/` 下 8 个测试与基准压测脚本，彻底消除硬编码的百炼 API Key，全量迁移为 `os.environ.get("BAILIAN_API_KEY")` 动态注入；
+  - 引入标准化的 [`.env.example`](../.env.example) 模板，将真实 `.env` 永久列入 `.gitignore`，杜绝任何密钥泄露风险。
+- **【仓库工程卫生与无关资产清洗】**：
+  - 强化 `.gitignore`，全面过滤私有证书（`*.pem`, `*.key`）、临时音频转储（`*.pcm`, `*.wav`）、调试日志（`*.log`, `logs/`）；
+  - 解除微信开发者工具本地状态文件（`wechat_miniprogram/project.private.config.json`）的版本追踪，消除团队开发配置污染；
+  - 彻底清理调试临时音频片段与临时日记，确保工作区纯净规范。
 
 ---
 
@@ -138,17 +155,25 @@ graph TD
 - **物理接口连接**：已连接至本地端口 `COM3`，波特率 `115200`。
 - **网络当前分配**：局域网 STA IP `192.168.110.67`，SoftAP IP `192.168.4.1`。
 - **当前 Git 分支**：`feature/meta-muse-bailian-adaptation`。
-- **自动化测试基线**：140/140 项测试 100% 绿色全绿通过。
+- **自动化测试基线**：156/156 项测试 100% 绿色全绿通过 (11.48s)。
 
 ### 2. 当前运行性能与健康度指标 (实机监控基线)
-- **主循环帧率**：`FPS: 81.3 ~ 88.5 FPS`。
+- **主循环帧率**：`FPS: 80.9 ~ 88.5 FPS`。
 - **内部 SRAM**：`free = 61KB, max_block = 43KB`（稳定健康）。
 - **外部 PSRAM**：`free = 7.30MB / 8.00MB`（空间极度充裕）。
-- **I2C 总线健康**：PMIC 与 BMI270 累计执行 2600+ 笔事务，`Fails = 0`。
-- **长程运行周期**：`Tick > 3000+` 无一次 Panic 重启，硬件长时间运行稳定。
+- **I2C 总线健康**：PMIC 与 BMI270 累计执行 7800+ 笔事务，`Fails = 0`。
+- **长程运行周期**：`Tick > 7700+` 无一次 Panic 重启，硬件长时间运行稳定。
 - **屏幕显示效果**：135x240 PSRAM LGFX_Sprite 离线合成 + DMA 原子推送，全屏零撕裂、零频闪。
 
 ### 3. 下一个 Agent 必须掌握的工具链命令
+- **全量自动化测试（带实时进度与 120s 超时熔断保护）**：
+  ```powershell
+  python -u scripts/run_tests.py --timeout 120
+  ```
+- **工作区敏感信息与工程卫生审计**：
+  ```powershell
+  python -c "import os, re; p=re.compile(r'sk-[a-zA-Z0-9]{20,}'); leaks=[f for r,d,fs in os.walk('.') if not any(x in r for x in ['.git','.pio','__pycache__','.env']) for f in fs if p.search(open(os.path.join(r,f),encoding='utf-8',errors='ignore').read())]; print('LEAKS FOUND:', leaks) if leaks else print('ALL CLEAR: 0 leaked secrets!')"
+  ```
 - **编译固件**：
   ```powershell
   python -m platformio run -e m5sticks3_buddy
@@ -160,10 +185,6 @@ graph TD
 - **触发硬重启并读取实时串口日志（验证公理一）**：
   ```powershell
   python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"
-  ```
-- **回归测试全家桶（实时进度条 + 120s 超时熔断保护）**：
-  ```powershell
-  python -u scripts/run_tests.py --timeout 120
   ```
 
 ### 4. 建议后续继续推进的方向 (Next Potential Tasks)

@@ -1,0 +1,21 @@
+{
+  "character_name": "Cadet Ren (功夫学徒阿韧)",
+  "species_origin": "Anthropomorphic Red Panda x Bunny Martial Artist (小熊猫武僧)",
+  "positive_prompt_dna": "masterpiece, best quality, authentic 2d character design, cadet ren, anthropomorphic young red panda martial artist hero, caramel amber fluffy fur, dark auburn eye markings and tail rings, tall upright ears with ivory white inner fluff and dark chocolate tips, midnight navy tactical vest with standing collar and imperial gold trim, golden paw print chest badge, baggy ivory white silk kung fu trousers, navy blue shin wraps with crisscross cords, bushy ringed red panda tail, expressive amber eyes, dynamic cinematic kung fu stance",
+  "negative_prompt_dna": "worst quality, low quality, human, realistic 3d, realistic photograph, extra limbs, fused fingers, distorted vest, missing tail, western cartoon deformities, blurry, watermark",
+  "visual_invariants": [
+    "Caramel amber fur (#CD5F26 / CADET_COL_FUR_AMBER)",
+    "Dark auburn teardrop eye markings & 3-segment tail rings (#873416 / CADET_COL_FUR_DARK)",
+    "Midnight navy tactical vest (#1A263E / CADET_COL_VEST_NAVY) with gold paw emblem",
+    "Loose ivory white silk lantern trousers (#F8F6F2 / CADET_COL_FUR_WHITE)",
+    "Navy blue shin wraps and wrist bands with gold bottom hem",
+    "Large rounded amber iris doe eyes with white highlight stars"
+  ],
+  "action_prompt_templates": {
+    "bow": "cadet ren performing traditional kung fu bow and martial salute, fists clasped in front of chest, polite smile",
+    "kungfu": "cadet ren in deep horse stance delivering a powerful right palm strike forward, left fist anchored at waist, intense focus",
+    "taichi": "cadet ren flowing tai chi cloud hands, circular arm arcs, yin yang balance, calm serene breath",
+    "dragon_punch": "cadet ren leaping into air with soaring dragon uppercut punch, trailing golden ki sparks and fire ring",
+    "wave": "cadet ren cheerfully waving right paw with pink paw pads showing, energetic friendly greeting"
+  }
+}

@@ -1,9 +1,27 @@
 import asyncio
 import json
+import os
 import time
 import websockets
 
-API_KEY = "sk-ws-H.EPHMIMH.PqIK.MEQCIHgyLDXLvnwi_PGoocOu5C-Azgxc8ISga2Mrz3n-DTdxAiBsI8cGPSo2p6JA4WbyHX0YWN8KeBoDZ86Puoqt7YVLug"
+def load_bailian_api_key() -> str:
+    key = os.environ.get("BAILIAN_API_KEY", "").strip()
+    if not key:
+        for cand in [".env", os.path.join(os.path.dirname(__file__), "..", ".env")]:
+            if os.path.exists(cand):
+                try:
+                    with open(cand, "r", encoding="utf-8") as f:
+                        for line in f:
+                            if line.strip().startswith("BAILIAN_API_KEY="):
+                                key = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                                break
+                    if key:
+                        break
+                except Exception:
+                    pass
+    return key
+
+API_KEY = load_bailian_api_key()
 URL = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-omni-turbo-realtime"
 
 def ts():

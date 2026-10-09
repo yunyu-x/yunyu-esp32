@@ -111,7 +111,11 @@ Page({
     // 运维操作
     isClearingMemory: false,
     isRebootingDevice: false,
-    isFactoryResetting: false
+    isFactoryResetting: false,
+
+    // 伴侣与功夫学徒渲染设置
+    activePet: "qiaoqiao",
+    cadetRenderMode: "fullcolor"
   },
 
   onLoad() {
@@ -243,6 +247,13 @@ Page({
         patch.hotspot = { ...hs };
       }
       if (this.data.trafficPercent !== percent) patch.trafficPercent = percent;
+    }
+
+    const st = evt.petState || buddyService.petState;
+    if (st) {
+      const activePet = st.active_pet || (st.name === "Meta Jollybot" ? "jollybot" : "qiaoqiao");
+      if (this.data.activePet !== activePet) patch.activePet = activePet;
+      if (st.cadet_mode && this.data.cadetRenderMode !== st.cadet_mode) patch.cadetRenderMode = st.cadet_mode;
     }
 
     if (dw) {
@@ -1028,6 +1039,29 @@ Page({
           });
         }
       }
+    });
+  },
+
+  // 伴侣类型与功夫学徒渲染设置切换
+  handleTogglePetTypeSettings() {
+    haptics.selection();
+    const nextPet = (this.data.activePet === "jollybot") ? "qiaoqiao" : "jollybot";
+    this.setData({ activePet: nextPet });
+    buddyService.setPetType(nextPet);
+    wx.showToast({
+      title: nextPet === "jollybot" ? "🥋 已切换为功夫学徒阿韧" : "🌸 已切换为灵伴悄悄",
+      icon: "none"
+    });
+  },
+
+  handleToggleCadetModeSettings() {
+    haptics.selection();
+    const nextMode = (this.data.cadetRenderMode === "fullcolor") ? "lineart" : "fullcolor";
+    this.setData({ cadetRenderMode: nextMode });
+    buddyService.setCadetRenderMode(nextMode);
+    wx.showToast({
+      title: nextMode === "fullcolor" ? "🎨 已切换为全色域彩绘" : "✍️ 已切换为象牙金微雕",
+      icon: "none"
     });
   }
 });

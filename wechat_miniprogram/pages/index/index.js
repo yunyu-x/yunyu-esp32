@@ -126,7 +126,10 @@ Page({
       { id: 6, act: "wingchun",      name: "咏春快拳", en: "Wing Chun",    icon: "🥊", desc: "日字连打·身躯反扭", minLvl: 2 },
       { id: 7, act: "combo_martial", name: "宗师连携", en: "Grandmaster",  icon: "⚡", desc: "五式连招·宗师套路", minLvl: 3 }
     ],
-    currentCadetStunt: "bow"
+    currentCadetStunt: "bow",
+    activePet: "qiaoqiao",
+    cadetPreviewUrl: "/assets/cadet_ren/device_135x240_colors/bow_device_preview.png",
+    isTransitionPlaying: false
   },
 
   onLoad() {
@@ -246,6 +249,14 @@ Page({
         this.data.petState.subtitle !== st.subtitle ||
         this.data.petState.name !== st.name) {
       patch.petState = st;
+    }
+
+    const activePet = (st && (st.active_pet || (st.name === "Meta Jollybot" ? "jollybot" : "qiaoqiao"))) || "qiaoqiao";
+    if (this.data.activePet !== activePet) {
+      patch.activePet = activePet;
+      if (activePet === "jollybot" && !this.data.isTransitionPlaying) {
+        patch.cadetPreviewUrl = this.getCadetPreviewUrl(this.data.currentCadetStunt, this.data.cadetRenderMode);
+      }
     }
 
     if (!this.data.hotspot || this.data.hotspot.usedMb !== hs.usedMb || this.data.hotspot.isHotspot !== hs.isHotspot || this.data.hotspot.cutoffActive !== hs.cutoffActive) {
@@ -480,6 +491,56 @@ Page({
   },
 
   // 10. 功夫学徒阿韧 7 大绝招与宗师连携套路导播
+  getCadetPreviewUrl(stunt, mode) {
+    const isLine = mode === "lineart";
+    const baseDir = isLine ? "/assets/cadet_ren/device_135x240_lines" : "/assets/cadet_ren/device_135x240_colors";
+    switch (stunt) {
+      case "bow": return `${baseDir}/bow_device_preview.png`;
+      case "kungfu": return `${baseDir}/horse_strike_device_preview.png`;
+      case "taichi": return `${baseDir}/taichi_device_preview.png`;
+      case "dragon_punch": return `${baseDir}/dragon_punch_device_preview.png`;
+      case "wave": return `${baseDir}/wave_2_device_preview.png`;
+      case "combo_martial": return "/assets/cadet_ren/cadet_ren_martial_combo.gif";
+      case "wingchun": return isLine ? `${baseDir}/horse_strike_device_preview.png` : "/assets/cadet_ren/cadet_ren_kungfu_action.gif";
+      default: return `${baseDir}/front_idle_device_preview.png`;
+    }
+  },
+
+  playStuntTransition(fromStunt, toStunt) {
+    const transitions = {
+      "idle_to_bow": "/assets/cadet_ren/transitions/trans_idle_to_bow.gif",
+      "bow_to_kungfu": "/assets/cadet_ren/transitions/trans_bow_to_kungfu.gif",
+      "kungfu_to_taichi": "/assets/cadet_ren/transitions/trans_kungfu_to_taichi.gif",
+      "taichi_to_dragon_punch": "/assets/cadet_ren/transitions/trans_taichi_to_dragon_punch.gif",
+      "dragon_punch_to_wave": "/assets/cadet_ren/transitions/trans_dragon_punch_to_wave.gif",
+      "wave_to_idle": "/assets/cadet_ren/transitions/trans_wave_to_idle.gif",
+      "wave_to_wingchun": "/assets/cadet_ren/transitions/trans_wave_to_wingchun.gif",
+      "wingchun_to_cheer": "/assets/cadet_ren/transitions/trans_wingchun_to_cheer.gif",
+      "cheer_to_idle": "/assets/cadet_ren/transitions/trans_cheer_to_idle.gif"
+    };
+
+    const key = `${fromStunt}_to_${toStunt}`;
+    const transGif = transitions[key];
+    if (transGif) {
+      this.setData({
+        isTransitionPlaying: true,
+        cadetPreviewUrl: transGif
+      });
+      if (this.transitionTimer) clearTimeout(this.transitionTimer);
+      this.transitionTimer = setTimeout(() => {
+        this.setData({
+          isTransitionPlaying: false,
+          cadetPreviewUrl: this.getCadetPreviewUrl(toStunt, this.data.cadetRenderMode)
+        });
+      }, 1600);
+    } else {
+      this.setData({
+        isTransitionPlaying: false,
+        cadetPreviewUrl: this.getCadetPreviewUrl(toStunt, this.data.cadetRenderMode)
+      });
+    }
+  },
+
   handleTriggerCadetStunt(e) {
     const act = (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.act) || "bow";
     const minLvl = Number(e.currentTarget.dataset.minlvl) || 1;
@@ -494,7 +555,10 @@ Page({
       this.buddyService.triggerBearAction("locked_try");
       return;
     }
+    const prevStunt = this.data.currentCadetStunt;
     this.setData({ currentCadetStunt: act });
+    this.playStuntTransition(prevStunt, act);
+
     if (act === "combo_martial") {
       this.buddyService.triggerBearCombo("martial");
       wx.showToast({ title: "⚡ 施展: 宗师连携大招套路!", icon: "none" });
@@ -507,7 +571,10 @@ Page({
 
   handleToggleCadetMode() {
     const nextMode = (this.data.cadetRenderMode === "fullcolor") ? "lineart" : "fullcolor";
-    this.setData({ cadetRenderMode: nextMode });
+    this.setData({
+      cadetRenderMode: nextMode,
+      cadetPreviewUrl: this.getCadetPreviewUrl(this.data.currentCadetStunt, nextMode)
+    });
     this.buddyService.setCadetRenderMode(nextMode);
     wx.showToast({
       title: nextMode === "fullcolor" ? "🎨 已切换: 全色域功夫学员" : "✍️ 已切换: 象牙金微雕线稿",
@@ -516,9 +583,35 @@ Page({
   },
 
   handleTriggerCadetCombo() {
-    this.setData({ currentCadetStunt: "combo_martial" });
+    this.setData({
+      currentCadetStunt: "combo_martial",
+      cadetPreviewUrl: "/assets/cadet_ren/cadet_ren_martial_combo.gif"
+    });
     this.buddyService.triggerBearCombo("martial");
     wx.showToast({ title: "⚡ 启动: 功夫阿韧五式宗师连携套路", icon: "none" });
+  },
+
+  handleTogglePetType() {
+    haptics.selection();
+    const nextPet = (this.data.activePet === "jollybot" || (this.data.petState && this.data.petState.name === "Meta Jollybot")) ? "qiaoqiao" : "jollybot";
+    this.setData({
+      activePet: nextPet,
+      cadetPreviewUrl: this.getCadetPreviewUrl(this.data.currentCadetStunt, this.data.cadetRenderMode)
+    });
+    this.buddyService.setPetType(nextPet);
+    wx.showToast({
+      title: nextPet === "jollybot" ? "🥋 切换为: 功夫学徒阿韧" : "🌸 切换为: 灵伴悄悄",
+      icon: "none"
+    });
+  },
+
+  handleCadetAvatarTap() {
+    haptics.vibrate("light");
+    const stunts = ["bow", "kungfu", "taichi", "dragon_punch", "wave"];
+    const current = this.data.currentCadetStunt;
+    const candidates = stunts.filter(s => s !== current);
+    const nextStunt = candidates[Math.floor(Math.random() * candidates.length)];
+    this.handleTriggerCadetStunt({ currentTarget: { dataset: { act: nextStunt, minlvl: 1 } } });
   },
 
   // Tab 页面跳转导航

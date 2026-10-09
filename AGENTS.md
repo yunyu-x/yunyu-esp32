@@ -35,25 +35,44 @@
 
 ---
 
+## 2.1 敏感信息防线与工程卫生法则 (Security, Privacy & Repository Hygiene Law)
+
+本法则为全栈研发与代码提交的**不可逾越的安全红线**：
+
+1. **严禁凭证硬编码 (Zero Credential Leakage)**：
+   - 严禁在任何代码、测试脚本、文档或配置中明文硬编码真实 API Key（如百炼 `sk-...`、OpenAI、GitHub Token、私钥证书等）。
+   - 所有运行时敏感凭据必须通过环境变量（`os.environ` / `process.env`）或受 `.gitignore` 保护的本地 `.env` 文件读取。
+   - 仓库仅允许提交无敏感数据的配置模板（如 [`.env.example`](./.env.example)）。
+2. **严禁私有与临时资产入库 (Zero Noise & Clutter)**：
+   - 严禁将微信开发者工具个人状态（`project.private.config.json`）、IDE 个人配置（`.vscode/`, `.idea/`）提交至仓库。
+   - 严禁将调试音频（`*.pcm`, `*.wav`）、临时运行日志（`*.log`, `logs/`）、编译产物（`.pio/`, `__pycache__/`）等非必要产物纳入版本控制。
+3. **提交前双重卫生审计 (Pre-Commit Audit)**：
+   - 提交任何变更前，必须执行未忽略文件核对与敏感凭证检索：`git status --ignored`，确保只有符合规范的源码、文档与正式测试进入暂存区。
+
+---
+
 ## 3. 标准开发流水线与验证命令 (Standard Verification Flow)
 
 ```powershell
 # 1. 运行全套自动化测试 (必须具备实时进度展示与超时熔断控制，100% 通过)
 python -u scripts/run_tests.py --timeout 120
 
-# 2. 编译 StickS3 嵌入式固件
+# 2. 检查工作区工程卫生与敏感信息 (严禁泄露密钥与私有文件)
+python -c "import os, re; p=re.compile(r'sk-[a-zA-Z0-9]{20,}'); leaks=[f for r,d,fs in os.walk('.') if not any(x in r for x in ['.git','.pio','__pycache__','.env']) for f in fs if p.search(open(os.path.join(r,f),encoding='utf-8',errors='ignore').read())]; print('LEAKS FOUND:', leaks) if leaks else print('ALL CLEAR: 0 leaked secrets!')"
+
+# 3. 编译 StickS3 嵌入式固件
 python -m platformio run -e m5sticks3_buddy
 
-# 3. 烧录固件至物理硬件 (COM3)
+# 4. 烧录固件至物理硬件 (COM3)
 python -m platformio run -e m5sticks3_buddy -t upload
 
-# 4. 触发 RTS/DTR 硬件硬重启并读取实时串口日志 10~15 秒
+# 5. 触发 RTS/DTR 硬件硬重启并读取实时串口日志 10~15 秒
 python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"
 
-# 5. 启动桌面 Web 伴侣控制台服务
+# 6. 启动桌面 Web 伴侣控制台服务
 python scripts/lingbuddy_companion.py
 
-# 6. 文档与学术公式公理化交叉审计
+# 7. 文档与学术公式公理化交叉审计
 python skills/document-content-verifier/scripts/verify_pipeline.py --input docs/30_PROJECT_AXIOMS_AND_HANDOVER.md --mode all
 ```
 
