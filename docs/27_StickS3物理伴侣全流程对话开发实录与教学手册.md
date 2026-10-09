@@ -249,8 +249,8 @@ lib_deps =
 ### 一、 专案工程文档归档记录
 
 全新编制的标准化工程详案已归档至项目库，并同步更新索引矩阵：
-*   **专案详案**：[`doc/25_M5Stack_StickS3物理伴侣与地面调测终端开发全流程及三方案验证详案.md`](file:///d:/workspace/code/microUnit/doc/25_M5Stack_StickS3物理伴侣与地面调测终端开发全流程及三方案验证详案.md)
-*   **知识库总览**：[`doc/README.md`](file:///d:/workspace/code/microUnit/doc/README.md#L55)（增补 Doc 25 索引）
+*   **专案详案**：[`docs/25_M5Stack_StickS3物理伴侣与地面调测终端开发全流程及三方案验证详案.md`](file:///d:/workspace/code/microUnit/docs/25_M5Stack_StickS3物理伴侣与地面调测终端开发全流程及三方案验证详案.md)
+*   **知识库总览**：[`docs/README.md`](file:///d:/workspace/code/microUnit/docs/README.md#L55)（增补 Doc 25 索引）
 *   **项目主说明**：[`README.md`](file:///d:/workspace/code/microUnit/README.md#L90)（增补专题 VI 嵌入式驱动与硬件伴侣索引）
 
 ---
@@ -453,7 +453,7 @@ tests/test_sticks3_three_schemes.py::test_bringup_manager_cli_all PASSED        
 ============================== 7 passed in 0.56s ==============================
 ```
 
-同时，工程核心详案 [`doc/25_M5Stack_StickS3物理伴侣与地面调测终端开发全流程及三方案验证详案.md`](file:///d:/workspace/code/microUnit/doc/25_M5Stack_StickS3物理伴侣与地面调测终端开发全流程及三方案验证详案.md#L280) 已同步增补**第六章《三大方案硬件实机点亮全流程与代码实现》**。硬件到货插上 Type-C 后，即可直接运行点亮！
+同时，工程核心详案 [`docs/25_M5Stack_StickS3物理伴侣与地面调测终端开发全流程及三方案验证详案.md`](file:///d:/workspace/code/microUnit/docs/25_M5Stack_StickS3物理伴侣与地面调测终端开发全流程及三方案验证详案.md#L280) 已同步增补**第六章《三大方案硬件实机点亮全流程与代码实现》**。硬件到货插上 Type-C 后，即可直接运行点亮！
 
 ---
 
@@ -832,7 +832,7 @@ I am verifying the hardware reset and reading the boot logs from `COM3`...
 #### 💬 Agent 最终交付汇报与技术解析
 已完成物理屏幕黑屏故障的根因定位、底层驱动重构、自主固件烧录与硬件点亮验证。
 
-详细排查与实施成果总结如下，并已同步归档至 [walkthrough.md](file:///C:/Users/Administrator/.gemini/antigravity/brain/e0938fcb-98fe-42be-a914-c7e004761638/walkthrough.md) 及 [工程详案文档](file:///d:/workspace/code/microUnit/doc/25_M5Stack_StickS3%E7%89%A9%E7%90%86%E4%BC%B4%E4%BE%A3%E4%B8%8E%E5%9C%B0%E9%9D%A2%E8%B0%83%E6%B5%8B%E7%BB%88%E7%AB%AF%E5%BC%80%E5%8F%91%E5%85%A8%E6%B5%81%E7%A8%8B%E5%8F%8A%E4%B8%89%E6%96%B9%E6%A1%88%E9%AA%8C%E8%AF%81%E8%AF%A6%E6%A1%88.md)：
+详细排查与实施成果总结如下，并已同步归档至 [walkthrough.md](file:///C:/Users/Administrator/.gemini/antigravity/brain/e0938fcb-98fe-42be-a914-c7e004761638/walkthrough.md) 及 [工程详案文档](file:///d:/workspace/code/microUnit/docs/25_M5Stack_StickS3%E7%89%A9%E7%90%86%E4%BC%B4%E4%BE%A3%E4%B8%8E%E5%9C%B0%E9%9D%A2%E8%B0%83%E6%B5%8B%E7%BB%88%E7%AB%AF%E5%BC%80%E5%8F%91%E5%85%A8%E6%B5%81%E7%A8%8B%E5%8F%8A%E4%B8%89%E6%96%B9%E6%A1%88%E9%AA%8C%E8%AF%81%E8%AF%A6%E6%A1%88.md)：
 
 ---
 
@@ -931,7 +931,7 @@ I am verifying the hardware reset and reading the boot logs from `COM3`...
 #### 💬 Agent 最终交付汇报与技术解析
 针对“动态姿态水准仪”没有反应的问题，已完成**底层芯片机制逆向定位、微码注入驱动重构、全自主烧录与硬件实机姿态回执闭环验证**。
 
-排查细节与执行成果如下（已同步记录至 [walkthrough.md](file:///C:/Users/Administrator/.gemini/antigravity/brain/e0938fcb-98fe-42be-a914-c7e004761638/walkthrough.md) 与 [技术详案文档](file:///d:/workspace/code/microUnit/doc/25_M5Stack_StickS3%E7%89%A9%E7%90%86%E4%BC%B4%E4%BE%A3%E4%B8%8E%E5%9C%B0%E9%9D%A2%E8%B0%83%E6%B5%8B%E7%BB%88%E7%AB%AF%E5%BC%80%E5%8F%91%E5%85%A8%E6%B5%81%E7%A8%8B%E5%8F%8A%E4%B8%89%E6%96%B9%E6%A1%88%E9%AA%8C%E8%AF%81%E8%AF%A6%E6%A1%88.md)）：
+排查细节与执行成果如下（已同步记录至 [walkthrough.md](file:///C:/Users/Administrator/.gemini/antigravity/brain/e0938fcb-98fe-42be-a914-c7e004761638/walkthrough.md) 与 [技术详案文档](file:///d:/workspace/code/microUnit/docs/25_M5Stack_StickS3%E7%89%A9%E7%90%86%E4%BC%B4%E4%BE%A3%E4%B8%8E%E5%9C%B0%E9%9D%A2%E8%B0%83%E6%B5%8B%E7%BB%88%E7%AB%AF%E5%BC%80%E5%8F%91%E5%85%A8%E6%B5%81%E7%A8%8B%E5%8F%8A%E4%B8%89%E6%96%B9%E6%A1%88%E9%AA%8C%E8%AF%81%E8%AF%A6%E6%A1%88.md)）：
 
 ---
 
@@ -1108,7 +1108,7 @@ Discovering services...
 #### 💬 Agent 最终交付汇报与技术解析
 已为您开发并上线**小程序/手机端 BLE 消息实时同屏显示与双向交互系统**，固件已全自主编译并成功烧录至硬件设备！
 
-详细设计与实现已同步归档至 [walkthrough.md](file:///C:/Users/Administrator/.gemini/antigravity/brain/e0938fcb-98fe-42be-a914-c7e004761638/walkthrough.md) 与 [技术详案文档](file:///d:/workspace/code/microUnit/doc/25_M5Stack_StickS3%E7%89%A9%E7%90%86%E4%BC%B4%E4%BE%A3%E4%B8%8E%E5%9C%B0%E9%9D%A2%E8%B0%83%E6%B5%8B%E7%BB%88%E7%AB%AF%E5%BC%80%E5%8F%91%E5%85%A8%E6%B5%81%E7%A8%8B%E5%8F%8A%E4%B8%89%E6%96%B9%E6%A1%88%E9%AA%8C%E8%AF%81%E8%AF%A6%E6%A1%88.md)：
+详细设计与实现已同步归档至 [walkthrough.md](file:///C:/Users/Administrator/.gemini/antigravity/brain/e0938fcb-98fe-42be-a914-c7e004761638/walkthrough.md) 与 [技术详案文档](file:///d:/workspace/code/microUnit/docs/25_M5Stack_StickS3%E7%89%A9%E7%90%86%E4%BC%B4%E4%BE%A3%E4%B8%8E%E5%9C%B0%E9%9D%A2%E8%B0%83%E6%B5%8B%E7%BB%88%E7%AB%AF%E5%BC%80%E5%8F%91%E5%85%A8%E6%B5%81%E7%A8%8B%E5%8F%8A%E4%B8%89%E6%96%B9%E6%A1%88%E9%AA%8C%E8%AF%81%E8%AF%A6%E6%A1%88.md)：
 
 ---
 
@@ -1493,9 +1493,9 @@ StickS3 的固件更新已自主编译并烧录至硬件，所有问题均已彻
 ### 三、 工作交接文档说明
 
 已在项目文档目录中正式归档交付物：  
-**[26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md](file:///d:/workspace/code/microUnit/doc/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md)**
+**[26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md](file:///d:/workspace/code/microUnit/docs/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md)**
 
-文档并在 [doc/README.md](file:///d:/workspace/code/microUnit/doc/README.md) 中完成全局注册。该交接文档包含以下 7 大核心板块，后续任何 Agent 均可依据其开展工作：
+文档并在 [docs/README.md](file:///d:/workspace/code/microUnit/docs/README.md) 中完成全局注册。该交接文档包含以下 7 大核心板块，后续任何 Agent 均可依据其开展工作：
 
 1. **项目使命与角色定位**：明确 StickS3 作为 Claude 桌面伴侣与灵方地面调试终端的系统定位。
 2. **硬件拓扑标定与四大天坑表**：
@@ -1568,7 +1568,7 @@ python scripts/test_ble_encoding.py
   - Non-blocking decoupled buffer architecture eliminating I2C collision.
   - Full CP936 GBK-to-Unicode Flash LUT (23,940 entries, 47KB Flash, O(1) lookup) and sanitizeAndConvertToUtf8 pipeline fixing WeChat mini-program square-box font garbling.
   - Verification scripts: autonomous bringup agent, test_ble_encoding, and 100% passing test suite.
-  - Comprehensive engineering handover documentation: doc/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md.
+  - Comprehensive engineering handover documentation: docs/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md.
   ```
 
 ### 核心交付物已纳入版本控制
@@ -1579,8 +1579,8 @@ python scripts/test_ble_encoding.py
    - [`firmware/m5sticks3_buddy/include/sticks3_wifi.h`](file:///d:/workspace/code/microUnit/firmware/m5sticks3_buddy/include/sticks3_wifi.h)（SoftAP+TCP+UDP+Web 80 四合一通信）
    - [`firmware/m5sticks3_buddy/include/sticks3_audio.h`](file:///d:/workspace/code/microUnit/firmware/m5sticks3_buddy/include/sticks3_audio.h)（ES8311 Codec / AW8737 PA 音频驱动）
 2. **完整 Agent 工作交接文档**：
-   - [`doc/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md`](file:///d:/workspace/code/microUnit/doc/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md)
-   - [`doc/README.md`](file:///d:/workspace/code/microUnit/doc/README.md)（已同步全局文档目录索引）
+   - [`docs/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md`](file:///d:/workspace/code/microUnit/docs/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md)
+   - [`docs/README.md`](file:///d:/workspace/code/microUnit/docs/README.md)（已同步全局文档目录索引）
 3. **自动化测试与全自主工具链**：
    - [`scripts/autonomous_bringup_agent.py`](file:///d:/workspace/code/microUnit/scripts/autonomous_bringup_agent.py)（6 阶段可视化全自动烧录与自愈守护引擎）
    - [`scripts/test_ble_encoding.py`](file:///d:/workspace/code/microUnit/scripts/test_ble_encoding.py)（Python Bleak 真机多编码收发自动化验证）
@@ -1610,7 +1610,7 @@ python scripts/test_ble_encoding.py
 
 ```markdown
 你好！请接手并继续推进本项目开发。在开始编写代码前，请先完整阅读工作交接文档与核心源码：
-1. 核心交接文档：`doc/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md`
+1. 核心交接文档：`docs/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md`
 2. 固件核心源码：`firmware/m5sticks3_buddy/src/main.cpp` 与 `include/gbk_to_utf8.h`
 
 【当前硬件与工程基线】：
@@ -1657,7 +1657,7 @@ python scripts/test_ble_encoding.py
 ---
 
 ### 💡 为什么这样描述最有效？
-1. **防踩坑提示直接置顶**：新 Agent 会优先阅读 `doc/26` 文档，**绝不会再去犯**“修改错误的按键引脚”、“在蓝牙中断里调用延时造成 I2C 死锁”、“广播包超过 31 字节导致 iOS 搜不到”等隐蔽硬件陷阱。
+1. **防踩坑提示直接置顶**：新 Agent 会优先阅读 `docs/26` 文档，**绝不会再去犯**“修改错误的按键引脚”、“在蓝牙中断里调用延时造成 I2C 死锁”、“广播包超过 31 字节导致 iOS 搜不到”等隐蔽硬件陷阱。
 2. **绑定现有自愈烧录链**：直接指定运行 `scripts/autonomous_bringup_agent.py`，新 Agent 无需反复询问端口或手动拔插复位设备。
 3. **保证编码规范延续**：提示新 Agent 必须继承全集 GBK 转码与汉字排版引擎，确保新界面永远不会退化出现方格子乱码。
 
@@ -1688,11 +1688,11 @@ python scripts/test_ble_encoding.py
 
 - **提交哈希**：`1e70d64` (`main -> origin/main`)
 - **核心文档**：
-  1. [`doc/AGENT_CONTINUATION_PROMPTS.md`](file:///d:/workspace/code/microUnit/doc/AGENT_CONTINUATION_PROMPTS.md)
+  1. [`docs/AGENT_CONTINUATION_PROMPTS.md`](file:///d:/workspace/code/microUnit/docs/AGENT_CONTINUATION_PROMPTS.md)
      - 建立了工程强制标准：**后续所有 Agent 提交代码后，均必须在交付总结中给出对应模块继续开发的标准化提示词描述**。
      - 收录了新 Agent 开箱即用的通用母版（Master Prompt）及四个细分方向（Claude 物理审批、灵方地面调测、多页面菜单、音频网关）的高质量提示词。
-  2. [`doc/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md`](file:///d:/workspace/code/microUnit/doc/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md)（第八章新增继续开发引导专区）
-  3. [`doc/README.md`](file:///d:/workspace/code/microUnit/doc/README.md)（已全局注册该标准库）
+  2. [`docs/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md`](file:///d:/workspace/code/microUnit/docs/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md)（第八章新增继续开发引导专区）
+  3. [`docs/README.md`](file:///d:/workspace/code/microUnit/docs/README.md)（已全局注册该标准库）
 
 ---
 
@@ -1712,8 +1712,8 @@ python scripts/test_ble_encoding.py
 
 ```markdown
 你好！请接手并继续推进本项目开发。在开始编写代码前，请先完整阅读工作交接文档与核心源码：
-1. 核心交接文档：`doc/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md`
-2. 提示词标准库：`doc/AGENT_CONTINUATION_PROMPTS.md`
+1. 核心交接文档：`docs/26_StickS3物理伴侣与双模调测终端全链路开发总结与Agent工作交接文档.md`
+2. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`
 3. 固件核心源码：`firmware/m5sticks3_buddy/src/main.cpp` 与 `include/gbk_to_utf8.h`
 
 【当前硬件与工程基线】：
@@ -1771,4 +1771,4 @@ python scripts/test_ble_encoding.py
 - **法则**：在 Flash 中固化 47KB 全集 GBK-Unicode 映射表（23,940 条目，O(1) 查表），构建 `sanitizeAndConvertToUtf8()` 自动清洗流水线（BOM剔除 -> Hex解码 -> UTF8校验 -> GBK无损映射），实现真机零乱码。
 
 ### 5. 跨会话 Agent 协作的持续交付标准（交接红线）
-- **法则**：每次提交代码后，强制附带标准化继续开发提示词描述（`doc/AGENT_CONTINUATION_PROMPTS.md`），保证后续新对话中的 Agent 零提示漂移、无缝承接。
+- **法则**：每次提交代码后，强制附带标准化继续开发提示词描述（`docs/AGENT_CONTINUATION_PROMPTS.md`），保证后续新对话中的 Agent 零提示漂移、无缝承接。

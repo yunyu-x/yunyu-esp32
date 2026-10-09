@@ -159,7 +159,7 @@
 
 ```markdown
 【本次开发目标】：基于 Muse Charm 哲学的灵宠伴侣 (LingBuddy) 拟人化微表情、物理具身与 BLE 手机记忆同步
-参考架构详案：`doc/27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md` 与调研报告 `doc/analysis/muse_charm_study_and_teardown.md`：
+参考架构详案：`docs/27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md` 与调研报告 `docs/analysis/muse_charm_study_and_teardown.md`：
 1. 矢量微表情引擎 (PAE)：
    - 在 ST7789 1.14" 屏幕实现 12 种程序化几何矢量表情（常态眨眼、聆听放大、思考转动、说话大笑、摇晃眩晕、平放打呼噜、摸摸头爱心等）；
    - 采用局部脏矩形 (Dirty Rectangle) 局部重绘机制，确保 60 FPS 丝滑动画，CPU 占用率控制在 5% 以内。

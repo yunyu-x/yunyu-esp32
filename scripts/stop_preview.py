@@ -34,7 +34,7 @@ def stop_services():
         print("[i] 当前没有正在运行的相关服务或穿透进程。")
 
     # 清理预览地址记录
-    for rel_path in ["dist/public_preview_url.txt", "dist/public_preview_url.json", "web_preview/public_preview_url.txt", "web_preview/public_preview_url.json"]:
+    for rel_path in ["dist/public_preview_url.txt", "dist/public_preview_url.json", "web/public_preview_url.txt", "web/public_preview_url.json"]:
         url_file = os.path.join(os.path.dirname(__file__), "..", rel_path)
         if os.path.exists(url_file):
             try:

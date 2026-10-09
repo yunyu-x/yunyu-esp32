@@ -3,6 +3,12 @@
 欢迎使用 **M5Stack StickS3 Voice Buddy OS (v1.0.0-stable)**！
 本发布包为纯净、高稳定性的全双工语音交互与离线唤醒词基础系统，无需安装 PlatformIO 或配置 C++ 编译环境，支持一键极速烧录与 Web 配网使用。
 
+> [!NOTE]
+> **关于固件二进制产物分发**：  
+> 依据现代开源工程实践，为杜绝大型编译产物污染 Git 源码历史，编译就绪的 `bootloader.bin`、`partitions.bin` 与 `firmware.bin` 正式托管于 **[GitHub Releases (v1.0.0-stable)](https://github.com/yunyu-x/yunyu-esp32/releases)**。  
+> - **免编译用户**：在 Releases 页面下载 `release_v1.0.0.zip` 固件包，解压后放置于本目录即可直接运行烧录脚本；  
+> - **开发者**：在项目根目录运行 `python -m platformio run -e m5sticks3_buddy -t upload` 即可直接编译并烧录至设备。
+
 ---
 
 ## 一、 快速烧录 (1-Click Flashing)

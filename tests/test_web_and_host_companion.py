@@ -18,7 +18,6 @@ from fastapi.testclient import TestClient
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 WEB_DIR = os.path.join(ROOT_DIR, "web")
-PREVIEW_DIR = os.path.join(ROOT_DIR, "web_preview")
 
 from scripts.lingbuddy_companion import create_web_app, LingBuddySimulatorClient
 from scripts.lingbuddy_vector_store import LingBuddyVectorStore
@@ -31,8 +30,7 @@ def test_web_html_and_assets_integrity():
         os.path.join(WEB_DIR, "lingbuddy_companion.html"),
         os.path.join(WEB_DIR, "exploded_view.html"),
         os.path.join(WEB_DIR, "index.html"),
-        os.path.join(PREVIEW_DIR, "open_platform_guide.html"),
-        os.path.join(PREVIEW_DIR, "index.html")
+        os.path.join(WEB_DIR, "open_platform_guide.html"),
     ]
 
     for h in html_files:

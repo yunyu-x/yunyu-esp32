@@ -2,7 +2,7 @@
 # (The LingBuddy / StickCharm: Embodying Meta Muse Charm Philosophy on M5Stack StickS3)
 
 > **文档编号**：DOC-20260927-LINGBUDDY-ARCH-V1  
-> **归档路径**：`doc/27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md`  
+> **归档路径**：`docs/27_基于MuseCharm哲学的M5StickS3灵宠伴侣软硬件架构与工程论证大案.md`  
 > **对标产品**：Meta Muse Charm (Meta Connect 2026 发布之 Tamagotchi 式 AI 智能挂件)  
 > **基线硬件**：M5Stack StickS3 (ESP32-S3-PICO-1, 8MB Flash, 8MB PSRAM, 1.14" 135x240 LCD, BMI270 6轴IMU, ES8311 音频, AW8737 功放, 2.4G Wi-Fi / BLE 5.0)  
 > **工程规范**：严格通过 `gstack-office-hours`、`gstack-plan-ceo-review`、`gstack-plan-design-review`、`gstack-plan-eng-review` 及 `document-content-verifier` 多维度辩证与第一性原理公理化验证  

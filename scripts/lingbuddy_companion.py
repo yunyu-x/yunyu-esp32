@@ -259,7 +259,6 @@ def create_web_app(simulator: Optional[LingBuddySimulatorClient] = None, vector_
 
     workspace_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     web_dir = os.path.join(workspace_dir, "web")
-    web_preview_dir = os.path.join(workspace_dir, "web_preview")
 
     if os.path.exists(os.path.join(web_dir, "css")):
         app.mount("/css", StaticFiles(directory=os.path.join(web_dir, "css")), name="css")
@@ -267,8 +266,9 @@ def create_web_app(simulator: Optional[LingBuddySimulatorClient] = None, vector_
         app.mount("/js", StaticFiles(directory=os.path.join(web_dir, "js")), name="js")
     if os.path.exists(os.path.join(web_dir, "vendor")):
         app.mount("/vendor", StaticFiles(directory=os.path.join(web_dir, "vendor")), name="vendor")
-    if os.path.exists(web_preview_dir):
-        app.mount("/web_preview", StaticFiles(directory=web_preview_dir), name="web_preview")
+    # 兼容外部历史 /web_preview 访问，统一定向至已整合的 web/ 目录
+    if os.path.exists(web_dir):
+        app.mount("/web_preview", StaticFiles(directory=web_dir), name="web_preview")
 
     @app.get("/")
     async def index():
@@ -291,7 +291,7 @@ def create_web_app(simulator: Optional[LingBuddySimulatorClient] = None, vector_
 
     @app.get("/guide")
     async def guide():
-        return FileResponse(os.path.join(web_preview_dir, "open_platform_guide.html"))
+        return FileResponse(os.path.join(web_dir, "open_platform_guide.html"))
 
     @app.get("/api/health")
     async def api_health():

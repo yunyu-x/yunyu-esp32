@@ -137,7 +137,7 @@ graph TD
   - 自动化回归测试：156/156 项自动化测试 100% 绿色全绿通过 (`python -u scripts/run_tests.py --timeout 120`，耗时 11.48s)；
   - COM3 物理硬件实测：81.3 ~ 88.5 FPS 零撕裂运行，PSRAM 剩余 7.30MB，0 Panic，0 I2C 失败，阿里百炼实时流式语音正常会话。
 
-### 5. 工程资产规范治理、敏感信息阻断与隐私防线 (2026-10-09 Security & Hygiene)
+### 5. 工程资产规范治理、敏感信息阻断与架构瘦身 (2026-10-09 Security & Hygiene)
 - **【敏感凭证彻底脱敏与隔离】**：
   - 全面排查并重构 `scripts/` 下 8 个测试与基准压测脚本，彻底消除硬编码的百炼 API Key，全量迁移为 `os.environ.get("BAILIAN_API_KEY")` 动态注入；
   - 引入标准化的 [`.env.example`](../.env.example) 模板，将真实 `.env` 永久列入 `.gitignore`，杜绝任何密钥泄露风险。
@@ -145,6 +145,12 @@ graph TD
   - 强化 `.gitignore`，全面过滤私有证书（`*.pem`, `*.key`）、临时音频转储（`*.pcm`, `*.wav`）、调试日志（`*.log`, `logs/`）；
   - 解除微信开发者工具本地状态文件（`wechat_miniprogram/project.private.config.json`）的版本追踪，消除团队开发配置污染；
   - 彻底清理调试临时音频片段与临时日记，确保工作区纯净规范。
+- **【相近与冗余目录系统性整合】**：
+  - 彻底移除废弃的 `doc/` 历史滞后目录，所有文档体系 100% 统一规范至 `docs/`；
+  - 将 `web_preview/` 静态科普页面整合归集至 `web/open_platform_guide.html`，消除根目录同质文件夹困惑，伴侣服务端静态挂载自动兼容。
+- **【Release 编译二进制产物解耦与 Git 瘦身】**：
+  - 解除对 `dist/release_v1.0.0/*.bin`（含 2.4MB 固件）的版本库追踪，严格采用现代开源规范将固件镜像托管于 GitHub Releases 附件；
+  - 强化 `.gitignore` 永久拦截 `dist/**/*.bin` 与 `*.bin`，保留一键烧录脚本（`flash.bat/ps1/sh`）并内置镜像缺失智能指引。
 
 ---
 

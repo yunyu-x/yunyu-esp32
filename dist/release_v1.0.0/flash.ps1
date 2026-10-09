@@ -24,6 +24,15 @@ if (-not $Port) {
 }
 
 Write-Host "[+] 目标端口: $Port" -ForegroundColor Green
+
+if (-not (Test-Path "firmware.bin") -or -not (Test-Path "bootloader.bin") -or -not (Test-Path "partitions.bin")) {
+    Write-Host "`n[-] 未在当前目录下检测到完整固件镜像文件 (firmware.bin / bootloader.bin / partitions.bin)。" -ForegroundColor Yellow
+    Write-Host "[*] 固件获取方式:" -ForegroundColor Cyan
+    Write-Host "    1. 前往 GitHub Releases (https://github.com/yunyu-x/yunyu-esp32/releases) 下载 release_v1.0.0 固件压缩包，解压后放置于本目录；" -ForegroundColor White
+    Write-Host "    2. 或在项目根目录下直接运行本地编译烧录命令: python -m platformio run -e m5sticks3_buddy -t upload" -ForegroundColor White
+    exit 1
+}
+
 Write-Host "[*] 开始高速烧录 (1,500,000 Baud)..." -ForegroundColor Yellow
 
 $flashCmd = "python -m esptool --chip esp32s3 --port $Port --baud 1500000 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 8MB 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin"

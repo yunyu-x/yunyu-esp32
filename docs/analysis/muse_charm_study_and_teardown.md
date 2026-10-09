@@ -2,7 +2,7 @@
 
 > **调研时间**：2026-09-27  
 > **研究对象**：Meta Muse Charm (Meta Connect 2026 官方发布硬件终端)  
-> **报告归档**：`doc/analysis/muse_charm_study_and_teardown.md` / `docs/analysis/muse_charm_study_and_teardown.md`  
+> **报告归档**：`docs/analysis/muse_charm_study_and_teardown.md` / `docs/analysis/muse_charm_study_and_teardown.md`  
 
 ---
 

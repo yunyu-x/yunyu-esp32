@@ -35,8 +35,12 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
-dist/
 build/
+dist/*.whl
+dist/*.tar.gz
+dist/*.json
+dist/*.txt
+dist/screenshots/
 *.egg-info/
 venv/
 .venv/
@@ -88,5 +92,11 @@ node_modules/
 *.exe
 *.db
 dist/public_preview_url.*
-web_preview/public_preview_url.*
+web/public_preview_url.*
+
+# Precompiled firmware binaries (distribute via GitHub Releases)
+dist/**/*.bin
+dist/**/*.hex
+*.bin
+*.hex
 

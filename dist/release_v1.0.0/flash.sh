@@ -21,6 +21,15 @@ if [ -z "$PORT" ]; then
 fi
 
 echo "[+] 目标端口: $PORT"
+
+if [ ! -f "firmware.bin" ] || [ ! -f "bootloader.bin" ] || [ ! -f "partitions.bin" ]; then
+    echo "[-] 未在当前目录下检测到完整固件镜像 (firmware.bin / bootloader.bin / partitions.bin)。"
+    echo "[*] 固件获取方式:"
+    echo "    1. 前往 GitHub Releases (https://github.com/yunyu-x/yunyu-esp32/releases) 下载 release_v1.0.0 固件压缩包，解压后放置于本目录；"
+    echo "    2. 或在项目根目录下直接运行本地编译烧录命令: python3 -m platformio run -e m5sticks3_buddy -t upload"
+    exit 1
+fi
+
 echo "[*] 开始极速烧录 (1,500,000 Baud)..."
 
 python3 -m esptool --chip esp32s3 --port "$PORT" --baud 1500000 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 8MB 0x0 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin || \

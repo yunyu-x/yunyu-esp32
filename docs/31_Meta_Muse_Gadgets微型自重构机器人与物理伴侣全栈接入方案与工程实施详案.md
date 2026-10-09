@@ -257,7 +257,7 @@ flowchart LR
 ### Phase 1：开源资产研学、隔离落盘与 AST 分析（已完成）
 - [x] 基于当前分支创建 `feature/meta-muse-gadgets` 分支并检出；
 - [x] 使用 `open-source-repo-analyzer` 将 `facebookincubator/muse-gadget-sdk` 完整克隆至 `external_repos/muse-gadget-sdk/`（Git 隔离屏蔽）；
-- [x] 运行多语言 AST 分析工具生成学习拓扑报表（`doc/analysis/muse_gadget_linux_analysis.md`）；
+- [x] 运行多语言 AST 分析工具生成学习拓扑报表（`docs/analysis/muse_gadget_linux_analysis.md`）；
 - [x] 验证 Python 模块单测套件。
 
 ### Phase 2：设备技能编制与本地 RPC 桥接服务（已完成）

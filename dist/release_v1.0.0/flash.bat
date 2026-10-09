@@ -24,6 +24,15 @@ if "%PORT%"=="" (
 )
 
 echo [+] 目标端口: %PORT%
+if not exist "firmware.bin" (
+    echo.
+    echo [-] 未在当前目录下检测到完整固件镜像 (firmware.bin / bootloader.bin / partitions.bin)。
+    echo [*] 固件获取方式:
+    echo     1. 前往 GitHub Releases (https://github.com/yunyu-x/yunyu-esp32/releases) 下载 release_v1.0.0 固件压缩包，解压后放置于本目录；
+    echo     2. 或在项目根目录下直接运行本地编译烧录命令: python -m platformio run -e m5sticks3_buddy -t upload
+    pause
+    exit /b 1
+)
 echo [*] 开始极速烧录 (1,500,000 Baud)...
 echo     - 0x0000: bootloader.bin
 echo     - 0x8000: partitions.bin

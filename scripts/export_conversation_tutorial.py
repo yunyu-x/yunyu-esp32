@@ -204,7 +204,7 @@ def generate_markdown(turns):
     doc.append("- **法则**：在 Flash 中固化 47KB 全集 GBK-Unicode 映射表（23,940 条目，O(1) 查表），构建 `sanitizeAndConvertToUtf8()` 自动清洗流水线（BOM剔除 -> Hex解码 -> UTF8校验 -> GBK无损映射），实现真机零乱码。")
     doc.append("")
     doc.append("### 5. 跨会话 Agent 协作的持续交付标准（交接红线）")
-    doc.append("- **法则**：每次提交代码后，强制附带标准化继续开发提示词描述（`doc/AGENT_CONTINUATION_PROMPTS.md`），保证后续新对话中的 Agent 零提示漂移、无缝承接。")
+    doc.append("- **法则**：每次提交代码后，强制附带标准化继续开发提示词描述（`docs/AGENT_CONTINUATION_PROMPTS.md`），保证后续新对话中的 Agent 零提示漂移、无缝承接。")
     doc.append("")
 
     return "\n".join(doc)
