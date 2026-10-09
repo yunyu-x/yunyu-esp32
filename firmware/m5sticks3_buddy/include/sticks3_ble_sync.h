@@ -333,6 +333,17 @@ public:
             BearGrowthManager::getInstance().triggerCeremony(lvl, millis());
             StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
             BearKinematicsController::getInstance().triggerAction(BEAR_ACT_CHEER, 3500);
+        } else if (action == "demo_showcase" || action == "demo") {
+            bool en = true;
+            if (!doc["enable"].isNull()) en = parseJsonBool(doc["enable"], true);
+            else if (!doc["value"].isNull()) en = parseJsonBool(doc["value"], true);
+            else en = !BearKinematicsController::getInstance().isShowcaseMode();
+            BearKinematicsController::getInstance().setShowcaseMode(en);
+            if (en) StickS3Audio::getInstance().playChime(CHIME_SUCCESS);
+            else StickS3Audio::getInstance().playTone(800, 40, 0.3f);
+        } else if (action == "step_action" || action == "step") {
+            BearKinematicsController::getInstance().stepShowcase();
+            StickS3Audio::getInstance().playTone(1800, 25, 0.35f);
         } else if (action == "wifi_cfg") {
             String ssid = "";
             String pwd = "";

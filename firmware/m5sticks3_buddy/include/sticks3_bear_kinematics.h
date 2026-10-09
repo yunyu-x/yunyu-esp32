@@ -27,22 +27,23 @@ namespace sticks3 {
 // 完美还原 concept_hero.png 与 model_front.png: 小熊猫+兔子混血侠客
 constexpr uint16_t CADET_COL_FUR_AMBER  = 0xCAE4; // #CD5F26 暖焦糖红熊猫毛色 (旧基线 0xD444 升级)
 constexpr uint16_t CADET_COL_FUR_DARK   = 0x81A2; // #873416 深棕红暗部/泪痕/尾纹
-constexpr uint16_t CADET_COL_FUR_WHITE  = 0xF7BE; // #F8F6F2 象牙白面具/内耳白绒/白功夫衫裤
-constexpr uint16_t CADET_COL_WHITE_SHD  = 0xCE5A; // #CDCADA 白布料/白毛暗部
+constexpr uint16_t CADET_COL_FUR_WHITE  = 0xEEFA; // #EEE8DE 温润月影象牙白/内耳白绒/面部绒毛 (消除惨白塑料感)
+constexpr uint16_t CADET_COL_WHITE_SHD  = 0xC5F9; // #C3C0CD 典雅珠光练功裤绸缎灰
 constexpr uint16_t CADET_COL_VEST_NAVY  = 0x1927; // #1A263E 午夜海军蓝战术马甲/腰封
 constexpr uint16_t CADET_COL_VEST_DARK  = 0x10C5; // #101828 马甲阴影
 constexpr uint16_t CADET_COL_VEST_GOLD  = 0xE5C6; // #EBB937 皇家香草亮金滚边与金爪印
 constexpr uint16_t CADET_COL_WRAP_NAVY  = 0x10E6; // #141E32 紧固功夫绑带
 constexpr uint16_t CADET_COL_EAR_DARK   = 0x30E2; // #371C12 耳尖黑巧深斑
+constexpr uint16_t CADET_COL_CHOCOLATE  = 0x28A1; // #2B140E 黑巧深斑与墨线轮廓
 constexpr uint16_t CADET_COL_EYE_IRIS   = 0x71E3; // #733E1E 琥珀深棕灵动虹膜
 constexpr uint16_t CADET_COL_NOSE_DARK  = 0x28A2; // #281614 松露鼻头
 constexpr uint16_t CADET_COL_PAD_PINK   = 0xFD95; // #FAB4AA 樱粉肉垫与内耳中心
 
 // 兼容别名与动漫三色阶基线常量 (兼容历史单元测试 0xD444, 0xFEE8, 0x6180, 0xFFC0)
-constexpr uint16_t ANIME_COL_MIDTONE   = CADET_COL_FUR_AMBER; // 0xD444
-constexpr uint16_t ANIME_COL_KEYLIGHT  = 0xFEE8;             // 0xFEE8 香草暖金主受光面
-constexpr uint16_t ANIME_COL_SHADOW    = CADET_COL_FUR_DARK;  // 0x6180 深可可环境遮蔽
-constexpr uint16_t ANIME_COL_RIMLIGHT  = 0xFFC0;             // 0xFFC0 边缘逆光金辉
+constexpr uint16_t ANIME_COL_MIDTONE   = CADET_COL_FUR_AMBER; // 0xCAE4
+constexpr uint16_t ANIME_COL_KEYLIGHT  = 0xE407;             // 0xE407 CADET_COL_FUR_KEYLIGHT 暖金主受光面
+constexpr uint16_t ANIME_COL_SHADOW    = CADET_COL_FUR_DARK;  // 0x81A2 CADET_COL_FUR_DARK 深棕红环境遮蔽
+constexpr uint16_t ANIME_COL_RIMLIGHT  = 0xE407;             // 0xE407 CADET_COL_FUR_KEYLIGHT 边缘受光金辉
 constexpr uint16_t ANIME_COL_OUTLINE   = CADET_COL_FUR_DARK;  // 醇厚轮廓线
 constexpr uint16_t ANIME_COL_BELLY     = CADET_COL_FUR_WHITE; // 象牙白练功服
 constexpr uint16_t ANIME_COL_BELLY_SHD = CADET_COL_WHITE_SHD; // 练功服折痕阴影
@@ -54,7 +55,8 @@ constexpr uint16_t ANIME_COL_VEST_GOLD = CADET_COL_VEST_GOLD; // 战术金滚边
 constexpr uint16_t ANIME_COL_WRAP_BASE = CADET_COL_WRAP_NAVY; // 功夫护腕绑带
 constexpr uint16_t ANIME_COL_WRAP_LINE = CADET_COL_VEST_NAVY; // 绑带编织线
 constexpr uint16_t ANIME_COL_EAR_INNER = CADET_COL_FUR_WHITE; // 内耳象牙白绒
-constexpr uint16_t ANIME_COL_SNOUT     = CADET_COL_FUR_WHITE; // 吻部象牙白
+constexpr uint16_t ANIME_COL_SNOUT     = CADET_COL_FUR_WHITE; // 吻部温润象牙白 (严格对齐 concept_hero 与 model_front)
+
 
 
 // 肢体宏动作枚举 (按 5 级技能树递进组织)
@@ -230,6 +232,17 @@ public:
             case 4: return "功夫大师";
             case 5: return "机甲元尊";
             default: return "灵动小熊";
+        }
+    }
+
+    const char* getLevelTitleEn() const {
+        switch (_level) {
+            case 1: return "Cadet";
+            case 2: return "Agile";
+            case 3: return "Acrobat";
+            case 4: return "Master";
+            case 5: return "Legend";
+            default: return "Cadet";
         }
     }
 
@@ -786,10 +799,10 @@ public:
         }
     }
 
-    // 触发单个动作 (支持等级检查与未解锁萌态回退保护)
-    bool triggerAction(BearAction act, uint32_t duration_ms = 2800) {
+    // 触发单个动作 (支持等级检查与未解锁萌态回退保护，支持 bypass_unlock 演示绕过)
+    bool triggerAction(BearAction act, uint32_t duration_ms = 2800, bool bypass_unlock = false) {
         auto& gm = BearGrowthManager::getInstance();
-        if (!gm.isActionUnlocked(act)) {
+        if (!bypass_unlock && !gm.isActionUnlocked(act)) {
             // 动作未解锁：触发萌态抓头困惑反馈
             Serial.printf("[KINEMATICS] Action '%s' LOCKED! (Required Lv.%u, Current Lv.%u). Triggering locked try fallback.\n",
                           bearActionToString(act), gm.getRequiredLevel(act), gm.getLevel());
@@ -819,6 +832,69 @@ public:
         // 增加肢体锻炼成长值
         gm.addExp(15, bearActionToString(act));
         return true;
+    }
+
+    // 17 套真机完整姿态阅兵序列 (Showcase Actions - 优先高保真武学原画序列，消除画风跳跃)
+    static inline const BearAction* getShowcaseActions(size_t& count) {
+        static const BearAction actions[] = {
+            BEAR_ACT_WAVE,         // 1. 元气挥手 (高精原画)
+            BEAR_ACT_BOW,          // 2. 作揖鞠躬 (高精原画)
+            BEAR_ACT_KUNGFU,       // 3. 中国功夫 (高精原画)
+            BEAR_ACT_WINGCHUN,     // 4. 咏春快拳 (高精原画日字冲拳)
+            BEAR_ACT_TAICHI,       // 5. 太极云手 (高精原画)
+            BEAR_ACT_DRAGON_PUNCH, // 6. 升龙霸天 (高精原画)
+            BEAR_ACT_CHEER,        // 7. 欢呼雀跃 (高精原画)
+            BEAR_ACT_CLAP,         // 8. 鼓掌致意 (高精原画)
+            BEAR_ACT_JUMP,         // 9. 弹性跳跃 (迪士尼蓄力弹跳)
+            BEAR_ACT_BALANCE,      // 10. 金鸡独立 (单腿平衡大鹏展翅)
+            BEAR_ACT_SIT,          // 11. 呆萌坐下 (盘腿肉垫)
+            BEAR_ACT_STRETCH,      // 12. 伸大懒腰 (纵向舒展)
+            BEAR_ACT_DANCE,        // 13. 律动跳舞 (左右摇摆)
+            BEAR_ACT_TURN_AROUND,  // 14. 转身秀尾 (3D空间自旋秀环尾)
+            BEAR_ACT_SPIN,         // 15. 华丽自旋 (360度芭蕾单脚旋)
+            BEAR_ACT_MOONWALK,     // 16. 太空漫步 (经典滑步)
+            BEAR_ACT_CYBER_DEFENSE // 17. 机甲护盾 (X型力场护盾)
+        };
+        count = sizeof(actions) / sizeof(actions[0]);
+        return actions;
+    }
+
+    bool isShowcaseMode() const { return _showcase_mode; }
+    void setShowcaseMode(bool enable) {
+        _showcase_mode = enable;
+        if (_showcase_mode) {
+            _showcase_last_switch_ms = millis();
+            size_t count = 0;
+            const BearAction* acts = getShowcaseActions(count);
+            triggerAction(acts[_showcase_idx % count], 2800, true);
+        }
+    }
+    void toggleShowcaseMode() { setShowcaseMode(!_showcase_mode); }
+    size_t getShowcaseIndex() const { return _showcase_idx; }
+    size_t getShowcaseTotal() const { return 17; }
+    BearAction getShowcaseAction() const {
+        size_t count = 0;
+        const BearAction* acts = getShowcaseActions(count);
+        return acts[_showcase_idx % count];
+    }
+
+    BearAction stepShowcase() {
+        size_t count = 0;
+        const BearAction* acts = getShowcaseActions(count);
+        _showcase_idx = (_showcase_idx + 1) % count;
+        BearAction next_act = acts[_showcase_idx];
+        triggerAction(next_act, 2800, true);
+        _showcase_last_switch_ms = millis();
+        return next_act;
+    }
+
+    // 姿态阅兵模式自动节拍推进 (每 3 秒自动演示下一个动作)
+    bool updateShowcase(uint32_t now) {
+        if (_showcase_mode && (now - _showcase_last_switch_ms >= 3000)) {
+            stepShowcase();
+            return true;
+        }
+        return false;
     }
 
     // 3D 偏航与转身控制接口 (Yaw Turn & 3D Control)
@@ -1597,6 +1673,11 @@ private:
     bool _is_spinning;
     bool _imu_balance_enabled;
     JointManualConfig _manual_joints[OP_JOINT_COUNT];
+
+    // 姿态自动巡礼状态机
+    bool _showcase_mode = false;
+    size_t _showcase_idx = 0;
+    uint32_t _showcase_last_switch_ms = 0;
 };
 
 } // namespace sticks3

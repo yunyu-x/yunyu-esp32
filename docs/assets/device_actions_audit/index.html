@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M5StickS3 LingBuddy 动作姿态真机核验画廊 (Live Screen Capture)</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #151d2f;
+      --border: #23324d;
+      --text: #f1f5f9;
+      --text-sub: #94a3b8;
+      --accent: #6366f1;
+      --accent-fc: #f59e0b;
+      --accent-la: #38bdf8;
+      --badge-atlas: #10b981;
+      --badge-kin: #8b5cf6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    header {
+      background: linear-gradient(135deg, #1e1b4b, #0f172a);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 30px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .sub-title {
+      font-size: 13px;
+      color: var(--text-sub);
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+      background: #111827;
+      padding: 12px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .filter-btn {
+      background: #1e293b;
+      color: #cbd5e1;
+      border: 1px solid #334155;
+      padding: 7px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .stats-badge {
+      margin-left: auto;
+      font-size: 12px;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: #3b82f6;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding-bottom: 10px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .index-num {
+      font-size: 12px;
+      font-family: monospace;
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #38bdf8;
+      border: 1px solid #1e293b;
+    }
+    .action-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .action-code {
+      font-size: 12px;
+      color: var(--text-sub);
+      font-family: monospace;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .badge-atlas {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-kinematics {
+      background: rgba(139, 92, 246, 0.15);
+      color: #a78bfa;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    .desc-bar {
+      font-size: 12px;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: #090e17;
+      padding: 8px 10px;
+      border-radius: 6px;
+    }
+    .cat-tag {
+      color: #fbbf24;
+      font-weight: 600;
+      font-size: 11px;
+    }
+    .img-compare-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      background: #060910;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #1a2234;
+    }
+    .img-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .img-label {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
+    .label-fc {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .label-la {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .pixel-art {
+      width: 135px;
+      height: 240px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      background: #000;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      transition: transform 0.2s;
+    }
+    .pixel-art:hover {
+      transform: scale(1.05);
+      border-color: #60a5fa;
+    }
+    .zoom-hint {
+      font-size: 10px;
+      color: #64748b;
+    }
+    .audit-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 10px;
+      font-size: 12px;
+    }
+    .audit-row label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      color: #4ade80;
+      white-space: nowrap;
+    }
+    .audit-input {
+      flex: 1;
+      background: #090e17;
+      border: 1px solid #334155;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🐻 M5StickS3 LingBuddy 物理屏幕动作全量核验画廊</h1>
+      <div class="sub-title">
+        <span><b>实机物理通道</b>: COM3 (115200) / 192.168.110.67</span>
+        <span><b>屏幕规格</b>: 135×240 ST7789P3 IPS (PSRAM 双缓冲显存无损拉取)</span>
+        <span><b>动作总量</b>: 全量 22 种姿态 × 双渲染模式 = 44 组实机物理原图</span>
+      </div>
+    </header>
+
+    <div class="filter-bar">
+      <span style="font-size:13px;font-weight:600;color:#94a3b8;">动作分类筛选:</span>
+      <button class="filter-btn active" onclick="filterType('all')">全量动作 (22 套)</button>
+      <button class="filter-btn" onclick="filterType('atlas')">原画高精位图 (7 套)</button>
+      <button class="filter-btn" onclick="filterType('kinematics')">过程化全身骨骼 (15 套)</button>
+      <div class="stats-badge">100% 物理真实帧 | 0 撕裂 0 模拟漂移</div>
+    </div>
+
+    <div class="grid" id="actionGrid">
+      
+    <div class="card" data-type="atlas">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#00</span>
+          <span class="action-title">待命萌态</span>
+          <span class="action-code">(idle)</span>
+        </div>
+        <span class="badge badge-atlas">原画高精位图</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 待机待命</span>
+        <span class="desc-text">正面立正待命，双手自然垂放身侧，招牌狐兔大耳微张与红熊猫面纹。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_00_idle.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/00_idle.png" alt="待命萌态 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_00_idle.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/00_idle.png" alt="待命萌态 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_0"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_0">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="atlas">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#01</span>
+          <span class="action-title">元气挥手</span>
+          <span class="action-code">(wave)</span>
+        </div>
+        <span class="badge badge-atlas">原画高精位图</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 初生社交</span>
+        <span class="desc-text">右手高高扬起热情摆动招呼，眼眸弯成月牙欢喜迎客。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_01_wave.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/01_wave.png" alt="元气挥手 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_01_wave.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/01_wave.png" alt="元气挥手 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_1"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_1">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="atlas">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#02</span>
+          <span class="action-title">作揖鞠躬</span>
+          <span class="action-code">(bow)</span>
+        </div>
+        <span class="badge badge-atlas">原画高精位图</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 礼貌互动</span>
+        <span class="desc-text">抱拳作揖身体微倾，展现东方传统谦逊武者礼仪。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_02_bow.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/02_bow.png" alt="作揖鞠躬 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_02_bow.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/02_bow.png" alt="作揖鞠躬 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_2"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_2">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#03</span>
+          <span class="action-title">萌萌坐下</span>
+          <span class="action-code">(sit)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 萌宠日常</span>
+        <span class="desc-text">乖巧席地而坐，双爪放于膝前，梨形肚肚微凸，露出软糯肉垫。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_03_sit.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/03_sit.png" alt="萌萌坐下 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_03_sit.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/03_sit.png" alt="萌萌坐下 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_3"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_3">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#04</span>
+          <span class="action-title">伸大懒腰</span>
+          <span class="action-code">(stretch)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 萌宠日常</span>
+        <span class="desc-text">双臂高举过头挺直脊椎，打哈欠舒展身躯，动作富有呼吸拉伸感。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_04_stretch.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/04_stretch.png" alt="伸大懒腰 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_04_stretch.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/04_stretch.png" alt="伸大懒腰 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_4"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_4">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#05</span>
+          <span class="action-title">鼓掌拍手</span>
+          <span class="action-code">(clap)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 情感互动</span>
+        <span class="desc-text">双爪在胸前欢快聚拢击掌，伴随微小碰撞星芒粒子特效。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_05_clap.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/05_clap.png" alt="鼓掌拍手 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_05_clap.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/05_clap.png" alt="鼓掌拍手 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_5"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_5">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#06</span>
+          <span class="action-title">欢呼雀跃</span>
+          <span class="action-code">(cheer)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 情感互动</span>
+        <span class="desc-text">双臂向上 V 字扬起，头部微仰身姿挺拔，表现胜利与雀跃情绪。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_06_cheer.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/06_cheer.png" alt="欢呼雀跃 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_06_cheer.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/06_cheer.png" alt="欢呼雀跃 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_6"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_6">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#07</span>
+          <span class="action-title">弹性跳跃</span>
+          <span class="action-code">(jump)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 动感身法</span>
+        <span class="desc-text">屈膝蓄力(Anticipation)后弹性离地跃起，双足悬空后平稳回落。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_07_jump.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/07_jump.png" alt="弹性跳跃 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_07_jump.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/07_jump.png" alt="弹性跳跃 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_7"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_7">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#08</span>
+          <span class="action-title">举手投降</span>
+          <span class="action-code">(hands_up)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 趣味互动</span>
+        <span class="desc-text">双爪高举两侧做无辜投降状，耳朵微微耷拉，软萌认输。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_08_hands_up.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/08_hands_up.png" alt="举手投降 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_08_hands_up.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/08_hands_up.png" alt="举手投降 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_8"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_8">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#09</span>
+          <span class="action-title">律动跳舞</span>
+          <span class="action-code">(dance)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 体能才艺</span>
+        <span class="desc-text">左右腰胯轻快摆动，手臂错落摆舞，展现迪士尼节拍律动。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_09_dance.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/09_dance.png" alt="律动跳舞 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_09_dance.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/09_dance.png" alt="律动跳舞 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_9"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_9">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#10</span>
+          <span class="action-title">金鸡独立</span>
+          <span class="action-code">(balance)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 核心平衡</span>
+        <span class="desc-text">单脚独立支撑，另一足屈膝提起，双臂平展寻找重心平衡。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_10_balance.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/10_balance.png" alt="金鸡独立 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_10_balance.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/10_balance.png" alt="金鸡独立 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_10"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_10">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#11</span>
+          <span class="action-title">趴地休息</span>
+          <span class="action-code">(lie)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 萌宠日常</span>
+        <span class="desc-text">全身趴卧伏地，头部贴近地面，四肢向外舒展放松休憩。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_11_lie.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/11_lie.png" alt="趴地休息 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_11_lie.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/11_lie.png" alt="趴地休息 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_11"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_11">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#12</span>
+          <span class="action-title">俯卧撑</span>
+          <span class="action-code">(pushup)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 体能锻炼</span>
+        <span class="desc-text">双爪支撑地面，身体呈平直俯卧姿态，上下起伏锻炼核心。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_12_pushup.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/12_pushup.png" alt="俯卧撑 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_12_pushup.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/12_pushup.png" alt="俯卧撑 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_12"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_12">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="atlas">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#13</span>
+          <span class="action-title">中国功夫</span>
+          <span class="action-code">(kungfu)</span>
+        </div>
+        <span class="badge badge-atlas">原画高精位图</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 武林绝学</span>
+        <span class="desc-text">马步沉稳，单掌前推单掌后护，英气剑眉专注凝神，气度非凡。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_13_kungfu.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/13_kungfu.png" alt="中国功夫 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_13_kungfu.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/13_kungfu.png" alt="中国功夫 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_13"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_13">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="atlas">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#14</span>
+          <span class="action-title">太极云手</span>
+          <span class="action-code">(taichi)</span>
+        </div>
+        <span class="badge badge-atlas">原画高精位图</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 武林绝学</span>
+        <span class="desc-text">身形柔和流转，双掌呈虚抱太极球之势，行云流水阴阳相生。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_14_taichi.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/14_taichi.png" alt="太极云手 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_14_taichi.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/14_taichi.png" alt="太极云手 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_14"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_14">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="atlas">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#15</span>
+          <span class="action-title">咏春快拳</span>
+          <span class="action-code">(wingchun)</span>
+        </div>
+        <span class="badge badge-atlas">原画高精位图</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 武林绝学</span>
+        <span class="desc-text">日字冲拳连环迅猛出击，微振动打击感十足，近身防守反击。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_15_wingchun.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/15_wingchun.png" alt="咏春快拳 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_15_wingchun.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/15_wingchun.png" alt="咏春快拳 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_15"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_15">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="atlas">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#16</span>
+          <span class="action-title">升龙霸天</span>
+          <span class="action-code">(dragon_punch)</span>
+        </div>
+        <span class="badge badge-atlas">原画高精位图</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 机甲武道</span>
+        <span class="desc-text">拔地飞天升龙勾拳，火焰气浪撕裂长空，动作极具视觉张力。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_16_dragon_punch.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/16_dragon_punch.png" alt="升龙霸天 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_16_dragon_punch.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/16_dragon_punch.png" alt="升龙霸天 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_16"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_16">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#17</span>
+          <span class="action-title">太空漫步</span>
+          <span class="action-code">(moonwalk)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 经典舞步</span>
+        <span class="desc-text">迈克尔·杰克逊经典滑步后撤，身体前倾脚底交替平滑后移。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_17_moonwalk.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/17_moonwalk.png" alt="太空漫步 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_17_moonwalk.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/17_moonwalk.png" alt="太空漫步 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_17"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_17">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#18</span>
+          <span class="action-title">机甲护盾</span>
+          <span class="action-code">(cyber_defense)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 机甲防卫</span>
+        <span class="desc-text">双手在身前交叉架起，周身张开赛博高能光子防护盾力场。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_18_cyber_defense.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/18_cyber_defense.png" alt="机甲护盾 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_18_cyber_defense.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/18_cyber_defense.png" alt="机甲护盾 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_18"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_18">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#19</span>
+          <span class="action-title">转身秀尾</span>
+          <span class="action-code">(turn_around)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 3D空间转体</span>
+        <span class="desc-text">180°背向镜头转体，展现后背午夜蓝战术马甲与标志性红熊猫毛尾。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_19_turn_around.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/19_turn_around.png" alt="转身秀尾 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_19_turn_around.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/19_turn_around.png" alt="转身秀尾 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_19"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_19">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#20</span>
+          <span class="action-title">华丽自旋</span>
+          <span class="action-code">(spin)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 3D空间转体</span>
+        <span class="desc-text">360°芭蕾式轴心连续自旋，四肢与飘带随离心力轻扬舒展。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_20_spin.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/20_spin.png" alt="华丽自旋 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_20_spin.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/20_spin.png" alt="华丽自旋 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_20"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_20">
+      </div>
+    </div>
+
+
+    <div class="card" data-type="kinematics">
+      <div class="card-header">
+        <div class="header-left">
+          <span class="index-num">#21</span>
+          <span class="action-title">困惑挠头</span>
+          <span class="action-code">(locked_try)</span>
+        </div>
+        <span class="badge badge-kinematics">过程化全身骨骼</span>
+      </div>
+      <div class="desc-bar">
+        <span class="cat-tag">📌 特殊交互</span>
+        <span class="desc-text">单爪挠头歪头思考，头顶浮现问号与萌汗滴，未解锁技能萌态反馈。</span>
+      </div>
+      <div class="img-compare-row">
+        <div class="img-box">
+          <div class="img-label label-fc">全色域 (Full-Color)</div>
+          <a href="hires_3x/fullcolor_21_locked_try.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="fullcolor/21_locked_try.png" alt="困惑挠头 全色域" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+        <div class="img-box">
+          <div class="img-label label-la">微雕线稿 (Line-Art)</div>
+          <a href="hires_3x/lineart_21_locked_try.png" target="_blank" title="点击查看 3x 高清放大图">
+            <img src="lineart/21_locked_try.png" alt="困惑挠头 微雕线稿" class="pixel-art" />
+          </a>
+          <div class="zoom-hint">🔍 点击查看 3x 放大</div>
+        </div>
+      </div>
+      <div class="audit-row">
+        <label><input type="checkbox" id="chk_21"> 姿态合格</label>
+        <input type="text" placeholder="人工批注 (如：白色边缘需润色、手部过细等)" class="audit-input" id="note_21">
+      </div>
+    </div>
+
+    </div>
+  </div>
+
+  <script>
+    function filterType(type) {
+      const buttons = document.querySelectorAll('.filter-btn');
+      buttons.forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const cards = document.querySelectorAll('.card');
+      cards.forEach(card => {
+        if (type === 'all' || card.getAttribute('data-type') === type) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

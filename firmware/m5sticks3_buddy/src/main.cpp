@@ -55,6 +55,36 @@ static bool g_pet_avatar_mode = true; // 默认启动拟人化灵宠微表情模
 sticks3::CadetRenderMode sticks3::g_cadet_render_mode = sticks3::CADET_MODE_FULLCOLOR; // 默认全色域功夫学员模式
 static uint32_t s_cadet_mode_banner_until = 0;
 
+// NVS Flash 写入节流与脏检查保护器 (消除频繁连击按键时的 Flash 擦写阻塞与硬件损耗)
+inline void saveCadetRenderModeSafe(sticks3::CadetRenderMode mode) {
+    static uint8_t s_last_saved_cm = 255;
+    static uint32_t s_last_cm_save_ms = 0;
+    uint8_t val = (uint8_t)mode;
+    uint32_t now = millis();
+    if (val == s_last_saved_cm || (now - s_last_cm_save_ms < 350)) {
+        return;
+    }
+    Preferences p;
+    if (p.begin("sticks3_cfg", false)) {
+        p.putUChar("cadet_mode", val);
+        p.end();
+        s_last_saved_cm = val;
+        s_last_cm_save_ms = now;
+    }
+}
+
+inline void saveActivePetSafe(ActivePetType pet) {
+    static uint8_t s_last_saved_pet = 255;
+    uint8_t val = (uint8_t)pet;
+    if (val == s_last_saved_pet) return;
+    Preferences p;
+    if (p.begin("sticks3_cfg", false)) {
+        p.putUChar("active_pet", val);
+        p.end();
+        s_last_saved_pet = val;
+    }
+}
+
 // 蓝牙 NUS UUIDs
 #define SERVICE_UUID           "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
 #define CHARACTERISTIC_UUID_RX "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
@@ -786,7 +816,10 @@ static void drawBearTaperedCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2,
         d.fillTriangle(p1x, p1y, p3x, p3y, p4x, p4y, col);
         d.drawLine(p1x, p1y, p4x, p4y, border_col);
         d.drawLine(p2x, p2y, p3x, p3y, border_col);
-        d.drawLine(p1x, p1y, p4x, p4y, sticks3::ANIME_COL_KEYLIGHT);
+        // 内嵌高光线 (Inset keylight line by 1px to preserve continuous dark contour)
+        int k1x = p1x - (int)(nx * 1.0f), k1y = p1y - (int)(ny * 1.0f);
+        int k4x = p4x - (int)(nx * 1.0f), k4y = p4y - (int)(ny * 1.0f);
+        d.drawLine(k1x, k1y, k4x, k4y, sticks3::ANIME_COL_KEYLIGHT);
     }
     safeDrawCircle(d, x1, y1, r1, border_col);
     safeDrawCircle(d, x2, y2, r2, border_col);
@@ -803,21 +836,13 @@ static void drawBearArticulatedLimb(LovyanGFX& d, int x1, int y1, int xm, int ym
     r2 = std::max(2, r2);
     int rm = std::max(2, (r1 + r2) / 2);
 
-    // 1. 大臂/大腿肌肉饱满中点拟合 (上段二头肌/股四头肌微凸双弧曲线)
-    int u_mx = (x1 + xm) / 2;
-    int u_my = (y1 + ym) / 2;
-    int u_rm = std::max(2, r1 + 1);
-    drawBearTaperedCapsule(d, x1, y1, u_mx, u_my, r1, u_rm, col, border_col);
-    drawBearTaperedCapsule(d, u_mx, u_my, xm, ym, u_rm, rm, col, border_col);
+    // 1. 上段 (大臂/大腿) 简洁平滑锥形胶囊
+    drawBearTaperedCapsule(d, x1, y1, xm, ym, r1, rm, col, border_col);
 
-    // 2. 小臂/小腿肌肉饱满中点拟合 (下段肌腹自然微凸双弧曲线)
-    int l_mx = (int)(xm * 0.55f + x2 * 0.45f);
-    int l_my = (int)(ym * 0.55f + y2 * 0.45f);
-    int l_rm = std::max(2, rm);
-    drawBearTaperedCapsule(d, xm, ym, l_mx, l_my, rm, l_rm, col, border_col);
-    drawBearTaperedCapsule(d, l_mx, l_my, x2, y2, l_rm, r2, col, border_col);
+    // 2. 下段 (小臂/小腿) 简洁平滑锥形胶囊
+    drawBearTaperedCapsule(d, xm, ym, x2, y2, rm, r2, col, border_col);
 
-    // 3. 肘膝关节动态折痕与外弧紧绷高光 (Biomechanical Flexion Crease)
+    // 3. 肘膝关节平滑过渡与折痕 (Biomechanical Flexion Joint)
     safeFillCircle(d, xm, ym, rm, col);
     safeDrawCircle(d, xm, ym, rm, border_col);
 
@@ -925,30 +950,28 @@ static void drawBearUpperArmR(LovyanGFX& d, const sticks3::BearFullBodySkeleton&
     }
 }
 
-// 17 套真机完整姿态阅兵序列 (Showcase Actions)
+// 17 套真机完整姿态阅兵序列 (Showcase Actions - 优先高保真武学原画序列，消除画风跳跃)
 static const sticks3::BearAction SHOWCASE_ACTIONS[] = {
-    sticks3::BEAR_ACT_WAVE,         // 1. 元气挥手
-    sticks3::BEAR_ACT_BOW,          // 2. 作揖鞠躬
-    sticks3::BEAR_ACT_CHEER,        // 3. 欢呼雀跃
-    sticks3::BEAR_ACT_CLAP,         // 4. 鼓掌拍手
-    sticks3::BEAR_ACT_STRETCH,      // 5. 伸大懒腰
-    sticks3::BEAR_ACT_SIT,          // 6. 呆萌坐下
-    sticks3::BEAR_ACT_JUMP,         // 7. 弹性跳跃
-    sticks3::BEAR_ACT_BALANCE,      // 8. 金鸡独立
-    sticks3::BEAR_ACT_TAICHI,       // 9. 太极云手
-    sticks3::BEAR_ACT_WINGCHUN,     // 10. 咏春快拳
-    sticks3::BEAR_ACT_KUNGFU,       // 11. 中国功夫
-    sticks3::BEAR_ACT_DRAGON_PUNCH, // 12. 升龙霸天
-    sticks3::BEAR_ACT_MOONWALK,     // 13. 太空漫步
-    sticks3::BEAR_ACT_CYBER_DEFENSE,// 14. 机甲护盾
-    sticks3::BEAR_ACT_TURN_AROUND,  // 15. 转身秀尾
-    sticks3::BEAR_ACT_SPIN,         // 16. 华丽自旋
-    sticks3::BEAR_ACT_LOCKED_TRY    // 17. 困惑挠头
+    sticks3::BEAR_ACT_WAVE,         // 1. 元气挥手 (高精原画)
+    sticks3::BEAR_ACT_BOW,          // 2. 作揖鞠躬 (高精原画)
+    sticks3::BEAR_ACT_KUNGFU,       // 3. 中国功夫 (高精原画)
+    sticks3::BEAR_ACT_WINGCHUN,     // 4. 咏春快拳 (高精原画日字冲拳)
+    sticks3::BEAR_ACT_TAICHI,       // 5. 太极云手 (高精原画)
+    sticks3::BEAR_ACT_DRAGON_PUNCH, // 6. 升龙霸天 (高精原画)
+    sticks3::BEAR_ACT_CHEER,        // 7. 欢呼雀跃 (高精原画)
+    sticks3::BEAR_ACT_CLAP,         // 8. 鼓掌致意 (高精原画)
+    sticks3::BEAR_ACT_JUMP,         // 9. 弹性跳跃 (迪士尼蓄力弹跳)
+    sticks3::BEAR_ACT_BALANCE,      // 10. 金鸡独立 (单腿平衡大鹏展翅)
+    sticks3::BEAR_ACT_SIT,          // 11. 呆萌坐下 (盘腿肉垫)
+    sticks3::BEAR_ACT_STRETCH,      // 12. 伸大懒腰 (纵向舒展)
+    sticks3::BEAR_ACT_DANCE,        // 13. 律动跳舞 (左右摇摆)
+    sticks3::BEAR_ACT_TURN_AROUND,  // 14. 转身秀尾 (3D空间自旋秀环尾)
+    sticks3::BEAR_ACT_SPIN,         // 15. 华丽自旋 (360度芭蕾单脚旋)
+    sticks3::BEAR_ACT_MOONWALK,     // 16. 太空漫步 (经典滑步)
+    sticks3::BEAR_ACT_CYBER_DEFENSE // 17. 机甲护盾 (X型力场护盾)
 };
 static const size_t SHOWCASE_COUNT = sizeof(SHOWCASE_ACTIONS) / sizeof(SHOWCASE_ACTIONS[0]);
-static bool s_demo_showcase_mode = false;
-static size_t s_demo_showcase_idx = 0;
-static uint32_t s_demo_last_switch_ms = 0;
+static bool s_demo_showcase_mode = false; // 姿态自动阅兵状态 (与 BearKinematicsController 状态保持同步)
 
 // 全屏技能解锁与等级晋升庆典特效 (Skill Unlock Ceremony Overlay)
 static void drawUnlockCeremonyOverlay(LovyanGFX& out_d, uint32_t now, sticks3::BearGrowthManager& gm) {
@@ -1093,6 +1116,11 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
 
     int dx = (int)constrain(s_smooth_roll * 0.05f, -3.0f, 3.0f);
     int dy = (int)constrain(s_smooth_pitch * 0.04f, -3.0f, 3.0f);
+    // 咏春快拳：加入高频连环日字冲拳交替微振动 (±3px 爆裂打击感)
+    if (active_act == sticks3::BEAR_ACT_WINGCHUN) {
+        dx += ((now / 70) % 2 == 0) ? 3 : -2;
+        dy += ((now / 70) % 2 == 0) ? -1 : 1;
+    }
 
     bool rendered_atlas = false;
     if (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR) {
@@ -1126,11 +1154,11 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
             safeFillEllipse(out_d, (int)skel.body_x, sh_y, sh_rx, 3, 0x18C3);
         }
 
-    // 4.5 背景尾巴 (Front View: Tail behind body)
+    // 4.5 背景尾巴 (Front View: Bushy Ringed Tail behind body)
     if (!skel.is_back_view) {
         int tx = (int)skel.joints_screen[sticks3::OP_TAIL].sx;
         int ty = (int)skel.joints_screen[sticks3::OP_TAIL].sy;
-        drawBearTail(out_d, tx, ty, 6, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_SHADOW);
+        drawBearTail(out_d, tx, ty, 8, sticks3::CADET_COL_FUR_AMBER, sticks3::CADET_COL_FUR_DARK);
     }
 
     // 5. 下肢绘制 (双腿与脚掌，居于躯干底层 - 元气舒展修长造型，白练功裤配深蓝护踝)
@@ -1145,10 +1173,10 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         int foot_ly = (int)(skel.body_y + 18);
         int foot_rx = (int)(skel.body_x + 25);
         int foot_ry = (int)(skel.body_y + 18);
-        drawBearTaperedCapsule(out_d, hip_lx, hip_ly, foot_lx, foot_ly, 7, 6, sticks3::ANIME_COL_BELLY, sticks3::ANIME_COL_OUTLINE);
-        drawBearTaperedCapsule(out_d, hip_rx, hip_ry, foot_rx, foot_ry, 7, 6, sticks3::ANIME_COL_BELLY, sticks3::ANIME_COL_OUTLINE);
-        drawBearFoot(out_d, foot_lx, foot_ly, 10, 8, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
-        drawBearFoot(out_d, foot_rx, foot_ry, 10, 8, sticks3::ANIME_COL_MIDTONE, sticks3::ANIME_COL_PAD);
+        drawBearTaperedCapsule(out_d, hip_lx, hip_ly, foot_lx, foot_ly, 7, 6, sticks3::CADET_COL_FUR_WHITE, sticks3::CADET_COL_WHITE_SHD);
+        drawBearTaperedCapsule(out_d, hip_rx, hip_ry, foot_rx, foot_ry, 7, 6, sticks3::CADET_COL_FUR_WHITE, sticks3::CADET_COL_WHITE_SHD);
+        drawBearFoot(out_d, foot_lx, foot_ly, 8, 7, sticks3::CADET_COL_FUR_AMBER, sticks3::CADET_COL_PAD_PINK);
+        drawBearFoot(out_d, foot_rx, foot_ry, 8, 7, sticks3::CADET_COL_FUR_AMBER, sticks3::CADET_COL_PAD_PINK);
     } else {
         // 站立/运动姿态：元气修长双腿与双关节自然屈伸协同 (象牙白练功裤 + 午夜海军蓝护踝绑带)
         int foot_lx = (int)(skel.body_x - 15 + skel.left_leg.flex_x);
@@ -1321,10 +1349,10 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     int cx = (int)skel.head_x;
     int cy = (int)skel.head_y;
 
-    // 惯性垂耳 (Follow-Through Flopping Ears)
-    int ear_flop_l = (int)(s_smooth_roll * 0.15f);
-    int ear_flop_r = (int)(-s_smooth_roll * 0.15f);
-    if (bl_state == sticks3::BL_STATE_LISTENING) ear_flop_l -= 5;
+    // 惯性微动耳 (Follow-Through Flopping Ears) - 静态平放时耳廓端庄挺拔
+    int ear_flop_l = (diff_a > 0.35f) ? (int)constrain(s_smooth_roll * 0.05f, -3.0f, 3.0f) : 0;
+    int ear_flop_r = (diff_a > 0.35f) ? (int)constrain(-s_smooth_roll * 0.05f, -3.0f, 3.0f) : 0;
+    if (bl_state == sticks3::BL_STATE_LISTENING) ear_flop_l -= 3;
 
     // 兔子高耸立耳 (Tall Upright Rabbit Ears: 琥珀外耳 + 黑巧耳尖 + 象牙白内耳绒毛 + 核心浅粉)
     int ex_l = cx - 15;
@@ -1354,54 +1382,55 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         drawBearTail(out_d, tx, ty, 9, sticks3::CADET_COL_FUR_AMBER, sticks3::CADET_COL_FUR_DARK);
     } else {
         // --- 3D 功夫学徒正面立体五官 (Front View: Red Panda Face Mask + Doe Eyes + Snout) ---
-        // 1. 高耸立耳 (外耳琥珀 + 耳尖黑巧 + 内耳象牙白绒毛 + 核心浅粉)
+        // 1. 灵动狐兔修长大耳 (外展微倾角 + 焦糖外耳 + 黑巧耳尖 + 象牙白绒毛 + 核心浅粉)
         for (int side = 0; side < 2; side++) {
             int ex = (side == 0) ? ex_l : ex_r;
             int ey = (side == 0) ? ey_l : ey_r;
-            safeFillEllipse(out_d, ex, ey, 7, 18, sticks3::CADET_COL_FUR_AMBER);
-            safeDrawEllipse(out_d, ex, ey, 7, 18, sticks3::CADET_COL_FUR_DARK);
-            safeFillEllipse(out_d, ex, ey - 12, 6, 6, sticks3::CADET_COL_EAR_DARK);
-            safeFillEllipse(out_d, ex, ey + 1, 5, 12, sticks3::CADET_COL_FUR_WHITE);
-            safeFillEllipse(out_d, ex, ey + 3, 2, 7, sticks3::CADET_COL_PAD_PINK);
+            int tilt = (side == 0) ? -5 : 5; // 自然左右外展倾斜角，消除垂直天线生硬感
+            safeFillEllipse(out_d, ex + tilt / 2, ey, 9, 20, sticks3::CADET_COL_FUR_AMBER);
+            safeDrawEllipse(out_d, ex + tilt / 2, ey, 9, 20, sticks3::CADET_COL_FUR_DARK);
+            safeFillEllipse(out_d, ex + tilt, ey - 13, 6, 6, sticks3::CADET_COL_EAR_DARK);
+            safeFillEllipse(out_d, ex + tilt / 2, ey + 1, 6, 14, sticks3::CADET_COL_FUR_WHITE);
+            safeFillEllipse(out_d, ex + tilt / 2, ey + 3, 3, 8, sticks3::CADET_COL_PAD_PINK);
         }
 
-        // 2. 头部主体 (琥珀红熊猫饱满圆脸)
-        int rx_head = std::max(4, (int)(24.0f * skel.head_scale_x));
-        int ry_head = std::max(4, (int)(19.0f * skel.head_scale_y));
+        // 2. 头部主体 (琥珀红熊猫饱满圆脸 - 恢复 1:1.1 黄金萌态头身比)
+        int rx_head = std::max(4, (int)(29.0f * skel.head_scale_x));
+        int ry_head = std::max(4, (int)(23.0f * skel.head_scale_y));
         safeFillEllipse(out_d, cx, cy + 2, rx_head + 1, ry_head + 1, sticks3::CADET_COL_FUR_DARK);
         safeFillEllipse(out_d, cx, cy, rx_head, ry_head, sticks3::CADET_COL_FUR_AMBER);
         safeDrawArc(out_d, cx - 2, cy - 2, rx_head - 4, rx_head - 2, 205, 285, sticks3::ANIME_COL_KEYLIGHT);
 
         // 额顶萌毛束
-        out_d.fillTriangle(cx - 3, cy - ry_head + 1, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 1, sticks3::CADET_COL_FUR_AMBER);
-        out_d.drawTriangle(cx - 3, cy - ry_head + 1, cx, cy - ry_head - 4, cx + 3, cy - ry_head + 1, sticks3::CADET_COL_FUR_DARK);
+        out_d.fillTriangle(cx - 4, cy - ry_head + 1, cx, cy - ry_head - 5, cx + 4, cy - ry_head + 1, sticks3::CADET_COL_FUR_AMBER);
+        out_d.drawTriangle(cx - 4, cy - ry_head + 1, cx, cy - ry_head - 5, cx + 4, cy - ry_head + 1, sticks3::CADET_COL_FUR_DARK);
 
         // 3. 标志性红熊猫面部花纹 (Red Panda White Mask & Cheek Tufts)
-        // 脸颊两侧白色圆润绒毛区
-        safeFillEllipse(out_d, cx - 16, cy + 6, 9, 8, sticks3::CADET_COL_FUR_WHITE);
-        safeFillEllipse(out_d, cx + 16, cy + 6, 9, 8, sticks3::CADET_COL_FUR_WHITE);
+        // 脸颊两侧白色圆润绒毛区 (加大加饱满，消除干瘪感)
+        safeFillEllipse(out_d, cx - 18, cy + 6, 11, 9, sticks3::CADET_COL_FUR_WHITE);
+        safeFillEllipse(out_d, cx + 18, cy + 6, 11, 9, sticks3::CADET_COL_FUR_WHITE);
         // 颊侧向外延伸白毛尖
-        out_d.fillTriangle(cx - 18, cy + 4, cx - 24, cy + 7, cx - 17, cy + 10, sticks3::CADET_COL_FUR_WHITE);
-        out_d.fillTriangle(cx + 18, cy + 4, cx + 24, cy + 7, cx + 17, cy + 10, sticks3::CADET_COL_FUR_WHITE);
+        out_d.fillTriangle(cx - 20, cy + 3, cx - 27, cy + 7, cx - 19, cy + 11, sticks3::CADET_COL_FUR_WHITE);
+        out_d.fillTriangle(cx + 20, cy + 3, cx + 27, cy + 7, cx + 19, cy + 11, sticks3::CADET_COL_FUR_WHITE);
 
-        // 吻部软糯象牙白区域
+        // 吻部精致小巧微凸 (Warm Vanilla Snout - 告别突兀大白口罩)
         int snout_y = cy + 6;
-        safeFillEllipse(out_d, cx, snout_y, 13, 8, sticks3::CADET_COL_FUR_WHITE);
+        safeFillEllipse(out_d, cx, snout_y, 8, 5, sticks3::ANIME_COL_SNOUT);
 
         // 眼睛上方白色水滴眉斑 (Iconic White Teardrop Eyebrows)
-        safeFillEllipse(out_d, cx - 9, cy - 9, 3, 2, sticks3::CADET_COL_FUR_WHITE);
-        safeFillEllipse(out_d, cx + 9, cy - 9, 3, 2, sticks3::CADET_COL_FUR_WHITE);
+        safeFillEllipse(out_d, cx - 11, cy - 11, 3, 2, sticks3::CADET_COL_FUR_WHITE);
+        safeFillEllipse(out_d, cx + 11, cy - 11, 3, 2, sticks3::CADET_COL_FUR_WHITE);
 
         // 眼角至脸颊深棕红泪痕条纹 (Auburn Tear Stripes)
-        out_d.drawLine(cx - 13, cy, cx - 9, cy + 7, sticks3::CADET_COL_FUR_DARK);
-        out_d.drawLine(cx - 14, cy, cx - 10, cy + 7, sticks3::CADET_COL_FUR_DARK);
-        out_d.drawLine(cx + 13, cy, cx + 9, cy + 7, sticks3::CADET_COL_FUR_DARK);
-        out_d.drawLine(cx + 14, cy, cx + 10, cy + 7, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx - 15, cy, cx - 10, cy + 8, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx - 16, cy, cx - 11, cy + 8, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx + 15, cy, cx + 10, cy + 8, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx + 16, cy, cx + 11, cy + 8, sticks3::CADET_COL_FUR_DARK);
 
         // 颊红
         int blush_r = (cur_m == sticks3::MOOD_HAPPY) ? 5 : 4;
-        safeFillEllipse(out_d, cx - 17, cy + 8, blush_r, blush_r - 1, sticks3::CADET_COL_PAD_PINK);
-        safeFillEllipse(out_d, cx + 17, cy + 8, blush_r, blush_r - 1, sticks3::CADET_COL_PAD_PINK);
+        safeFillEllipse(out_d, cx - 19, cy + 8, blush_r, blush_r - 1, sticks3::CADET_COL_PAD_PINK);
+        safeFillEllipse(out_d, cx + 19, cy + 8, blush_r, blush_r - 1, sticks3::CADET_COL_PAD_PINK);
 
         // 4. 黑松露纽扣鼻
         safeFillEllipse(out_d, cx, snout_y - 2, 3, 2, sticks3::CADET_COL_NOSE_DARK);
@@ -1412,19 +1441,16 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         safeDrawArc(out_d, cx - 3, snout_y + 3, 3, 3, 20, 160, sticks3::CADET_COL_NOSE_DARK);
         safeDrawArc(out_d, cx + 3, snout_y + 3, 3, 3, 20, 160, sticks3::CADET_COL_NOSE_DARK);
 
-        // 灵动俏皮白嫩犬齿牙尖 (Canine Tooth)
-        out_d.fillTriangle(cx + 1, snout_y + 3, cx + 4, snout_y + 3, cx + 2, snout_y + 6, 0xFFFF);
-
         // 灵动胡须 (左右各两根细须)
-        out_d.drawLine(cx - 12, snout_y + 1, cx - 21, snout_y + 2, sticks3::CADET_COL_FUR_DARK);
-        out_d.drawLine(cx - 12, snout_y + 3, cx - 21, snout_y + 5, sticks3::CADET_COL_FUR_DARK);
-        out_d.drawLine(cx + 12, snout_y + 1, cx + 21, snout_y + 2, sticks3::CADET_COL_FUR_DARK);
-        out_d.drawLine(cx + 12, snout_y + 3, cx + 21, snout_y + 5, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx - 13, snout_y + 1, cx - 22, snout_y + 2, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx - 13, snout_y + 3, cx - 22, snout_y + 5, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx + 13, snout_y + 1, cx + 22, snout_y + 2, sticks3::CADET_COL_FUR_DARK);
+        out_d.drawLine(cx + 13, snout_y + 3, cx + 22, snout_y + 5, sticks3::CADET_COL_FUR_DARK);
 
-        // 迪士尼/日漫灵动双星水光大眼 (Doe-Eyes)
-        int lx = cx - 10;
+        // 迪士尼/日漫灵动双星水光大眼 (Doe-Eyes - 舒展萌态间距)
+        int lx = cx - 11;
         int ly = cy - 3;
-        int rx = cx + 10;
+        int rx = cx + 11;
         int ry = cy - 3;
 
         int gaze_x = (int)constrain(s_smooth_roll * 0.08f, -2.5f, 2.5f);
@@ -1440,7 +1466,7 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         }
 
         bool is_dizzy = (s_dizzy_until > now || cur_m == sticks3::MOOD_DIZZY);
-        bool is_tumble = (std::abs(s_smooth_roll) > 45.0f || a_mag < 0.35f);
+        bool is_tumble = (diff_a > 0.45f && (std::abs(s_smooth_roll) > 55.0f || a_mag < 0.35f));
 
         if (cur_m == sticks3::MOOD_SLEEP) {
             out_d.drawArc(lx, ly, 4, 6, 15, 165, sticks3::CADET_COL_NOSE_DARK);
@@ -1466,15 +1492,15 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
             out_d.drawCircle(rx, ry, 6, sticks3::CADET_COL_NOSE_DARK);
             out_d.fillCircle(rx + gaze_x, ry + gaze_y, 3, 0x0110);
         } else {
-            // 日漫高保真双星水光眼 (Dual-Star Anime Glossy Eyes)
-            out_d.fillRoundRect(lx - 4, ly - 6, 9, 12, 4, 0x0841);
-            out_d.fillRoundRect(rx - 4, ry - 6, 9, 12, 4, 0x0841);
-            out_d.drawRoundRect(lx - 4, ly - 6, 9, 12, 4, sticks3::CADET_COL_FUR_DARK);
-            out_d.drawRoundRect(rx - 4, ry - 6, 9, 12, 4, sticks3::CADET_COL_FUR_DARK);
+            // 日漫高保真双星水光眼 (Dual-Star Anime Glossy Eyes - 舒展大眼)
+            out_d.fillRoundRect(lx - 5, ly - 7, 10, 14, 4, 0x0841);
+            out_d.fillRoundRect(rx - 5, ry - 7, 10, 14, 4, 0x0841);
+            out_d.drawRoundRect(lx - 5, ly - 7, 10, 14, 4, sticks3::CADET_COL_FUR_DARK);
+            out_d.drawRoundRect(rx - 5, ry - 7, 10, 14, 4, sticks3::CADET_COL_FUR_DARK);
 
             // 琥珀深棕灵动虹膜
-            out_d.fillCircle(lx + gaze_x, ly + gaze_y + 1, 3, sticks3::CADET_COL_EYE_IRIS);
-            out_d.fillCircle(rx + gaze_x, ry + gaze_y + 1, 3, sticks3::CADET_COL_EYE_IRIS);
+            out_d.fillCircle(lx + gaze_x, ly + gaze_y + 1, 4, sticks3::CADET_COL_EYE_IRIS);
+            out_d.fillCircle(rx + gaze_x, ry + gaze_y + 1, 4, sticks3::CADET_COL_EYE_IRIS);
 
             // 主星璀璨双高光
             out_d.fillCircle(lx + gaze_x - 1, ly + gaze_y - 2, 2, 0xFFFF);
@@ -1483,8 +1509,8 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
             out_d.drawPixel(rx + gaze_x + 2, ry + gaze_y + 2, 0xFFFF);
 
             // 软萌上睫毛微弧
-            out_d.drawLine(lx - 4, ly - 7, lx + 4, ly - 7, sticks3::CADET_COL_FUR_DARK);
-            out_d.drawLine(rx - 4, ry - 7, rx + 4, ry - 7, sticks3::CADET_COL_FUR_DARK);
+            out_d.drawLine(lx - 5, ly - 8, lx + 5, ly - 8, sticks3::CADET_COL_FUR_DARK);
+            out_d.drawLine(rx - 5, ry - 8, rx + 5, ry - 8, sticks3::CADET_COL_FUR_DARK);
 
             auto cur_act = sticks3::BearKinematicsController::getInstance().getCurrentAction();
             bool is_martial_act = (cur_act == sticks3::BEAR_ACT_KUNGFU || cur_act == sticks3::BEAR_ACT_WINGCHUN || cur_act == sticks3::BEAR_ACT_DRAGON_PUNCH);
@@ -1560,24 +1586,25 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     drawUnlockCeremonyOverlay(out_d, now, growth_mgr);
 
     // 8.8 屏显动作与姿态阅兵浮层 (On-Screen Action HUD Pill Banner)
-    if (active_act != sticks3::BEAR_ACT_IDLE || s_demo_showcase_mode) {
+    auto& bkc_inst = sticks3::BearKinematicsController::getInstance();
+    bool is_showcase = bkc_inst.isShowcaseMode();
+    if (active_act != sticks3::BEAR_ACT_IDLE || is_showcase) {
         int hud_w = W - 14; // 121px
         int hud_h = 16;
         int hud_x = 7;
         int hud_y = 20;
         out_d.fillRoundRect(hud_x, hud_y, hud_w, hud_h, 4, 0x0841);
-        out_d.drawRoundRect(hud_x, hud_y, hud_w, hud_h, 4, s_demo_showcase_mode ? 0xFFE0 : 0x07FF);
+        out_d.drawRoundRect(hud_x, hud_y, hud_w, hud_h, 4, is_showcase ? 0xFFE0 : 0x07FF);
 
         out_d.setTextDatum(MC_DATUM);
         char act_banner[48];
-        if (s_demo_showcase_mode) {
-            snprintf(act_banner, sizeof(act_banner), "[阅兵 %u/%u: %s]",
-                     (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
-                     sticks3::bearActionToChinese(SHOWCASE_ACTIONS[s_demo_showcase_idx]));
+        if (is_showcase) {
+            snprintf(act_banner, sizeof(act_banner), "[DEMO %u/%u: %s]",
+                     (unsigned)(bkc_inst.getShowcaseIndex() + 1), (unsigned)bkc_inst.getShowcaseTotal(),
+                     sticks3::bearActionToString(bkc_inst.getShowcaseAction()));
             out_d.setTextColor(0xFFE0, 0x0841);
         } else {
-            snprintf(act_banner, sizeof(act_banner), "[%s %s]",
-                     sticks3::bearActionToChinese(active_act),
+            snprintf(act_banner, sizeof(act_banner), "[ACT: %s]",
                      sticks3::bearActionToString(active_act));
             out_d.setTextColor(0x07FF, 0x0841);
         }
@@ -1595,15 +1622,15 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
         out_d.drawRoundRect(hud_x, hud_y, hud_w, hud_h, 4, is_fc ? 0xFDE0 : sticks3::CADET_LINE_IVORY);
         out_d.setTextDatum(MC_DATUM);
         out_d.setTextColor(0xFFFF, is_fc ? 0x9240 : 0x0862);
-        out_d.drawString(is_fc ? "[全色域功夫学员]" : "[象牙金微雕线稿]", W / 2, hud_y + 8);
+        out_d.drawString(is_fc ? "[COLOR MODE]" : "[LINE-ART MODE]", W / 2, hud_y + 8); // [全色域功夫学员] / [象牙金微雕线稿]
     }
 
     // 9. 底部灵宠养成与系统硬件全维度看板 (Y: 220 ~ 240) - 沉浸式展示等级与胶囊EXP进度条
     out_d.fillRect(0, 220, W, 20, 0x0000);
     out_d.setTextDatum(ML_DATUM);
     char footer_buf[64];
-    snprintf(footer_buf, sizeof(footer_buf), "★ Lv.%u %s | %uP | %.0fF", 
-             growth_mgr.getLevel(), growth_mgr.getLevelTitle(), growth_mgr.getExp(),
+    snprintf(footer_buf, sizeof(footer_buf), "Lv.%u %s | %uP | %.0fF", 
+             growth_mgr.getLevel(), growth_mgr.getLevelTitleEn(), growth_mgr.getExp(),
              sticks3::getSystemLoopFPS());
     out_d.setTextColor(0xFDE0, 0x0000); // 华丽香槟金
     out_d.drawString(footer_buf, 3, 225);
@@ -1768,6 +1795,9 @@ void setup() {
     sticks3::StickS3MemoryStore::getInstance().begin();
 
     // 7. 初始化 2.4GHz Wi-Fi (SoftAP + TCP 8080 + UDP 8080 + WebPortal 80 + 环境 AP 嗅探)
+    sticks3::StickS3WiFi::getInstance().setScreenBufferCallback([]() -> const void* {
+        return (canvas_ready && canvas.getBuffer()) ? canvas.getBuffer() : nullptr;
+    });
     sticks3::StickS3WiFi::getInstance().setMessageCallback([](const String& msg, const String& source) {
         onNewTextMessage(msg, source);
     });
@@ -1841,11 +1871,7 @@ void setup() {
                 } else {
                     sticks3::toggleCadetRenderMode();
                 }
-                Preferences p_cm;
-                if (p_cm.begin("sticks3_cfg", false)) {
-                    p_cm.putUChar("cadet_mode", (uint8_t)sticks3::getCadetRenderMode());
-                    p_cm.end();
-                }
+                saveCadetRenderModeSafe(sticks3::getCadetRenderMode());
                 s_cadet_mode_banner_until = millis() + 2200;
                 bool is_fc = (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR);
                 Serial.printf("[MAIN-TOOL] Executed Cadet Mode: %s\n", is_fc ? "fullcolor" : "lineart");
@@ -2108,11 +2134,7 @@ void loop() {
         sticks3::toggleCadetRenderMode();
         s_cadet_mode_banner_until = millis() + 2200;
         sticks3::StickS3Audio::getInstance().playTone(1900, 35, 0.45f);
-        Preferences p_cm;
-        if (p_cm.begin("sticks3_cfg", false)) {
-            p_cm.putUChar("cadet_mode", (uint8_t)sticks3::getCadetRenderMode());
-            p_cm.end();
-        }
+        saveCadetRenderModeSafe(sticks3::getCadetRenderMode());
         Serial.printf("[CADET-MODE] Double-clicked (%s) -> Switched to: %s\n",
                       btnA_double_clicked ? "Btn A" : "Btn B",
                       (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR) ? "Full-Color" : "Line-Art");
@@ -2195,11 +2217,7 @@ void loop() {
                         sticks3::toggleCadetRenderMode();
                         s_cadet_mode_banner_until = millis() + 2200;
                         sticks3::StickS3Audio::getInstance().playTone(1900, 35, 0.45f);
-                        Preferences p_cm;
-                        if (p_cm.begin("sticks3_cfg", false)) {
-                            p_cm.putUChar("cadet_mode", (uint8_t)sticks3::getCadetRenderMode());
-                            p_cm.end();
-                        }
+                        saveCadetRenderModeSafe(sticks3::getCadetRenderMode());
                         Serial.printf("{\"type\":\"btn_sim\",\"action\":\"double_click\",\"cadet_mode\":\"%s\"}\n",
                                       (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR) ? "fullcolor" : "lineart");
                     } else if (cmd_or_msg == "i" || cmd_or_msg == "I") {
@@ -2249,21 +2267,13 @@ void loop() {
                             g_active_pet = PET_JOLLYBOT;
                             g_pet_avatar_mode = true;
                             sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
-                            Preferences p_pet;
-                            if (p_pet.begin("sticks3_cfg", false)) {
-                                p_pet.putUChar("active_pet", (uint8_t)g_active_pet);
-                                p_pet.end();
-                            }
+                            saveActivePetSafe(g_active_pet);
                             Serial.println("@pet {\"active\":\"jollybot\",\"name\":\"Meta Jollybot\",\"type\":\"pixel_art\",\"success\":true}");
                         } else {
                             g_active_pet = PET_QIAOQIAO;
                             g_pet_avatar_mode = true;
                             sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
-                            Preferences p_pet;
-                            if (p_pet.begin("sticks3_cfg", false)) {
-                                p_pet.putUChar("active_pet", (uint8_t)g_active_pet);
-                                p_pet.end();
-                            }
+                            saveActivePetSafe(g_active_pet);
                             Serial.println("@pet {\"active\":\"qiaoqiao\",\"name\":\"灵伴悄悄\",\"type\":\"procedural_vector\",\"success\":true}");
                         }
                     } else if (cmd_or_msg == ">pet" || cmd_or_msg == ">pet=?" || cmd_or_msg == "switch_pet") {
@@ -2271,11 +2281,7 @@ void loop() {
                             g_active_pet = (g_active_pet == PET_QIAOQIAO) ? PET_JOLLYBOT : PET_QIAOQIAO;
                             g_pet_avatar_mode = true;
                             sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
-                            Preferences p_pet;
-                            if (p_pet.begin("sticks3_cfg", false)) {
-                                p_pet.putUChar("active_pet", (uint8_t)g_active_pet);
-                                p_pet.end();
-                            }
+                            saveActivePetSafe(g_active_pet);
                         }
                         Serial.printf("@pet {\"active\":\"%s\",\"name\":\"%s\",\"options\":[\"jollybot\",\"qiaoqiao\"]}\n",
                                       (g_active_pet == PET_JOLLYBOT) ? "jollybot" : "qiaoqiao",
@@ -2324,11 +2330,7 @@ void loop() {
                             }
                             s_cadet_mode_banner_until = millis() + 2200;
                             sticks3::StickS3Audio::getInstance().playTone(1900, 30, 0.40f);
-                            Preferences p_cm;
-                            if (p_cm.begin("sticks3_cfg", false)) {
-                                p_cm.putUChar("cadet_mode", (uint8_t)sticks3::getCadetRenderMode());
-                                p_cm.end();
-                            }
+                            saveCadetRenderModeSafe(sticks3::getCadetRenderMode());
                         }
                         bool is_fc = (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR);
                         Serial.printf("@cadet_mode {\"mode\":\"%s\",\"cadet_mode\":%u,\"success\":true}\n",
@@ -2450,28 +2452,26 @@ void loop() {
                             Serial.printf("@ceremony {\"level\":%u,\"skill\":\"%s\",\"desc\":\"%s\",\"active\":true}\n",
                                           target_lvl, gm.getUnlockedSkillName(target_lvl), gm.getUnlockedSkillDesc(target_lvl));
                         } else if (parsed.type == muse_gadget::HatchCommandType::DEMO_COMMAND) {
+                            auto& bkc = sticks3::BearKinematicsController::getInstance();
                             if (parsed.payload == "off" || parsed.payload == "0") {
-                                s_demo_showcase_mode = false;
+                                bkc.setShowcaseMode(false);
                                 sticks3::StickS3Audio::getInstance().playTone(800, 40, 0.3f);
                                 Serial.println("@demo {\"status\":\"stopped\"}");
                             } else {
-                                s_demo_showcase_mode = true;
-                                s_demo_last_switch_ms = millis();
-                                sticks3::BearAction next_act = SHOWCASE_ACTIONS[s_demo_showcase_idx];
-                                sticks3::BearKinematicsController::getInstance().triggerAction(next_act, 2800);
+                                bkc.setShowcaseMode(true);
                                 sticks3::StickS3Audio::getInstance().playChime(sticks3::CHIME_SUCCESS);
+                                sticks3::BearAction next_act = bkc.getShowcaseAction();
                                 Serial.printf("@demo {\"status\":\"started\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
-                                              (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
+                                              (unsigned)(bkc.getShowcaseIndex() + 1), (unsigned)bkc.getShowcaseTotal(),
                                               sticks3::bearActionToString(next_act),
                                               sticks3::bearActionToChinese(next_act));
                             }
                         } else if (parsed.type == muse_gadget::HatchCommandType::STEP_COMMAND) {
-                            s_demo_showcase_idx = (s_demo_showcase_idx + 1) % SHOWCASE_COUNT;
-                            sticks3::BearAction next_act = SHOWCASE_ACTIONS[s_demo_showcase_idx];
-                            sticks3::BearKinematicsController::getInstance().triggerAction(next_act, 2800);
+                            auto& bkc = sticks3::BearKinematicsController::getInstance();
+                            sticks3::BearAction next_act = bkc.stepShowcase();
                             sticks3::StickS3Audio::getInstance().playTone(1800, 25, 0.35f);
                             Serial.printf("@action {\"type\":\"step\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
-                                          (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
+                                          (unsigned)(bkc.getShowcaseIndex() + 1), (unsigned)bkc.getShowcaseTotal(),
                                           sticks3::bearActionToString(next_act),
                                           sticks3::bearActionToChinese(next_act));
                         } else if (parsed.type == muse_gadget::HatchCommandType::GROWTH_QUERY) {
@@ -2492,6 +2492,22 @@ void loop() {
                                 sticks3::getChipTemperature()
                             );
                             Serial.print(status_json.c_str());
+                        } else if (parsed.payload == "screen_raw" || cmd_or_msg == ">screen_raw" || cmd_or_msg == ">dump_screen" || cmd_or_msg == ">screen") {
+                            if (canvas_ready && canvas.getBuffer()) {
+                                Serial.printf("@screen {\"w\":135,\"h\":240,\"bytes\":64800}\n");
+                                Serial.write((const uint8_t*)canvas.getBuffer(), 135 * 240 * 2);
+                                Serial.flush();
+                            } else {
+                                Serial.printf("@screen {\"error\":\"canvas_not_ready\"}\n");
+                            }
+                        }
+                    } else if (cmd_or_msg == ">screen_raw" || cmd_or_msg == ">dump_screen" || cmd_or_msg == ">screen") {
+                        if (canvas_ready && canvas.getBuffer()) {
+                            Serial.printf("@screen {\"w\":135,\"h\":240,\"bytes\":64800}\n");
+                            Serial.write((const uint8_t*)canvas.getBuffer(), 135 * 240 * 2);
+                            Serial.flush();
+                        } else {
+                            Serial.printf("@screen {\"error\":\"canvas_not_ready\"}\n");
                         }
                     } else {
                         // 接收串口任意测试文本（支持 UTF-8 和 GBK 中文！）并显示上屏
@@ -2566,29 +2582,28 @@ void loop() {
             Serial.printf("[PHYSICAL-INTERRUPT] Successfully triggered by %s!\n", btn_src);
         } else if (btnA_long_pressed) {
             // 正面按键 A 长按 (>= 750ms): 开启/退出全套动作姿态自动阅兵轮播 (Demo Showcase Mode)
-            s_demo_showcase_mode = !s_demo_showcase_mode;
-            if (s_demo_showcase_mode) {
-                s_demo_last_switch_ms = millis();
-                sticks3::BearAction next_act = SHOWCASE_ACTIONS[s_demo_showcase_idx];
-                sticks3::BearKinematicsController::getInstance().triggerAction(next_act, 2800);
+            auto& bkc = sticks3::BearKinematicsController::getInstance();
+            bkc.toggleShowcaseMode();
+            bool is_sc = bkc.isShowcaseMode();
+            if (is_sc) {
                 audio.playChime(sticks3::CHIME_SUCCESS);
-                Serial.printf("@demo {\"status\":\"started\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
-                              (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
-                              sticks3::bearActionToString(next_act),
-                              sticks3::bearActionToChinese(next_act));
             } else {
                 audio.playTone(800, 40, 0.35f);
-                Serial.println("@demo {\"status\":\"stopped\"}");
             }
+            sticks3::BearAction cur_act = bkc.getShowcaseAction();
+            Serial.printf("@demo {\"status\":\"%s\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
+                          is_sc ? "started" : "stopped",
+                          (unsigned)(bkc.getShowcaseIndex() + 1), (unsigned)bkc.getShowcaseTotal(),
+                          sticks3::bearActionToString(cur_act),
+                          sticks3::bearActionToChinese(cur_act));
         } else if (btnA_confirmed_single) {
             if (g_active_pet == PET_JOLLYBOT) {
                 // Jollybot 萌熊模式下单击正面按键 A：即时切换至下一个动作姿态，全套 17 种动作循环演示！
-                s_demo_showcase_idx = (s_demo_showcase_idx + 1) % SHOWCASE_COUNT;
-                sticks3::BearAction next_act = SHOWCASE_ACTIONS[s_demo_showcase_idx];
-                sticks3::BearKinematicsController::getInstance().triggerAction(next_act, 2800);
+                auto& bkc = sticks3::BearKinematicsController::getInstance();
+                sticks3::BearAction next_act = bkc.stepShowcase();
                 audio.playTone(1800, 25, 0.35f);
                 Serial.printf("@action {\"type\":\"step\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
-                              (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
+                              (unsigned)(bkc.getShowcaseIndex() + 1), (unsigned)bkc.getShowcaseTotal(),
                               sticks3::bearActionToString(next_act),
                               sticks3::bearActionToChinese(next_act));
             } else {
@@ -2614,18 +2629,20 @@ void loop() {
             }
         }
 
-        // 姿态阅兵模式自动节拍推进 (每 3 秒自动演示下一个动作)
-        if (s_demo_showcase_mode && (millis() - s_demo_last_switch_ms >= 3000)) {
-            s_demo_showcase_idx = (s_demo_showcase_idx + 1) % SHOWCASE_COUNT;
-            sticks3::BearAction next_act = SHOWCASE_ACTIONS[s_demo_showcase_idx];
-            sticks3::BearKinematicsController::getInstance().triggerAction(next_act, 2800);
-            s_demo_last_switch_ms = millis();
+        // 姿态阅兵模式自动节拍推进 (每 3 秒自动演示下一个动作，独立解耦)
+        auto& bkc = sticks3::BearKinematicsController::getInstance();
+        s_demo_showcase_mode = bkc.isShowcaseMode();
+        if (bkc.updateShowcase(millis())) {
             audio.playTone(1500, 20, 0.25f);
+            sticks3::BearAction next_act = bkc.getShowcaseAction();
             Serial.printf("@demo {\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
-                          (unsigned)(s_demo_showcase_idx + 1), (unsigned)SHOWCASE_COUNT,
+                          (unsigned)(bkc.getShowcaseIndex() + 1), (unsigned)bkc.getShowcaseTotal(),
                           sticks3::bearActionToString(next_act),
                           sticks3::bearActionToChinese(next_act));
-        } else if (btnB_long_pressed) {
+        }
+
+        // 侧面按键 B 事件处理 (独立于自动阅兵推进)
+        if (btnB_long_pressed) {
             // 侧面按键 B 长按 (>= 750ms): 切换灵宠形象 (Meta 原版 Jollybot 像素宠 <-> 灵伴悄悄矢量大眼)
             g_active_pet = (g_active_pet == PET_QIAOQIAO) ? PET_JOLLYBOT : PET_QIAOQIAO;
             g_pet_avatar_mode = true;

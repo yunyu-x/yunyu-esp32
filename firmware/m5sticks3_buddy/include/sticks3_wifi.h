@@ -195,6 +195,15 @@ audio { width: 100%; height: 38px; border-radius: 8px; margin-top: 8px; outline:
     </button>
   </div>
 
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+    <button class="btn btn-purple" style="margin-bottom:0;font-size:12px;background:#d97706;border:1px solid #f59e0b;" onclick="triggerPetAction('demo')">
+      🎭 <span id="demoBtnText">17套姿态自动巡礼 (ON/OFF)</span>
+    </button>
+    <button class="btn btn-sec" style="margin-bottom:0;font-size:12px;background:#1e293b;border:1px solid #475569;" onclick="triggerPetAction('step')">
+      ⏭️ <span>单步切换下一个姿态</span>
+    </button>
+  </div>
+
   <div class="status-bar" id="petFeedback" style="margin-top:6px;color:#f472b6;">
     💡 投喂后屏幕实时呈现迪士尼咀嚼飞屑动效与好感度上扬！
   </div>
@@ -230,7 +239,7 @@ audio { width: 100%; height: 38px; border-radius: 8px; margin-top: 8px; outline:
   <div style="font-size: 12px; color: #cbd5e1; margin-bottom: 6px;" id="blStatusText">⚪ 正在检查百炼大模型连接状态...</div>
 
   <div style="font-size: 12px; color: #94a3b8; margin-bottom: 4px;">百炼 DashScope API Key:</div>
-  <input type="password" id="blKeyInput" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+  <input type="password" id="blKeyInput" placeholder="sk-your-bailian-api-key">
   
   <div class="grid" style="margin-bottom: 8px;">
     <div>
@@ -888,6 +897,10 @@ function updatePetHud(d) {
   if (d.avatar_mode !== undefined) {
     document.getElementById('avatarModeBtnText').innerText = '屏显: ' + (d.avatar_mode ? '灵宠表情 (ON)' : '系统遥测 (OFF)');
   }
+  if (d.showcase_mode !== undefined) {
+    var db = document.getElementById('demoBtnText');
+    if (db) db.innerText = d.showcase_mode ? ('🎬 巡礼中 (' + d.showcase_idx + '/' + d.showcase_total + ')') : '🎭 17套姿态自动巡礼 (ON/OFF)';
+  }
 }
 
 // ==========================================
@@ -1051,6 +1064,11 @@ public:
     static StickS3WiFi& getInstance() {
         static StickS3WiFi instance;
         return instance;
+    }
+
+    using ScreenBufferCallback = std::function<const void*()>;
+    void setScreenBufferCallback(ScreenBufferCallback cb) {
+        _screen_buffer_cb = cb;
     }
 
     void setMessageCallback(WiFiMessageCallback cb) {
@@ -1831,6 +1849,74 @@ private:
             _web_server.send(200, "application/json; charset=utf-8", json);
         });
 
+        // 导出屏幕实时截图 (原始 135x240 RGB565 字节流，共 64800 字节)
+        _web_server.on("/screen/capture.raw", HTTP_GET, [this]() {
+            _web_server.sendHeader("Access-Control-Allow-Origin", "*");
+            const void* buf = _screen_buffer_cb ? _screen_buffer_cb() : nullptr;
+            if (!buf) {
+                _web_server.send(503, "text/plain", "Screen buffer not ready");
+                return;
+            }
+            _web_server.setContentLength(135 * 240 * 2);
+            _web_server.sendHeader("Content-Type", "application/octet-stream");
+            _web_server.sendHeader("Cache-Control", "no-cache");
+            _web_server.send(200, "application/octet-stream", "");
+            WiFiClient client = _web_server.client();
+            client.write((const uint8_t*)buf, 135 * 240 * 2);
+        });
+
+        // 导出屏幕标准 24-bit BMP 图像 (97974 字节，浏览器可直接预览另存)
+        _web_server.on("/screen/dump.bmp", HTTP_GET, [this]() {
+            _web_server.sendHeader("Access-Control-Allow-Origin", "*");
+            const void* buf = _screen_buffer_cb ? _screen_buffer_cb() : nullptr;
+            if (!buf) {
+                _web_server.send(503, "text/plain", "Screen buffer not ready");
+                return;
+            }
+            const int W = 135;
+            const int H = 240;
+            const int row_size = ((W * 3 + 3) / 4) * 4; // 408 字节
+            const uint32_t file_size = 54 + (uint32_t)row_size * H; // 97974 字节
+
+            _web_server.setContentLength(file_size);
+            _web_server.sendHeader("Content-Type", "image/bmp");
+            _web_server.sendHeader("Cache-Control", "no-cache");
+            _web_server.send(200, "image/bmp", "");
+
+            WiFiClient client = _web_server.client();
+
+            // 54 字节标准 BMP 头
+            uint8_t header[54] = {0};
+            header[0] = 'B'; header[1] = 'M';
+            header[2] = file_size & 0xFF; header[3] = (file_size >> 8) & 0xFF;
+            header[4] = (file_size >> 16) & 0xFF; header[5] = (file_size >> 24) & 0xFF;
+            header[10] = 54;
+            header[14] = 40;
+            header[18] = W & 0xFF; header[19] = (W >> 8) & 0xFF;
+            header[22] = H & 0xFF; header[23] = (H >> 8) & 0xFF;
+            header[26] = 1;
+            header[28] = 24;
+            header[34] = (row_size * H) & 0xFF; header[35] = ((row_size * H) >> 8) & 0xFF;
+            client.write(header, 54);
+
+            const uint16_t* src = (const uint16_t*)buf;
+            uint8_t row_buf[408] = {0};
+            for (int y = H - 1; y >= 0; y--) {
+                const uint16_t* line = src + (y * W);
+                for (int x = 0; x < W; x++) {
+                    uint16_t raw = line[x];
+                    uint16_t rgb565 = (uint16_t)((raw >> 8) | (raw << 8)); // LGFX Sprite PSRAM buffer is Big-Endian (SPI transfer order)
+                    uint8_t r = ((rgb565 >> 11) & 0x1F) * 255 / 31;
+                    uint8_t g = ((rgb565 >> 5) & 0x3F) * 255 / 63;
+                    uint8_t b = (rgb565 & 0x1F) * 255 / 31;
+                    row_buf[x * 3 + 0] = b;
+                    row_buf[x * 3 + 1] = g;
+                    row_buf[x * 3 + 2] = r;
+                }
+                client.write(row_buf, row_size);
+            }
+        });
+
         _web_server.on("/pet/action", HTTP_POST, [this]() {
             String act = _web_server.hasArg("action") ? _web_server.arg("action") : "";
             String item = _web_server.hasArg("item") ? _web_server.arg("item") : "";
@@ -1918,12 +2004,43 @@ private:
                     p.end();
                 }
                 audio.playTone(1900, 35, 0.40f);
+            } else if (act == "demo" || act == "showcase" || act == "tour") {
+                bool en = true;
+                if (_web_server.hasArg("enable")) en = (_web_server.arg("enable") == "1" || _web_server.arg("enable") == "true");
+                else if (_web_server.hasArg("enabled")) en = (_web_server.arg("enabled") == "1" || _web_server.arg("enabled") == "true");
+                else if (_web_server.hasArg("value")) en = (_web_server.arg("value") == "1" || _web_server.arg("value") == "true");
+                else en = !BearKinematicsController::getInstance().isShowcaseMode();
+                
+                BearKinematicsController::getInstance().setShowcaseMode(en);
+                if (en) {
+                    audio.playChime(CHIME_SUCCESS);
+                } else {
+                    audio.playTone(800, 40, 0.3f);
+                }
+                BearAction cur_a = BearKinematicsController::getInstance().getShowcaseAction();
+                Serial.printf("@demo {\"status\":\"%s\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
+                              en ? "started" : "stopped",
+                              (unsigned)(BearKinematicsController::getInstance().getShowcaseIndex() + 1),
+                              (unsigned)BearKinematicsController::getInstance().getShowcaseTotal(),
+                              bearActionToString(cur_a), bearActionToChinese(cur_a));
+            } else if (act == "step" || act == "next") {
+                BearAction next_a = BearKinematicsController::getInstance().stepShowcase();
+                audio.playTone(1800, 25, 0.35f);
+                Serial.printf("@action {\"type\":\"step\",\"idx\":%u,\"total\":%u,\"action\":\"%s\",\"cn\":\"%s\"}\n",
+                              (unsigned)(BearKinematicsController::getInstance().getShowcaseIndex() + 1),
+                              (unsigned)BearKinematicsController::getInstance().getShowcaseTotal(),
+                              bearActionToString(next_a), bearActionToChinese(next_a));
             }
 
             const auto& st = avatar.getStats();
+            auto& bkc = BearKinematicsController::getInstance();
             String json = "{\"status\":\"ok\",\"action\":\"" + act + "\",\"level\":" + String(st.intimacy_level) +
                           ",\"xp\":" + String(st.intimacy_xp) + ",\"energy\":" + String(st.energy) +
-                          ",\"diary\":\"" + st.current_diary + "\",\"avatar_mode\":" + String(avatar.isAvatarMode() ? "true" : "false") + "}";
+                          ",\"diary\":\"" + st.current_diary + "\",\"avatar_mode\":" + String(avatar.isAvatarMode() ? "true" : "false") +
+                          ",\"showcase_mode\":" + String(bkc.isShowcaseMode() ? "true" : "false") +
+                          ",\"showcase_idx\":" + String((unsigned)bkc.getShowcaseIndex() + 1) +
+                          ",\"showcase_total\":" + String((unsigned)bkc.getShowcaseTotal()) +
+                          ",\"current_action\":\"" + String(bearActionToString(bkc.getCurrentAction())) + "\"}";
             _web_server.send(200, "application/json; charset=utf-8", json);
         });
     }
@@ -1991,6 +2108,7 @@ private:
 
     uint8_t* _upload_audio_buf;
     size_t _upload_audio_size;
+    ScreenBufferCallback _screen_buffer_cb = nullptr;
 };
 
 } // namespace sticks3

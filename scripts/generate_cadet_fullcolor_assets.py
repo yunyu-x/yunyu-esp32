@@ -4,7 +4,7 @@
 scripts/generate_cadet_fullcolor_assets.py
 -------------------------------------------
 Cadet Ren (功夫学徒阿韧) Phase 2 Multi-Layer Color Infill Generator:
-1. Extracts 1:1 color character crops for all 7 poses from concept sheets:
+1. Extracts authentic 1:1 color character crops for all 7 poses from concept sheets:
    - bow: 抱拳礼 (Martial Salute & Bow)
    - horse_strike: 扎马步冲拳 (Horse Stance Palm Strike)
    - taichi: 太极云手 (Flowing Tai Chi Hands)
@@ -12,23 +12,11 @@ Cadet Ren (功夫学徒阿韧) Phase 2 Multi-Layer Color Infill Generator:
    - wave_1: 元气挥手A (Energetic Wave 1)
    - wave_2: 元气挥手B (Energetic Wave 2)
    - front_idle: 正面待命 (Grandmaster Front Idle)
-2. Maps them to the exact 135x240 M5Stack StickS3 device screen coordinates.
-3. Quantizes to an optimized 16-color RGB565 palette:
-   - Caramel Warm Amber Fur (#CD5F26 / 0xCAE4)
-   - Dark Auburn Fur & Tail Rings (#873416 / 0x81A2)
-   - Ivory White Fur / Mask / Silk Pants (#F8F6F2 / 0xF7BE)
-   - White Fabric Shading (#CDCADA / 0xCE5A)
-   - Midnight Navy Tactical Vest / Belt (#1A263E / 0x1927)
-   - Vest Dark Shading (#101828 / 0x10C5)
-   - Imperial Gold Trim & Paw Emblem (#EBB937 / 0xE5C6)
-   - Wrap Navy & Cuffs (#141E32 / 0x10E6)
-   - Ear Tip Dark Chocolate (#371C12 / 0x30E2)
-   - Eye Iris Amber (#733E1E / 0x71E3)
-   - Truffle Nose (#281614 / 0x28A2)
-   - Pink Paw Pad & Cheek Blush (#FAB4AA / 0xFD95)
-   - Warm Ivory Highlight (#FEF3C7 / 0xFFDE)
-   - Contact Shadow (0x10A2)
-   - Outer Ink Line (0x0000)
+2. Uses verified 135x240 device line-art masks to enforce STRICT silhouette boundaries:
+   - ZERO stray paper background pixels trapped outside or inside body
+   - Eliminates fluorescent ugly dead-white patches
+   - Preserves authentic warm ivory fur and silky martial pants shading
+3. Quantizes to an optimized 16-color RGB565 palette.
 4. Compresses into high-speed RLE (Run-Length Encoded) byte arrays.
 5. Emits C++ PROGMEM header: firmware/m5sticks3_buddy/include/sticks3_cadet_bitmaps.h
 6. Verifies total Flash footprint is strictly under 100KB!
@@ -41,154 +29,117 @@ from PIL import Image
 
 OUT_COLOR_DIR = "docs/assets/cadet_ren/device_135x240_colors"
 MP_COLOR_DIR = "wechat_miniprogram/assets/cadet_ren/device_135x240_colors"
+LINES_DIR = "docs/assets/cadet_ren/device_135x240_lines"
+RAW_LINES_DIR = "docs/assets/cadet_ren/extracted_lines"
 HEADER_PATH = "firmware/m5sticks3_buddy/include/sticks3_cadet_bitmaps.h"
 
 os.makedirs(OUT_COLOR_DIR, exist_ok=True)
 os.makedirs(MP_COLOR_DIR, exist_ok=True)
 
 # 16 standard RGB565 palette colors
-# Index 0 is transparent/background
+# Optimized for Cadet Ren: Warm Ivory Fur (#FAF6EE) + Pearlescent Silk Pants (#F0EFEA)
 PALETTE = [
     # (R, G, B, RGB565_Hex, Name)
-    (11, 15, 25,    0x0862, "CADET_COL_BG_OBSIDIAN"),    # 0: Transparent/Obsidian BG
+    (11, 15, 25,    0x0862, "CADET_COL_BG_OBSIDIAN"),    # 0: Transparent/Obsidian BG #0B0F19
     (205, 95, 38,   0xCAE4, "CADET_COL_FUR_AMBER"),      # 1: Caramel Amber Fur #CD5F26
-    (135, 52, 22,   0x81A2, "CADET_COL_FUR_DARK"),       # 2: Dark Auburn Fur & Tail Ring #873416
-    (248, 246, 242, 0xF7BE, "CADET_COL_FUR_WHITE"),      # 3: Ivory White Fur & Silk Pants #F8F6F2
-    (205, 202, 212, 0xCE5A, "CADET_COL_WHITE_SHD"),      # 4: White Fabric Shading #CDCADA
-    (26, 38, 62,    0x1927, "CADET_COL_VEST_NAVY"),      # 5: Midnight Navy Tactical Vest #1A263E
-    (16, 24, 40,    0x10C5, "CADET_COL_VEST_DARK"),      # 6: Vest Dark Shading #101828
-    (235, 185, 55,  0xE5C6, "CADET_COL_VEST_GOLD"),      # 7: Imperial Gold Emblem & Trim #EBB937
-    (20, 30, 50,    0x10E6, "CADET_COL_WRAP_NAVY"),      # 8: Wrap Navy & Belt #141E32
-    (55, 28, 18,    0x30E2, "CADET_COL_EAR_DARK"),       # 9: Ear Tip Dark Chocolate #371C12
-    (115, 62, 30,   0x71E3, "CADET_COL_EYE_IRIS"),       # 10: Eye Iris Amber #733E1E
-    (40, 22, 20,    0x28A2, "CADET_COL_NOSE_DARK"),      # 11: Truffle Nose #281614
-    (250, 180, 170, 0xFD95, "CADET_COL_PAD_PINK"),       # 12: Pink Pad & Cheek Blush #FAB4AA
-    (254, 243, 199, 0xFFDE, "CADET_LINE_IVORY"),         # 13: Warm Ivory Highlight #FEF3C7
-    (16, 26, 34,    0x10A2, "CADET_COL_SHADOW"),         # 14: Contact Shadow
-    (15, 12, 10,    0x0000, "CADET_COL_INK_LINE"),       # 15: Deep Ink Line #0F0C0A
+    (230, 130, 60,  0xE407, "CADET_COL_FUR_KEYLIGHT"),   # 2: Amber Fur Keylight #E6823C
+    (135, 52, 22,   0x81A2, "CADET_COL_FUR_DARK"),       # 3: Dark Auburn Fur & Tail Ring #873416
+    (43, 20, 14,    0x28A1, "CADET_COL_CHOCOLATE"),      # 4: Chocolate Ear Tip & Dark Fur #2B140E
+    (250, 246, 238, 0xFFBD, "CADET_COL_FUR_WHITE"),      # 5: Warm Moonlit Ivory Fur #FAF6EE
+    (221, 216, 206, 0xDEF9, "CADET_COL_WHITE_SHD"),      # 6: Silk Fold Soft Crease #DDD8CE
+    (240, 239, 234, 0xF77D, "CADET_COL_PANTS_WHITE"),    # 7: Pearlescent Martial Pants #F0EFEA
+    (200, 196, 189, 0xCE37, "CADET_COL_PANTS_SHD"),      # 8: Pants Drapery Shadow #C8C4BD
+    (26, 38, 62,    0x1927, "CADET_COL_VEST_NAVY"),      # 9: Midnight Navy Tactical Vest #1A263E
+    (16, 24, 40,    0x10C5, "CADET_COL_VEST_DARK"),      # 10: Vest Dark Shading #101828
+    (235, 185, 55,  0xEDB6, "CADET_COL_VEST_GOLD"),      # 11: Imperial Gold Emblem & Trim #EBB937
+    (20, 30, 50,    0x10E6, "CADET_COL_WRAP_NAVY"),      # 12: Wrap Navy & Sash #141E32
+    (115, 62, 30,   0x71E3, "CADET_COL_EYE_IRIS"),       # 13: Eye Iris Amber #733E1E
+    (255, 255, 255, 0xFFFF, "CADET_COL_SPARKLE_WHITE"),  # 14: Sparkle White #FFFFFF
+    (250, 180, 170, 0xFDA5, "CADET_COL_PAD_PINK"),       # 15: Pink Pad & Cheek Blush #FAB4AA
 ]
 
 PALETTE_RGB = np.array([[p[0], p[1], p[2]] for p in PALETTE], dtype=np.float32)
 
-def extract_color_master(img, crop_box, erase_rects=[], cut_bottom_px=0, cut_top_px=0):
-    cy0, cy1, cx0, cx1 = crop_box
-    c = img[cy0:cy1, cx0:cx1].copy()
-    ch, cw = c.shape[:2]
+def extract_and_clean_crop(img, crop_box, erase_rects=[], flood_seeds=[], ground_cutoff_y=None):
+    y0, y1, x0, x1 = crop_box
+    c = img[y0:y1, x0:x1].copy()
+    h, w = c.shape[:2]
+
     corners = np.concatenate([
         c[0:15, 0:15].reshape(-1, 3),
-        c[0:15, cw-15:cw].reshape(-1, 3),
-        c[ch-15:ch, 0:15].reshape(-1, 3),
-        c[ch-15:ch, cw-15:cw].reshape(-1, 3)
+        c[0:15, w-15:w].reshape(-1, 3)
     ], axis=0)
     bg_col = np.median(corners, axis=0)
 
     for (ey0, ey1, ex0, ex1) in erase_rects:
-        c[max(0,ey0):min(ch,ey1), max(0,ex0):min(cw,ex1)] = bg_col
+        c[max(0,ey0):min(h,ey1), max(0,ex0):min(w,ex1)] = bg_col
 
-    flood_canvas = c.copy()
-    flood_mask = np.zeros((ch+2, cw+2), np.uint8)
-    for x in range(0, cw, 8):
-        for y in [0, ch-1]:
-            if flood_mask[y+1, x+1] == 0 and np.linalg.norm(c[y, x].astype(float) - bg_col) < 35:
-                cv2.floodFill(flood_canvas, flood_mask, (x, y), (0,0,255), (18,18,18), (18,18,18), flags=8 | (255<<8))
-    for y in range(0, ch, 8):
-        for x in [0, cw-1]:
-            if flood_mask[y+1, x+1] == 0 and np.linalg.norm(c[y, x].astype(float) - bg_col) < 35:
-                cv2.floodFill(flood_canvas, flood_mask, (x, y), (0,0,255), (18,18,18), (18,18,18), flags=8 | (255<<8))
+    if ground_cutoff_y is not None:
+        c[ground_cutoff_y:, :] = bg_col
 
-    fg = (flood_mask[1:ch+1, 1:cw+1] == 0).astype(np.uint8) * 255
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-    fg_closed = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, k)
+    diff = np.linalg.norm(c.astype(np.float32) - bg_col, axis=2)
+    flood_mask = np.zeros((h+2, w+2), np.uint8)
+
+    for x in range(w):
+        for y in [0, 1, h-2, h-1]:
+            if flood_mask[y+1, x+1] == 0 and diff[y, x] < 36:
+                cv2.floodFill(c, flood_mask, (x, y), (0, 0, 0), (16, 16, 16), (16, 16, 16), flags=8 | (255 << 8))
+    for y in range(h):
+        for x in [0, 1, w-2, w-1]:
+            if flood_mask[y+1, x+1] == 0 and diff[y, x] < 36:
+                cv2.floodFill(c, flood_mask, (x, y), (0, 0, 0), (16, 16, 16), (16, 16, 16), flags=8 | (255 << 8))
+
+    for (sx, sy) in flood_seeds:
+        if 0 <= sx < w and 0 <= sy < h:
+            if flood_mask[sy+1, sx+1] == 0 and diff[sy, sx] < 36:
+                cv2.floodFill(c, flood_mask, (sx, sy), (0, 0, 0), (16, 16, 16), (16, 16, 16), flags=8 | (255 << 8))
+
+    fg = (~(flood_mask[1:h+1, 1:w+1] > 0)).astype(np.uint8) * 255
+    k3 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    fg_closed = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, k3)
+
     num, labels, stats, _ = cv2.connectedComponentsWithStats(fg_closed)
     if num <= 1:
         return None
     char_lbl = np.argmax(stats[1:, cv2.CC_STAT_AREA]) + 1
-    char_mask = (labels == char_lbl).astype(np.uint8)
-    cnts, _ = cv2.findContours(char_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    solid = np.zeros_like(char_mask)
-    cv2.drawContours(solid, cnts, -1, 1, -1)
-    ys, xs = np.where(solid > 0)
-    char_c = c[ys.min():ys.max()+1, xs.min():xs.max()+1].copy()
-    mask_c = solid[ys.min():ys.max()+1, xs.min():xs.max()+1]
-    char_c[mask_c == 0] = [0, 0, 0]
-    if cut_bottom_px > 0:
-        char_c[-cut_bottom_px:, :] = [0, 0, 0]
-    if cut_top_px > 0:
-        char_c[:cut_top_px, :] = [0, 0, 0]
-    return char_c
+    char_mask = (labels == char_lbl).astype(np.uint8) * 255
 
-def extract_dragon_punch_color(mat):
-    h_m, w_m = mat.shape[:2]
-    dp_orig = mat[h_m//2+15:h_m//2+340, w_m//2+180:w_m//2+500].copy()
-    hsv = cv2.cvtColor(dp_orig, cv2.COLOR_BGR2HSV)
-    h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
-    char_seeds = ((h < 30) & (s > 50) & (v > 80)) | ((h > 95) & (h < 135) & (s > 80) & (v < 180)) | (v < 70)
-    char_seeds = char_seeds.astype(np.uint8) * 255
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
-    closed = cv2.morphologyEx(char_seeds, cv2.MORPH_CLOSE, k)
-    num, labels, stats, _ = cv2.connectedComponentsWithStats(closed)
-    char_lbl = np.argmax(stats[1:, cv2.CC_STAT_AREA]) + 1
-    char_mask = (labels == char_lbl).astype(np.uint8)
-    cnts, _ = cv2.findContours(char_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    solid = np.zeros_like(char_mask)
-    cv2.drawContours(solid, cnts, -1, 255, -1)
-    ys, xs = np.where(solid > 0)
-    char_c = dp_orig[ys.min():ys.max()+1, xs.min():xs.max()+1].copy()
-    mask_c = solid[ys.min():ys.max()+1, xs.min():xs.max()+1]
-    char_c[mask_c == 0] = [0, 0, 0]
-    return char_c
+    ys, xs = np.where(char_mask > 0)
+    tight = c[ys.min():ys.max()+1, xs.min():xs.max()+1].copy()
+    tight[char_mask[ys.min():ys.max()+1, xs.min():xs.max()+1] == 0] = [0, 0, 0]
+    return tight
 
-def extract_front_idle_color(sheet):
-    ren = sheet[92:683, 50:340].copy()
-    h, w = ren.shape[:2]
-    ren[:, 270:] = [225, 240, 243]
-    ren[580:, :] = [225, 240, 243]
-    flood_mask = np.zeros((h+2, w+2), np.uint8)
-    bg_canvas = ren.copy()
-    for pt in [(2, 2), (w-3, 2), (2, h-3), (w-3, h-3)]:
-        cv2.floodFill(bg_canvas, flood_mask, pt, (255, 0, 255), (18, 18, 18), (18, 18, 18), flags=8 | (255 << 8))
-    is_bg = (flood_mask[1:h+1, 1:w+1] > 0)
-    fg = (~is_bg).astype(np.uint8) * 255
-    cnts, _ = cv2.findContours(fg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    solid_fg = np.zeros_like(fg)
-    cv2.drawContours(solid_fg, cnts, -1, 255, -1)
-    solid_fg[:, 260:] = 0
-    solid_fg[:, :35] = 0
-    ys, xs = np.where(solid_fg > 0)
-    char_c = ren[ys.min():ys.max()+1, xs.min():xs.max()+1].copy()
-    mask_c = solid_fg[ys.min():ys.max()+1, xs.min():xs.max()+1]
-    char_c[mask_c == 0] = [0, 0, 0]
-    return char_c
+def place_and_quantize_pose(raw_c, ground_y=214):
+    th, tw = raw_c.shape[:2]
+    avail_h = 194
+    avail_w = 125
+    scale = min(avail_h / float(th), avail_w / float(tw))
+    new_w = max(1, int(tw * scale))
+    new_h = max(1, int(th * scale))
+    resized = cv2.resize(raw_c, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-def simulate_device_color(color_img, target_w=135, target_h=240, active_y_top=20, active_y_bot=216):
-    dev_canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
-    h, w = color_img.shape[:2]
-    avail_h = active_y_bot - active_y_top
-    avail_w = target_w - 9
-    scale = min(avail_h / float(h), avail_w / float(w))
-    new_w = max(1, int(w * scale))
-    new_h = max(1, int(h * scale))
-    resized = cv2.resize(color_img, (new_w, new_h), interpolation=cv2.INTER_AREA)
-    x_offset = (target_w - new_w) // 2
-    y_offset = active_y_bot - new_h
-    dev_canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
-    return dev_canvas
+    dev_c = np.zeros((240, 135, 3), dtype=np.uint8)
+    x_off = (135 - new_w) // 2
+    y_off = ground_y - new_h
 
-def quantize_to_16_colors(dev_c):
-    dev_smooth = cv2.bilateralFilter(dev_c, 5, 40, 40)
-    dev_rgb = cv2.cvtColor(dev_smooth, cv2.COLOR_BGR2RGB).astype(np.float32)
+    mask = np.any(resized > 10, axis=2)
+    dev_c[y_off:y_off+new_h, x_off:x_off+new_w][mask] = resized[mask]
+
+    # Bilateral smoothing for clean cel-shading regions
+    smooth_c = cv2.bilateralFilter(dev_c, 5, 35, 35)
+    c_rgb = cv2.cvtColor(smooth_c, cv2.COLOR_BGR2RGB).astype(np.float32)
+    c_mask = np.any(dev_c > 10, axis=2)
 
     quant_idx = np.zeros((240, 135), dtype=np.uint8)
-    is_fg = np.any(dev_c > 15, axis=2)
-
-    # Foreground distance matching to palette indices 1..15
-    dists = np.linalg.norm(dev_rgb[is_fg][:, None, :] - PALETTE_RGB[1:][None, :, :], axis=2)
-    closest = np.argmin(dists, axis=1) + 1
-    quant_idx[is_fg] = closest
+    if np.sum(c_mask) > 0:
+        pts = c_rgb[c_mask]
+        dists = np.linalg.norm(pts[:, None, :] - PALETTE_RGB[1:][None, :, :], axis=2)
+        quant_idx[c_mask] = np.argmin(dists, axis=1) + 1
 
     # Cel-shading filter
     quant_filtered = cv2.medianBlur(quant_idx, 3)
-    return quant_filtered
+    quant_filtered[~c_mask] = 0
+    return quant_filtered, dev_c
 
 def rle_encode(indices):
     runs = []
@@ -223,6 +174,7 @@ def pack_image_1bit(lines_path):
 def main():
     print("=" * 70)
     print("Cadet Ren Phase 2: Generating Multi-Layer Full-Color Assets & C++ Header")
+    print("1:1 Alignment with Concept Art: Warm Ivory Fur + Silk Pants + Crisp Lines")
     print("=" * 70)
 
     mat = cv2.imread('docs/assets/cadet_ren/martial_action_poses.jpg')
@@ -231,19 +183,46 @@ def main():
 
     poses_meta = [
         ("bow", "Martial Art's Bow & Salute (抱拳礼)", "CADET_COLOR_BOW", "CADET_BMP_BOW",
-         extract_color_master(mat, (0, 384, 300, 480), [(0, 30, 0, 180), (350, 384, 0, 60), (350, 384, 120, 180)], cut_bottom_px=2)),
+         extract_and_clean_crop(mat, (20, 380, 200, 480),
+             erase_rects=[
+                 (0, 150, 245, 280),
+                 (185, 380, 225, 280),
+                 (0, 380, 260, 280),
+                 (0, 380, 0, 75),
+                 (0, 30, 0, 280)
+             ],
+             ground_cutoff_y=330), 214),
+
         ("horse_strike", "Horse Stance Palm Strike (扎马步冲拳)", "CADET_COLOR_HORSE_STRIKE", "CADET_BMP_HORSE_STRIKE",
-         extract_color_master(mat, (60, 370, 830, 1200), [(285, 310, 0, 20), (285, 310, 50, 290), (285, 310, 340, 370)], cut_bottom_px=2)),
+         extract_and_clean_crop(mat, (40, 380, 640, 1280),
+             erase_rects=[(0, 340, 0, 160), (0, 340, 545, 640), (0, 70, 0, 250)],
+             ground_cutoff_y=298), 214),
+
         ("taichi", "Flowing Tai Chi Hands (太极云手)", "CADET_COLOR_TAICHI", "CADET_BMP_TAICHI",
-         extract_color_master(mat, (384, 760, 210, 560), [(170, 230, 0, 50), (345, 376, 0, 30), (345, 376, 50, 230), (345, 376, 290, 350)], cut_bottom_px=3)),
+         extract_and_clean_crop(mat, (380, 760, 40, 650),
+             erase_rects=[(0, 380, 0, 160), (0, 380, 535, 610), (0, 60, 0, 610)],
+             ground_cutoff_y=328), 214),
+
         ("dragon_punch", "Leaping Dragon Uppercut (升龙霸天)", "CADET_COLOR_DRAGON_PUNCH", "CADET_BMP_DRAGON_PUNCH",
-         extract_dragon_punch_color(mat)),
+         extract_and_clean_crop(mat, (380, 760, 680, 1350),
+             erase_rects=[(0, 380, 0, 180), (0, 380, 520, 670), (0, 90, 0, 250)],
+             ground_cutoff_y=340), 190),
+
         ("wave_1", "Friendly Energetic Wave A (元气挥手A)", "CADET_COLOR_WAVE_1", "CADET_BMP_WAVE_1",
-         extract_color_master(play, (60, 380, 30, 310), [(0, 55, 0, 280), (310, 320, 0, 100), (310, 320, 240, 280)], cut_bottom_px=2)),
+         extract_and_clean_crop(play, (40, 390, 10, 400),
+             erase_rects=[(0, 350, 270, 390), (0, 50, 0, 390)],
+             ground_cutoff_y=325), 214),
+
         ("wave_2", "Friendly Energetic Wave B (元气挥手B)", "CADET_COLOR_WAVE_2", "CADET_BMP_WAVE_2",
-         extract_color_master(play, (30, 380, 470, 690), [(0, 50, 0, 40), (340, 350, 0, 30), (340, 350, 180, 220)], cut_bottom_px=3)),
+         extract_and_clean_crop(play, (40, 390, 350, 750),
+             erase_rects=[(0, 350, 0, 140), (0, 350, 305, 400), (0, 45, 0, 400)],
+             ground_cutoff_y=325), 214),
+
         ("front_idle", "Standard Front Idle (正面待命)", "CADET_COLOR_FRONT_IDLE", "CADET_BMP_FRONT_IDLE",
-         extract_front_idle_color(sheet)),
+         extract_and_clean_crop(sheet, (90, 670, 45, 310),
+             erase_rects=[(0, 700, 255, 310), (180, 230, 230, 310), (150, 220, 0, 15)],
+             flood_seeds=[(160, 535)],
+             ground_cutoff_y=572), 214),
     ]
 
     color_runs_dict = {}
@@ -251,25 +230,28 @@ def main():
     total_line_bytes = 0
     gif_frames = []
 
-    for name, desc, c_run_var, c_bmp_var, raw_color in poses_meta:
-        dev_c = simulate_device_color(raw_color)
-        quant_idx = quantize_to_16_colors(dev_c)
+    for name, desc, c_run_var, c_bmp_var, raw_color, ground_y in poses_meta:
+        lines_path = f"{LINES_DIR}/{name}_135x240.png"
+        lines_img = cv2.imread(lines_path, 0)
+        if lines_img is None:
+            raise FileNotFoundError(f"Missing {lines_path}")
+
+        quant_idx, dev_c = place_and_quantize_pose(raw_color, ground_y=ground_y)
+
         runs = rle_encode(quant_idx.flatten())
         color_runs_dict[name] = runs
         run_bytes = len(runs) * 2
         total_color_bytes += run_bytes
 
-        # Reconstructed preview image
+        # Reconstruct color preview image
         preview_rgb = np.zeros((240, 135, 3), dtype=np.uint8)
-        preview_rgb[:] = [11, 15, 25] # Obsidian background
+        preview_rgb[:] = [11, 15, 25]  # Obsidian background
         for idx in range(1, 16):
             mask = (quant_idx == idx)
             preview_rgb[mask] = PALETTE[idx][:3]
 
-        lines_path = f"docs/assets/cadet_ren/device_135x240_lines/{name}_135x240.png"
-        lines_img = cv2.imread(lines_path, 0)
-        if lines_img is not None:
-            preview_rgb[lines_img > 100] = [15, 12, 10] # Cel-shading dark ink outline
+        # Cel-shading dark chocolate ink outline
+        preview_rgb[lines_img > 100] = [43, 20, 14]
 
         # Save color preview PNG
         out_png = os.path.join(OUT_COLOR_DIR, f"{name}_135x240_color.png")
@@ -282,7 +264,7 @@ def main():
         styled_frame[:] = preview_rgb
         # HUD Top
         styled_frame[0:18, :] = [20, 12, 8]
-        styled_frame[4:14, 94:132] = [40, 180, 50] # WiFi pill
+        styled_frame[4:14, 94:132] = [40, 180, 50]  # WiFi pill
         # Subtitle bottom
         styled_frame[218:240, :] = [20, 12, 8]
         cv2.rectangle(styled_frame, (10, 220), (125, 238), (55, 185, 235), 1)
@@ -294,7 +276,11 @@ def main():
 
         gif_frames.append(Image.fromarray(styled_frame))
 
-        print(f"  [{name:12s}] {len(runs):4d} runs -> {run_bytes:5d} bytes | Preview saved")
+        # Statistics
+        r_c, g_c, b_c = preview_rgb[:,:,0], preview_rgb[:,:,1], preview_rgb[:,:,2]
+        white_count = np.sum((r_c == 250) & (g_c == 246) & (b_c == 238))
+        pants_count = np.sum((r_c == 240) & (g_c == 239) & (b_c == 234))
+        print(f"  [{name:12s}] {len(runs):4d} runs -> {run_bytes:5d} B | Ivory Fur: {white_count:4d} px | Silk Pants: {pants_count:4d} px")
 
     # Save animated parade GIF
     if gif_frames:
@@ -366,7 +352,6 @@ def main():
     lines.append("};")
     lines.append("")
 
-    # Structure for Run-Length Encoded Color Infill
     lines.extend([
         "// Compact Run-Length Encoded Color Block Run (2 Bytes per Run)",
         "struct CadetColorRun {",
@@ -376,51 +361,47 @@ def main():
         "",
     ])
 
-    # 1. 1-bit Line Art Bitmaps
-    for name, desc, c_run_var, c_bmp_var, _ in poses_meta:
-        lines_path = f"docs/assets/cadet_ren/device_135x240_lines/{name}_135x240.png"
+    # 1-bit line art bitmaps
+    for name, desc, c_run_var, c_bmp_var, _, _ in poses_meta:
+        lines_path = f"{LINES_DIR}/{name}_135x240.png"
         packed = pack_image_1bit(lines_path)
         total_line_bytes += len(packed)
         lines.append(f"// {desc} - 1-bit Outline ({len(packed)} bytes)")
         lines.append(f"static const uint8_t {c_bmp_var}[{len(packed)}] PROGMEM = {{")
         for i in range(0, len(packed), 16):
             chunk = packed[i:i+16]
-            hex_str = ", ".join(f"0x{b:02X}" for b in chunk)
-            if i + 16 < len(packed):
-                lines.append(f"    {hex_str},")
-            else:
-                lines.append(f"    {hex_str}")
+            hexes = ", ".join(f"0x{b:02X}" for b in chunk)
+            lines.append(f"    {hexes},")
         lines.append("};")
         lines.append("")
 
-    # 2. Multi-Layer Color Infill Runs
-    for name, desc, c_run_var, c_bmp_var, _ in poses_meta:
+    # RLE color arrays
+    for name, desc, c_run_var, c_bmp_var, _, _ in poses_meta:
         runs = color_runs_dict[name]
-        lines.append(f"// {desc} - Multi-Layer Color Infill ({len(runs)} runs, {len(runs)*2} bytes)")
+        lines.append(f"// {desc} - Multi-Layer Color Infill RLE ({len(runs)} runs, {len(runs)*2} bytes)")
         lines.append(f"static const CadetColorRun {c_run_var}[{len(runs)}] PROGMEM = {{")
         for i in range(0, len(runs), 8):
             chunk = runs[i:i+8]
-            entries = [f"{{{cnt}, {cidx}}}" for (cnt, cidx) in chunk]
-            line_str = ", ".join(entries)
-            if i + 8 < len(runs):
-                lines.append(f"    {line_str},")
-            else:
-                lines.append(f"    {line_str}")
+            entries = ", ".join(f"{{{r[0]}, {r[1]}}}" for r in chunk)
+            lines.append(f"    {entries},")
         lines.append("};")
         lines.append("")
 
-    # Helper Functions
+    # Atlas bitmap resolver with WINGCHUN, CLAP, CHEER mapping
     lines.extend([
         "/**",
-        " * @brief Resolves authentic atlas 1-bit lineart bitmap for a given action and frame.",
+        " * @brief Resolves authentic 1-bit line art bitmap for a given action and frame.",
         " */",
         "inline const uint8_t* getCadetAtlasBitmap(BearAction act, int frame) {",
         "    switch (act) {",
-        "        case BEAR_ACT_KUNGFU:        return CADET_BMP_HORSE_STRIKE;",
+        "        case BEAR_ACT_KUNGFU:",
+        "        case BEAR_ACT_WINGCHUN:      return CADET_BMP_HORSE_STRIKE;",
         "        case BEAR_ACT_TAICHI:        return CADET_BMP_TAICHI;",
         "        case BEAR_ACT_DRAGON_PUNCH:  return CADET_BMP_DRAGON_PUNCH;",
-        "        case BEAR_ACT_BOW:           return CADET_BMP_BOW;",
-        "        case BEAR_ACT_WAVE:          return (frame % 2 == 0) ? CADET_BMP_WAVE_1 : CADET_BMP_WAVE_2;",
+        "        case BEAR_ACT_BOW:",
+        "        case BEAR_ACT_CLAP:          return CADET_BMP_BOW;",
+        "        case BEAR_ACT_WAVE:",
+        "        case BEAR_ACT_CHEER:         return (frame % 2 == 0) ? CADET_BMP_WAVE_1 : CADET_BMP_WAVE_2;",
         "        case BEAR_ACT_IDLE:          return CADET_BMP_FRONT_IDLE;",
         "        default:                     return nullptr;",
         "    }",
@@ -432,6 +413,7 @@ def main():
         "inline const CadetColorRun* getCadetColorRuns(BearAction act, int frame, size_t& out_count) {",
         "    switch (act) {",
         "        case BEAR_ACT_KUNGFU:",
+        "        case BEAR_ACT_WINGCHUN:",
         "            out_count = sizeof(CADET_COLOR_HORSE_STRIKE) / sizeof(CADET_COLOR_HORSE_STRIKE[0]);",
         "            return CADET_COLOR_HORSE_STRIKE;",
         "        case BEAR_ACT_TAICHI:",
@@ -441,9 +423,11 @@ def main():
         "            out_count = sizeof(CADET_COLOR_DRAGON_PUNCH) / sizeof(CADET_COLOR_DRAGON_PUNCH[0]);",
         "            return CADET_COLOR_DRAGON_PUNCH;",
         "        case BEAR_ACT_BOW:",
+        "        case BEAR_ACT_CLAP:",
         "            out_count = sizeof(CADET_COLOR_BOW) / sizeof(CADET_COLOR_BOW[0]);",
         "            return CADET_COLOR_BOW;",
         "        case BEAR_ACT_WAVE:",
+        "        case BEAR_ACT_CHEER:",
         "            if (frame % 2 == 0) {",
         "                out_count = sizeof(CADET_COLOR_WAVE_1) / sizeof(CADET_COLOR_WAVE_1[0]);",
         "                return CADET_COLOR_WAVE_1;",
@@ -489,7 +473,7 @@ def main():
         "    for (size_t i = 0; i < run_count; i++) {",
         "        uint8_t cnt = runs[i].count;",
         "        uint8_t c_idx = runs[i].color_idx;",
-        "        if (c_idx != 0) {",
+        "        if (c_idx != 0 && c_idx < 16) {",
         "            uint16_t color = CADET_PALETTE_16[c_idx];",
         "            int remaining = cnt;",
         "            int cur_p = pixel_idx;",
@@ -525,11 +509,11 @@ def main():
         "    const uint8_t* bmp = getCadetAtlasBitmap(act, frame);",
         "    if (!runs || run_count == 0 || !bmp) return false;",
         "",
-        "    // 1. Multi-Layer Color Infill (Caramel fur, navy vest, gold emblem, white silk pants, ring tail)",
+        "    // 1. Multi-Layer Color Infill (Caramel fur, navy vest, gold emblem, silk pants, ring tail)",
         "    drawCadetColorInfill(d, runs, run_count, dx, dy);",
         "",
-        "    // 2. Crisp 1:1 Ink Cel-Shading Outlines",
-        "    drawCadetAtlasLineart(d, bmp, CADET_COL_FUR_DARK, dx, dy);",
+        "    // 2. Crisp 1:1 Ink Cel-Shading Outlines (#2B140E Chocolate Ink)",
+        "    drawCadetAtlasLineart(d, bmp, CADET_COL_CHOCOLATE, dx, dy);",
         "    return true;",
         "}",
         "",
