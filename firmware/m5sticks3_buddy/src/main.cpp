@@ -797,7 +797,7 @@ static void drawBearWovenWrap(LovyanGFX& d, int x, int y, float ux, float uy, in
 }
 
 // 肢体抗锯齿微锥形骨骼绘制 (动漫三色阶 + 边缘逆光光晕，消除直筒呆板感)
-static void drawBearTaperedCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, int r1, int r2, uint16_t col, uint16_t border_col) {
+[[maybe_unused]] static void drawBearTaperedCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, int r1, int r2, uint16_t col, uint16_t border_col) {
     r1 = std::max(1, r1);
     r2 = std::max(1, r2);
     safeFillCircle(d, x1, y1, r1, col);
@@ -826,12 +826,12 @@ static void drawBearTaperedCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2,
 }
 
 // 兼容原胶囊接口
-static void drawBearLimbCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, int r, uint16_t col, uint16_t border_col) {
+[[maybe_unused]] static void drawBearLimbCapsule(LovyanGFX& d, int x1, int y1, int x2, int y2, int r, uint16_t col, uint16_t border_col) {
     drawBearTaperedCapsule(d, x1, y1, x2, y2, r, r, col, border_col);
 }
 
 // 绘制双段多关节自然屈伸肢体 (双弧肌肉拟合 + 屈曲动态折痕 + 功夫编织护腕/护踝)
-static void drawBearArticulatedLimb(LovyanGFX& d, int x1, int y1, int xm, int ym, int x2, int y2, int r1, int r2, uint16_t col, uint16_t border_col, uint16_t wrap_base = sticks3::ANIME_COL_WRAP_BASE, uint16_t wrap_line = sticks3::ANIME_COL_WRAP_LINE) {
+[[maybe_unused]] static void drawBearArticulatedLimb(LovyanGFX& d, int x1, int y1, int xm, int ym, int x2, int y2, int r1, int r2, uint16_t col, uint16_t border_col, uint16_t wrap_base = sticks3::ANIME_COL_WRAP_BASE, uint16_t wrap_line = sticks3::ANIME_COL_WRAP_LINE) {
     r1 = std::max(2, r1);
     r2 = std::max(2, r2);
     int rm = std::max(2, (r1 + r2) / 2);
@@ -929,12 +929,12 @@ static void drawBearTail(LovyanGFX& d, int tx, int ty, int tr, uint16_t base_col
 }
 
 // 上肢双段独立绘制单元 (供 3D Z-Depth 深度排序调用 - 白功夫短袖 + 午夜蓝护腕 + 琥珀前爪)
-static void drawBearUpperArmL(LovyanGFX& d, const sticks3::BearFullBodySkeleton& skel, int sh_lx, int sh_ly, int paw_lx, int paw_ly) {
+[[maybe_unused]] static void drawBearUpperArmL(LovyanGFX& d, const sticks3::BearFullBodySkeleton& skel, int sh_lx, int sh_ly, int paw_lx, int paw_ly) {
     drawBearArticulatedLimb(d, sh_lx, sh_ly, (int)skel.elbow_lx, (int)skel.elbow_ly, paw_lx, paw_ly, 6, 4, sticks3::CADET_COL_FUR_WHITE, sticks3::CADET_COL_WHITE_SHD, sticks3::CADET_COL_WRAP_NAVY, sticks3::CADET_COL_VEST_NAVY);
     drawBearPaw(d, paw_lx, paw_ly, 7, sticks3::CADET_COL_FUR_AMBER, sticks3::CADET_COL_PAD_PINK);
 }
 
-static void drawBearUpperArmR(LovyanGFX& d, const sticks3::BearFullBodySkeleton& skel, int sh_rx, int sh_ry, int paw_rx, int paw_ry) {
+[[maybe_unused]] static void drawBearUpperArmR(LovyanGFX& d, const sticks3::BearFullBodySkeleton& skel, int sh_rx, int sh_ry, int paw_rx, int paw_ry) {
     drawBearArticulatedLimb(d, sh_rx, sh_ry, (int)skel.elbow_rx, (int)skel.elbow_ry, paw_rx, paw_ry, 6, 4, sticks3::CADET_COL_FUR_WHITE, sticks3::CADET_COL_WHITE_SHD, sticks3::CADET_COL_WRAP_NAVY, sticks3::CADET_COL_VEST_NAVY);
     if (sticks3::BearKinematicsController::getInstance().getCurrentAction() == sticks3::BEAR_ACT_KUNGFU) {
         // 功夫推掌：开掌立掌造型 (Plump Open Pushing Palm with Pink Pads)
@@ -950,25 +950,17 @@ static void drawBearUpperArmR(LovyanGFX& d, const sticks3::BearFullBodySkeleton&
     }
 }
 
-// 17 套真机完整姿态阅兵序列 (Showcase Actions - 优先高保真武学原画序列，消除画风跳跃)
+// 官方真机高精原画正式部署阅兵序列 (Showcase Actions - 纯官方高精原画位图序列，画风100%纯正无跳跃)
 static const sticks3::BearAction SHOWCASE_ACTIONS[] = {
     sticks3::BEAR_ACT_WAVE,         // 1. 元气挥手 (高精原画)
     sticks3::BEAR_ACT_BOW,          // 2. 作揖鞠躬 (高精原画)
-    sticks3::BEAR_ACT_KUNGFU,       // 3. 中国功夫 (高精原画)
+    sticks3::BEAR_ACT_KUNGFU,       // 3. 中国功夫 (高精原画马步冲拳)
     sticks3::BEAR_ACT_WINGCHUN,     // 4. 咏春快拳 (高精原画日字冲拳)
     sticks3::BEAR_ACT_TAICHI,       // 5. 太极云手 (高精原画)
     sticks3::BEAR_ACT_DRAGON_PUNCH, // 6. 升龙霸天 (高精原画)
     sticks3::BEAR_ACT_CHEER,        // 7. 欢呼雀跃 (高精原画)
     sticks3::BEAR_ACT_CLAP,         // 8. 鼓掌致意 (高精原画)
-    sticks3::BEAR_ACT_JUMP,         // 9. 弹性跳跃 (迪士尼蓄力弹跳)
-    sticks3::BEAR_ACT_BALANCE,      // 10. 金鸡独立 (单腿平衡大鹏展翅)
-    sticks3::BEAR_ACT_SIT,          // 11. 呆萌坐下 (盘腿肉垫)
-    sticks3::BEAR_ACT_STRETCH,      // 12. 伸大懒腰 (纵向舒展)
-    sticks3::BEAR_ACT_DANCE,        // 13. 律动跳舞 (左右摇摆)
-    sticks3::BEAR_ACT_TURN_AROUND,  // 14. 转身秀尾 (3D空间自旋秀环尾)
-    sticks3::BEAR_ACT_SPIN,         // 15. 华丽自旋 (360度芭蕾单脚旋)
-    sticks3::BEAR_ACT_MOONWALK,     // 16. 太空漫步 (经典滑步)
-    sticks3::BEAR_ACT_CYBER_DEFENSE // 17. 机甲护盾 (X型力场护盾)
+    sticks3::BEAR_ACT_IDLE          // 9. 恭候师命 (高精原画站桩)
 };
 static const size_t SHOWCASE_COUNT = sizeof(SHOWCASE_ACTIONS) / sizeof(SHOWCASE_ACTIONS[0]);
 static bool s_demo_showcase_mode = false; // 姿态自动阅兵状态 (与 BearKinematicsController 状态保持同步)
@@ -1143,6 +1135,19 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
     }
 
     if (!rendered_atlas) {
+#if !ENABLE_EXPERIMENTAL_PROCEDURAL_CADET
+        // [正式开放部署保护]：15 套过程化形象细节仍需微调，暂不开放至设备端正式代码。
+        // 安全优雅降级为官方原画位图基准（站桩静息），确保真机屏幕 100% 官方原画影院级呈现！
+        safeFillEllipse(out_d, (int)skel.body_x, 214, 28, 4, sticks3::ANIME_COL_SHADOW);
+        if (sticks3::getCadetRenderMode() == sticks3::CADET_MODE_FULLCOLOR) {
+            sticks3::drawCadetFullColorFrame(out_d, sticks3::BEAR_ACT_IDLE, anim_frame, dx, dy);
+        } else {
+            const uint8_t* idle_bmp = sticks3::getCadetAtlasBitmap(sticks3::BEAR_ACT_IDLE, anim_frame);
+            if (idle_bmp) {
+                sticks3::drawCadetAtlasLineart(out_d, idle_bmp, sticks3::CADET_LINE_IVORY, dx, dy);
+            }
+        }
+#else
         // 地面软阴影 (Soft Ambient Occlusion Contact Shadow - 悬浮高度动态衰减)
         int sh_y = (skel.is_sitting) ? (int)(skel.body_y + 18) : (int)(skel.body_y + 40);
         if (!skel.is_jumping) {
@@ -1580,6 +1585,7 @@ void renderJollybot(LovyanGFX& out_d, const String& subtitle, sticks3::AvatarMoo
             out_d.drawString("?", cx - 22, cy - 26);
         }
     }
+#endif // ENABLE_EXPERIMENTAL_PROCEDURAL_CADET
     } // end else (procedural kinematic assembly)
 
     // 8.5 全屏等级晋升与技能解锁庆典特效 (Skill Unlock Ceremony Overlay)

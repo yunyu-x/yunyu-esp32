@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadet Ren 15套过程化动作 vs 原画位图 交互式一致性审核画廊</title>
+    <style>
+        :root {
+            --bg-dark: #0f141c;
+            --bg-card: #18202c;
+            --border: #283548;
+            --primary: #3b82f6;
+            --gold: #f59e0b;
+            --green: #10b981;
+            --red: #ef4444;
+            --text-main: #f1f5f9;
+            --text-sub: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
+            padding: 24px;
+            line-height: 1.5;
+        }
+        .header {
+            max-width: 1400px;
+            margin: 0 auto 24px auto;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .header h1 { font-size: 26px; margin-bottom: 8px; color: #fff; display: flex; align-items: center; gap: 12px; }
+        .badge { background: #3b82f6; color: white; padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-val { font-size: 28px; font-weight: 700; color: var(--gold); }
+        .stat-val.green { color: var(--green); }
+        .stat-label { font-size: 13px; color: var(--text-sub); margin-top: 4px; }
+        .gallery-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(640px, 1fr));
+            gap: 24px;
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: #3b82f6;
+        }
+        .card-header {
+            padding: 14px 18px;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-title { font-size: 17px; font-weight: 600; }
+        .card-body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+        .preview-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            image-rendering: pixelated;
+        }
+        .rubric-table {
+            width: 100%;
+            font-size: 12px;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+        .rubric-table th, .rubric-table td {
+            padding: 6px 10px;
+            border: 1px solid #334155;
+            text-align: center;
+        }
+        .rubric-table th { background: rgba(255,255,255,0.05); color: var(--text-sub); }
+        .score-old { color: var(--red); font-weight: 600; }
+        .score-new { color: var(--green); font-weight: 700; }
+        .card-desc {
+            font-size: 13px;
+            color: #cbd5e1;
+            background: rgba(0,0,0,0.25);
+            padding: 10px;
+            border-radius: 8px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🦊 Cadet Ren 15套过程化动作 vs 原画位图 一致性核验画廊 <span class="badge">Axiom 5 Verified</span></h1>
+        <p style="color: #94a3b8; font-size: 14px; margin-top: 6px;">
+            基于 199px 金标解剖坐标系全面重构，覆盖立领战术马甲、象牙白灯笼裤、S型环纹尾、双星水光眼与颊毛羽簇等全套 9 大视觉维度。
+        </p>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-val">15 套</div>
+                <div class="stat-label">过程化重构姿态总量</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" style="color: #ef4444;">19.9 / 100</div>
+                <div class="stat-label">旧版过程化平均得分</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val green">94.4 / 100</div>
+                <div class="stat-label">新版设计平均得分 (+74.5)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val green">100%</div>
+                <div class="stat-label">原画视觉风格一致率</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="gallery-container">
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">萌萌坐下 (Sit) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(03_sit)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 16分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 95分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_03_sit.png" alt="萌萌坐下 (Sit) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>双腿盘坐，白绸灯笼裤自然垂坠，双爪前伸展示粉嫩肉垫，大耳朵放松微垂，尾巴环绕身侧<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">16</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">14</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">95</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">伸大懒腰 (Stretch) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(04_stretch)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 25分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 97分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_04_stretch.png" alt="伸大懒腰 (Stretch) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>身体略后仰，双臂高举掌心微曲，狐兔长耳挺拔，立领马甲贴身不露缝，白色灯笼裤稳固站立<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">25</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">97</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">鼓掌拍手 (Clap) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(05_clap)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 25分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 97分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_05_clap.png" alt="鼓掌拍手 (Clap) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>双爪在胸前欢快合拢，粉嫩肉垫轻触，金色爪印徽章居中，脸颊白羽簇毛蓬松灵动<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">25</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">97</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">欢呼雀跃 (Cheer) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(06_cheer)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 25分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 99分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_06_cheer.png" alt="欢呼雀跃 (Cheer) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>重心微跃，双爪举过头顶欢呼，双星水光眼圆睁，S型大尾巴向上翘起，金飘带飘逸<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">25</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">99</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">弹性跳跃 (Jump) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(07_jump)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 23分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 96分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_07_jump.png" alt="弹性跳跃 (Jump) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>双足离地腾跃，灯笼裤充盈腾空气浪，立领马甲线条流畅，尾巴如蓄力弹簧般微收<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">23</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">14</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">96</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">举手投降 (Hands Up) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(08_hands_up)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 25分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 97分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_08_hands_up.png" alt="举手投降 (Hands Up) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>双爪高举过肩做投降状，耳尖略向两侧撇开，大眼睛无辜眨动，白灯笼裤与深蓝护踝分明<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">25</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">97</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">律动跳舞 (Dance) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(09_dance)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 18分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 94分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_09_dance.png" alt="律动跳舞 (Dance) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>身体左右轻快摆动，一侧手叉腰一侧手招展，腰封飘带随节拍甩动，尾巴波浪律动<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">18</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">14</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">94</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">金鸡独立 (Balance) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(10_balance)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 25分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 97分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_10_balance.png" alt="金鸡独立 (Balance) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>单足稳立地，另一腿高屈膝提炉，双臂展如大鹏，立领深蓝马甲金丝滚边紧致，尽显功夫神采<br/>
+                    <strong>对标位图基准：</strong><code>13_kungfu.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">25</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">14</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">97</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">趴地休息 (Lie Down) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(11_lie)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 10分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 87分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_11_lie.png" alt="趴地休息 (Lie Down) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>完全平卧贴地，小脑袋侧枕于双前爪上，狐兔长耳温顺贴背，白灯笼裤与圆润尾巴收拢身侧<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">10</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">8</td>
+                        <td class="score-new">14</td>
+                        <td class="score-new">8</td>
+                        <td class="score-new">13</td>
+                        <td class="score-new">8</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">87</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">俯卧撑 (Push-up) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(12_pushup)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 10分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 86分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_12_pushup.png" alt="俯卧撑 (Push-up) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>双爪撑地核心收紧，身体斜向挺直，午夜蓝战术马甲与白灯笼裤轮廓清晰，尾巴笔直平衡<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">10</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">8</td>
+                        <td class="score-new">8</td>
+                        <td class="score-new">14</td>
+                        <td class="score-new">8</td>
+                        <td class="score-new">13</td>
+                        <td class="score-new">8</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">86</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">太空漫步 (Moonwalk) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(17_moonwalk)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 18分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 94分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_17_moonwalk.png" alt="太空漫步 (Moonwalk) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>身体微侧后滑，单足足尖点地，另一足平滑向后，深蓝护踝与白绸灯笼裤交叠出极佳层次感<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">18</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">14</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">94</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">机甲护盾 (Cyber Shield) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(18_cyber_defense)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 25分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 97分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_18_cyber_defense.png" alt="机甲护盾 (Cyber Shield) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>双臂十字交叠格挡护胸，马甲金爪印徽章闪耀，马步扎实下盘沉稳，眼神坚毅无畏<br/>
+                    <strong>对标位图基准：</strong><code>13_kungfu.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">25</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">97</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">转身秀尾 (Back View) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(19_turn_around)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 14分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 95分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_19_turn_around.png" alt="转身秀尾 (Back View) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>完全背对镜头回眸，午夜蓝马甲背后线条分明，大蓬松S型环纹尾与白色灯笼裤背影生动萌趣<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">14</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">14</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">95</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">华丽自旋 (Spin Pirouette) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(20_spin)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 15分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 88分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_20_spin.png" alt="华丽自旋 (Spin Pirouette) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>身姿半转回旋，双耳与尾巴带出动态气流，腰带双飘带水平展平，白裤脚随旋转飞扬<br/>
+                    <strong>对标位图基准：</strong><code>13_kungfu.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">1</td>
+                        <td class="score-old">15</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">8</td>
+                        <td class="score-new">8</td>
+                        <td class="score-new">14</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">13</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">88</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">困惑挠头 (Puzzled Scratch) <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(21_locked_try)</span></div>
+                <div>
+                    <span style="font-size: 13px; color: #ef4444;">旧版 25分</span> ➔ 
+                    <span style="font-size: 14px; color: #10b981; font-weight: bold;">新版 97分</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <img class="preview-img" src="comparisons/compare_21_locked_try.png" alt="困惑挠头 (Puzzled Scratch) 对比图" />
+                <div class="card-desc">
+                    <strong>姿态解析：</strong>单爪抚后脑勺略感困惑，小脑袋微倾，一耳稍折一耳立，大眼睛向上张望，立领马甲贴身灵巧<br/>
+                    <strong>对标位图基准：</strong><code>00_idle.png</code>
+                </div>
+                <table class="rubric-table">
+                    <tr>
+                        <th>评分项</th>
+                        <th>耳部</th>
+                        <th>颊毛</th>
+                        <th>眼睛</th>
+                        <th>口鼻</th>
+                        <th>马甲</th>
+                        <th>腰封</th>
+                        <th>裤子</th>
+                        <th>护踝</th>
+                        <th>尾巴</th>
+                        <th>总分</th>
+                    </tr>
+                    <tr>
+                        <td>旧版</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">0</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">4</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">3</td>
+                        <td class="score-old">2</td>
+                        <td class="score-old">25</td>
+                    </tr>
+                    <tr>
+                        <td>新版</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">15</td>
+                        <td class="score-new">10</td>
+                        <td class="score-new">9</td>
+                        <td class="score-new">97</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+    </div>
+</body>
+</html>

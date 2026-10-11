@@ -17,6 +17,7 @@
 2. 移动端与小程序交接：`docs/29_微信小程序与移动端研发交接指南_HANDOVER_MOBILE.md`
 3. 提示词标准库：`docs/AGENT_CONTINUATION_PROMPTS.md`
 4. 固件核心源码：`firmware/m5sticks3_buddy/src/main.cpp` 与 `include/sticks3_ble_sync.h`
+5. 过程化动作未来优化路线图：`docs/33_CADET_REN_PROCEDURAL_REDESIGN_ROADMAP.md` (封存归档之 15 套动作设计资产与未来微调路线)
 
 【本项目核心工程公理与安全红线 (Constitutional Axioms & Security Laws)】：
 - 公理一【真实硬件烧录验证】：固件改动必须烧录真实硬件 (COM3) 并 RTS/DTR 硬重启，串口实测 10~15 秒验证通过，拒绝空谈。
@@ -29,13 +30,13 @@
 
 【当前硬件与工程基线】：
 - 硬件平台：M5Stack StickS3 (ESP32-S3-PICO-1, 8MB Flash, 8MB PSRAM)，已连接在本地串口 `COM3`，局域网 IP `192.168.110.67`。
-- 自动化测试基线：156/156 项自动化测试 100% 绿色全绿通过 (`python -u scripts/run_tests.py --timeout 120`，耗时 11.48s)。
-- 固件状态：Anti-Flicker Double-Buffer Canvas (135x240 in PSRAM) 稳定运行，主循环 FPS: 80.9 ~ 88.5，SRAM: 61KB free，PSRAM: 7.30MB free，I2C 0 Fail，长程运行 7700+ Ticks 零重启。
+- 自动化测试基线：160/160 项自动化测试 100% 绿色全绿通过 (`python -u scripts/run_tests.py --timeout 120`，耗时 9.61s)。
+- 固件状态：Anti-Flicker Double-Buffer Canvas (135x240 in PSRAM) 稳定运行，主循环 FPS: 82.9 ~ 83.4，SRAM: 61KB free，PSRAM: 7.30MB free，I2C 0 Fail，真机 Showcase 聚焦于 100% 官方原画高精位图动作（7大核心武术姿态+派生），15 套过程化动作已做优雅降级保护并归档封存于路线图。
 - 自动化流水线：
   - 自动化测试：`python -u scripts/run_tests.py --timeout 120`
   - 凭证泄漏排查：`python -c "import os, re; p=re.compile(r'sk-[a-zA-Z0-9]{20,}'); leaks=[f for r,d,fs in os.walk('.') if not any(x in r for x in ['.git','.pio','__pycache__','.env']) for f in fs if p.search(open(os.path.join(r,f),encoding='utf-8',errors='ignore').read())]; print('LEAKS FOUND:', leaks) if leaks else print('ALL CLEAR: 0 leaked secrets!')"`
-  - 编译固件：`python -m platformio run -e m5sticks3_buddy`
-  - 烧录固件：`python -m platformio run -e m5sticks3_buddy -t upload`
+  - 编译固件：`python -m platformio run -d firmware/m5sticks3_buddy`
+  - 烧录固件：`python -m platformio run -d firmware/m5sticks3_buddy -t upload`
   - 验证运行：`python -c "import serial, time; ser = serial.Serial('COM3', 115200, timeout=1); ser.setDTR(False); ser.setRTS(True); time.sleep(0.1); ser.setRTS(False); time.sleep(0.2); start = time.time(); [print(ser.readline().decode('utf-8', errors='replace').strip()) for _ in iter(lambda: ser.readline() if time.time()-start < 10 else None, None)]; ser.close()"`
 
 【本次开发目标】：
@@ -365,6 +366,22 @@
    - 针对电池供电场景，优化在空闲待机与高负荷语音播音间的动态调频（从 240MHz 降频至 80MHz 或进入轻度睡眠），延长随身伴侣续航；
 4. 约束：
    - 严格遵守六大不可违背工程公理，每次提交必须通过 `python -u scripts/run_tests.py --timeout 120`（156 项 100% 全绿）。
+---
+
+### 方向 22：Cadet Ren 功夫学徒阿韧 15 套过程化动作精细化曲线微调与贝塞尔网格拟合 (Procedural Micro-Tuning & Bézier Mesh)
+
+```markdown
+【本次开发目标】：Cadet Ren 功夫学徒阿韧 15 套过程化动作精细化曲线微调与贝塞尔网格拟合
+依据 `docs/33_CADET_REN_PROCEDURAL_REDESIGN_ROADMAP.md` 路线图规范，在已封存的 199px 金标解剖坐标系、参数化脚本 (`scripts/cadet_procedural_designer.py`) 与量化评测体系 (`scripts/evaluate_cadet_consistency.py`) 基础上，重启下一阶段精细化微调攻坚：
+1. 复杂几何布料拟合：
+   - 为坐姿盘腿 (`03_sit`) 引入四段三次贝塞尔样条曲面，拟合象牙白丝绸练功裤的下摆自然堆叠与垂坠折痕，消除平头胶囊僵硬感；
+   - 优化俯卧撑 (`12_pushup`) 与平卧 (`11_lie`) 的 3D 正交透视投影，完善战术马甲与后背线条的纵深过渡；
+2. 眼神与微动态跟随：
+   - 增强双星水光眼的亚像素级动态微颤，给脸颊三尖白绒羽簇毛发注入风阻与运动惯性滞后；
+3. 一致性评测与准入验收：
+   - 运行评测脚本使 9 维一致性均分提升至 >= 98.0 分，并在 `consistency_gallery.html` 中通过人工逐帧审核；
+4. 约束：
+   - 只有在本地核验达标后方可解冻固件宏开关 `ENABLE_EXPERIMENTAL_PROCEDURAL_CADET`，固件改动必烧真实 COM3 硬件并保持 80+ FPS 与 160/160 全绿测试。
 ```
 
 ---

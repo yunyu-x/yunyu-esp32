@@ -19,6 +19,8 @@
    *Meta Muse Gadgets 生态与三层协同架构。*
 5. **迪士尼影院级动作与小程序导播**：[`docs/32_JOLLYBOT_17_CINEMATIC_POSES_AND_MINIPROGRAM_GUIDE.md`](./docs/32_JOLLYBOT_17_CINEMATIC_POSES_AND_MINIPROGRAM_GUIDE.md)  
    *17 套影院级动作姿态、自动阅兵巡礼、双重 30 分钟压测与导播台指南。*
+6. **过程化动作未来优化路线图**：[`docs/33_CADET_REN_PROCEDURAL_REDESIGN_ROADMAP.md`](./docs/33_CADET_REN_PROCEDURAL_REDESIGN_ROADMAP.md)  
+   *15 套过程化动作封存归档、199px 金标坐标系、本地画廊与未来微调攻坚技术路线。*
 
 ---
 

@@ -70,6 +70,11 @@
 
 ## 2. 17 套影院级与国潮动作姿态全景图鉴 (17 Cinematic Poses)
 
+> [!IMPORTANT]
+> **生产部署与未来路线分层架构说明**：  
+> - **正式开放部署序列 (Production Baseline)**：设备端生产固件与硬件默认巡礼（Showcase）优先聚焦于 100% 官方原画高精 Cel-Shading 位图动作（`wave`, `bow`, `kungfu`, `wingchun`, `taichi`, `dragon_punch`, `cheer`, `clap`, `idle`），确保真机屏幕物理画质完美无瑕、0 画面失真；
+> - **过程化动作未来演进储备 (Future Roadmap)**：对于 15 套过程化动作（`sit`, `stretch`, `jump`, `dance`, `balance`, `lie`, `pushup`, `moonwalk`, `cyber_defense` 等），已完成 199px 金标坐标系解算与三视画廊对账，已封存归档于 [`docs/33_CADET_REN_PROCEDURAL_REDESIGN_ROADMAP.md`](./33_CADET_REN_PROCEDURAL_REDESIGN_ROADMAP.md)，作为后续重大版本精细化微调的升级储备。
+
 JollyBot 预置了 17 套影院级动作姿态，按 RPG 亲密度等级分为五大进阶阶梯，并附加空间自旋特技：
 
 | 序号 | 动作 ID (`act`) | 动作名称 | 动作图标 | 解锁等级 | 动画周期 | 核心动效与迪士尼法则特写 |

@@ -23,6 +23,13 @@
 
 namespace sticks3 {
 
+// 实验性过程化骨骼形象开关：
+// 0 (生产模式，默认)：仅开放部署已 100% 验证的官方原画高精位图动作，15 套过程化形象归档为未来优化方向；
+// 1 (实验模式)：开启未调优的过程化骨骼动作渲染。
+#ifndef ENABLE_EXPERIMENTAL_PROCEDURAL_CADET
+#define ENABLE_EXPERIMENTAL_PROCEDURAL_CADET 0
+#endif
+
 // 功夫学徒阿韧 (Cadet Ren) 1:1 官方设计图谱高保真调色板 (RGB565)
 // 完美还原 concept_hero.png 与 model_front.png: 小熊猫+兔子混血侠客
 constexpr uint16_t CADET_COL_FUR_AMBER  = 0xCAE4; // #CD5F26 暖焦糖红熊猫毛色 (旧基线 0xD444 升级)
@@ -834,8 +841,26 @@ public:
         return true;
     }
 
-    // 17 套真机完整姿态阅兵序列 (Showcase Actions - 优先高保真武学原画序列，消除画风跳跃)
+    // 真机官方原画正式部署阅兵序列 (Showcase Actions - 纯官方高精原画位图序列，画风100%纯正无跳跃)
+    static inline const BearAction* getOfficialShowcaseActions(size_t& count) {
+        static const BearAction official_actions[] = {
+            BEAR_ACT_WAVE,         // 1. 元气挥手 (高精原画)
+            BEAR_ACT_BOW,          // 2. 作揖鞠躬 (高精原画)
+            BEAR_ACT_KUNGFU,       // 3. 中国功夫 (高精原画马步冲拳)
+            BEAR_ACT_WINGCHUN,     // 4. 咏春快拳 (高精原画日字冲拳)
+            BEAR_ACT_TAICHI,       // 5. 太极云手 (高精原画)
+            BEAR_ACT_DRAGON_PUNCH, // 6. 升龙霸天 (高精原画)
+            BEAR_ACT_CHEER,        // 7. 欢呼雀跃 (高精原画)
+            BEAR_ACT_CLAP,         // 8. 鼓掌致意 (高精原画)
+            BEAR_ACT_IDLE          // 9. 恭候师命 (高精原画站桩)
+        };
+        count = sizeof(official_actions) / sizeof(official_actions[0]);
+        return official_actions;
+    }
+
+    // 姿态阅兵序列解析器：生产环境默认仅开放 100% 官方原画高精序列
     static inline const BearAction* getShowcaseActions(size_t& count) {
+#if ENABLE_EXPERIMENTAL_PROCEDURAL_CADET
         static const BearAction actions[] = {
             BEAR_ACT_WAVE,         // 1. 元气挥手 (高精原画)
             BEAR_ACT_BOW,          // 2. 作揖鞠躬 (高精原画)
@@ -845,18 +870,21 @@ public:
             BEAR_ACT_DRAGON_PUNCH, // 6. 升龙霸天 (高精原画)
             BEAR_ACT_CHEER,        // 7. 欢呼雀跃 (高精原画)
             BEAR_ACT_CLAP,         // 8. 鼓掌致意 (高精原画)
-            BEAR_ACT_JUMP,         // 9. 弹性跳跃 (迪士尼蓄力弹跳)
-            BEAR_ACT_BALANCE,      // 10. 金鸡独立 (单腿平衡大鹏展翅)
-            BEAR_ACT_SIT,          // 11. 呆萌坐下 (盘腿肉垫)
-            BEAR_ACT_STRETCH,      // 12. 伸大懒腰 (纵向舒展)
-            BEAR_ACT_DANCE,        // 13. 律动跳舞 (左右摇摆)
-            BEAR_ACT_TURN_AROUND,  // 14. 转身秀尾 (3D空间自旋秀环尾)
-            BEAR_ACT_SPIN,         // 15. 华丽自旋 (360度芭蕾单脚旋)
-            BEAR_ACT_MOONWALK,     // 16. 太空漫步 (经典滑步)
-            BEAR_ACT_CYBER_DEFENSE // 17. 机甲护盾 (X型力场护盾)
+            BEAR_ACT_JUMP,         // 9. 弹性跳跃 (实验性过程化)
+            BEAR_ACT_BALANCE,      // 10. 金鸡独立 (实验性过程化)
+            BEAR_ACT_SIT,          // 11. 呆萌坐下 (实验性过程化)
+            BEAR_ACT_STRETCH,      // 12. 伸大懒腰 (实验性过程化)
+            BEAR_ACT_DANCE,        // 13. 律动跳舞 (实验性过程化)
+            BEAR_ACT_TURN_AROUND,  // 14. 转身秀尾 (实验性过程化)
+            BEAR_ACT_SPIN,         // 15. 华丽自旋 (实验性过程化)
+            BEAR_ACT_MOONWALK,     // 16. 太空漫步 (实验性过程化)
+            BEAR_ACT_CYBER_DEFENSE // 17. 机甲护盾 (实验性过程化)
         };
         count = sizeof(actions) / sizeof(actions[0]);
         return actions;
+#else
+        return getOfficialShowcaseActions(count);
+#endif
     }
 
     bool isShowcaseMode() const { return _showcase_mode; }
@@ -871,7 +899,11 @@ public:
     }
     void toggleShowcaseMode() { setShowcaseMode(!_showcase_mode); }
     size_t getShowcaseIndex() const { return _showcase_idx; }
-    size_t getShowcaseTotal() const { return 17; }
+    size_t getShowcaseTotal() const {
+        size_t count = 0;
+        getShowcaseActions(count);
+        return count;
+    }
     BearAction getShowcaseAction() const {
         size_t count = 0;
         const BearAction* acts = getShowcaseActions(count);
